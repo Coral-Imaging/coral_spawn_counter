@@ -1,0 +1,28 @@
+# conda environment configuration file
+# for cslics coral spawn counter
+
+name: cslics
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy
+  - matplotlib
+  - pip
+  - pandas
+  - pillow
+  - scipy
+  - scikit-image
+  - scikit-learn
+  - pytorch::pytorch=1.12.0
+  - torchvision=0.13.0
+  - nvidia::cudatoolkit=11.3
+  - shapely
+  - pylint
+  - pytorch-lightning
+  - wandb
+  - opencv>=4.6
+
