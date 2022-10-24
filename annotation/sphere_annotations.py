@@ -81,7 +81,7 @@ save_dir = '/home/dorian/Code/cslics_ws/src/coral_spawn_counter/images_circ'
 os.makedirs(save_dir, exist_ok=True)
 
 # cvat annotation file location:
-output_cvat_file = 'annotations_mod.xml'
+output_cvat_file = 'annotations_mod_treewrite.xml'
 cvat_file = 'annotations.xml'
 tree = ET.ElementTree(file=os.path.join(data_dir, cvat_file))
 root = tree.getroot()
@@ -124,11 +124,9 @@ for elem in root.iterfind('.//image'):
         # put boxes into cvat annotation format
         box_dict = convert_box_to_dict(box)
         box_elem = ET.SubElement(elem, 'box', box_dict)
-        # write to html
-        # TODO this writes to the xml file for *every* annotation
-        # TODO given hundreds annotations/img, this is extremely slow
-        # TODO how can we speed this part up?
-        tree.write(output_cvat_file)
+        
+# write to html
+tree.write(output_cvat_file)
 
 print(f'annotation file written: {output_cvat_file}')
 
