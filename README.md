@@ -18,4 +18,4 @@ Code to count coral spawn (eggs), run on central computer.
 
 - Assisted annotation via Hough Transforms for circular objects in the image, run `python sphere_annotations.py`, which should take existing annotations.xml file and append all circles as bounding boxes for each image
 - Save new .xml file as a zip and re-upload to cvat (overwriting previos annotations)
-- Check/view/modify annotations in cvat
+- Check/view/modify annotations in cvat, download when annotations are ready for training

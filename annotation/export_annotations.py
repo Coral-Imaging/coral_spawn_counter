@@ -7,7 +7,7 @@
 import os
 import xml.etree.ElementTree as ET
 
-data_dir = '/home/dorian/Code/cslics_ws/src/coral_spawn_counter/test_cslics_data'
+data_dir = '/home/dorian/Code/cslics_ws/src/coral_spawn_counter/microsphere_dataset_unlabelled'
 cvat_file = 'annotations.xml'
 
 
