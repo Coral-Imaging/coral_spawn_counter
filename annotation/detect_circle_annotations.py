@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-code to find circles in images and 
+code to find circles in images and produce an annotations.xml file that can be uploaded to CVAT
 """
 
 import numpy as np

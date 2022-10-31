@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-code to find circles in images and 
+code to find circles in images and save the resultant image
 """
 
 import numpy as np
