@@ -83,7 +83,8 @@ for host in hostnames:
     print(host)
     img_dir = os.path.join(root_dir, host, img_folder)
     img_list = os.listdir(img_dir)
-    # pprint(img_list)
+    img_list.sort()
+    pprint(img_list)
 
     det_dir = os.path.join(root_dir, host, img_detections)
     os.makedirs(det_dir, exist_ok=True)
