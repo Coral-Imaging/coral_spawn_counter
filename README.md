@@ -5,7 +5,7 @@ Code to count coral spawn (eggs), run on central computer.
 ## Installation
 
 - install CVAT locally: https://opencv.github.io/cvat/docs/administration/basics/installation/#ubuntu-1804-x86_64amd64
-- run `make_cslics_venc.sh` 
+- run `make_cslics_venv.sh` 
 
 ## Operation
 
