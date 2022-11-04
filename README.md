@@ -7,6 +7,10 @@ Code to count coral spawn (eggs), run on central computer.
 - install CVAT locally: https://opencv.github.io/cvat/docs/administration/basics/installation/#ubuntu-1804-x86_64amd64
 - run `make_cslics_venv.sh` 
 
+- `conda activate cslics`
+- navigate to coral_spawn_counter folder
+- `pip instal -e .` installs as a python package locally so other modules can use this code
+
 ## Operation
 
 - `conda activate cslics` to activate virtual environment

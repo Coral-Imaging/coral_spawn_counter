@@ -94,5 +94,6 @@ class CircleDetector:
             img_c = self.draw_circles(img, self.circles)
         else:
             img_c = img
+            
         img_name_circle = img_name[:-4] + '_circ.png'
         cv.imwrite(os.path.join(save_dir, img_name_circle), img_c)
