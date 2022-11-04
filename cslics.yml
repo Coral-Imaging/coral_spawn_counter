@@ -25,5 +25,4 @@ dependencies:
   - pytorch-lightning
   - wandb
   - opencv>=4.6
-  - 
 
