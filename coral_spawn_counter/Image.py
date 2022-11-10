@@ -18,7 +18,7 @@ from coral_spawn_counter.circle_detector import CircleDetector
 class Image:
 
     def __init__(self, img_name, img=None):
-        print('init image object')
+
         # for now, only accepting PIL images, png files
         self.img_name = img_name
         self.img_basename = os.path.basename(img_name)
@@ -30,11 +30,11 @@ class Image:
         self.SpawnCounter = CircleDetector()
 
 
-    def count_spawn(self, img=None):
+    def count_spawn(self, img=None, det_param=None):
         if img is None:
             img = self.img
         
-        count, circles = self.SpawnCounter.count_spawn(np.array(img))
+        count, circles = self.SpawnCounter.count_spawn(np.array(img), det_param)
         self.count = count
         self.detections = circles
 
@@ -91,7 +91,7 @@ class Image:
         if img_name is None:
             img_name = self.img_name
         img_md = PIL_Image.open(img_name)
-        print(img_md.text)
+        # print(img_md.text)
         return img_md.text
 
     def print_metadata(self):
