@@ -16,15 +16,16 @@ from coral_spawn_counter.Image import Image
 
 # directories
 root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
-hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
+
+# hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
+hostnames = os.listdir(root_dir) # we assume a folder structure as shown below
+
 img_folder = 'images'
 table_name = 'spawn_counts.csv'
 img_detections = 'detections'
 metadata_folder = 'metadata'
 
-FORCE_REDO = True
-
-
+FORCE_REDO = False
 
 # detection parameters for far focus cslics: cslics2:
 det_param_far = {'blur': 5,
