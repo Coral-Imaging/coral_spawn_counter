@@ -52,7 +52,8 @@ host_det_param = {"cslics01": det_param_close,
               "cslics03": det_param_far,
               "cslics04": det_param_close,
               "cslics06": det_param_wide,
-              "cslics07": det_param_wide
+              "cslics07": det_param_wide,
+              "cslicsdt": det_param_wide
              }
 
 # for each host, grab all images, process them (count spawn), read metadata, save table
@@ -82,6 +83,7 @@ for host in hostnames:
         img_list0 = []
 
     imgs = []
+    phases = []
 
     for img_name in img_list:
 
@@ -95,6 +97,11 @@ for host in hostnames:
 
         img.count_spawn(det_param=host_det_param[host])
         img.save_detection_img(save_dir=os.path.join(root_dir, host, img_detections))
+
+        if 'phase' in img.metadata:
+            phases.append(img.metadata['phase'])
+        else:
+            phases.append('n/a')
         
         print(f'{img_name}: {img.count}')
         imgs.append(img)
@@ -115,11 +122,12 @@ for host in hostnames:
     df = pd.DataFrame({"camera_id": cam_id,
                     "image_name": img_list_new,
                     "capture_time": cap_time,
-                    "count": spawn_count})
+                    "count": spawn_count,
+                    "phase": phases,})
 
     if len(img_list0) == 0:
-        df.to_csv(spawn_table_file, mode='w')
+        df.to_csv(spawn_table_file, mode='w', index=False)
     else:    
-        df.to_csv(spawn_table_file, mode='a')
+        df.to_csv(spawn_table_file, mode='a', header=False, index=False)
     
 print('done')
