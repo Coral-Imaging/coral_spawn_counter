@@ -11,7 +11,9 @@ done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 source /home/cslics/mambaforge/bin/activate cslics
-python3 $DIR/coral_spawn_counter/spawn_table.py &
+for remote in $(cat $DIR/../rrap-downloader/remotes); do
+  python3 $DIR/coral_spawn_counter/spawn_table.py $remote &
+done
 
 wait 
 

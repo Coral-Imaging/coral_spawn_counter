@@ -7,6 +7,10 @@ circle detector using Hough transforms
 import cv2 as cv
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+
+
 class CircleDetector:
 
 
@@ -23,7 +27,7 @@ class CircleDetector:
 
 # current settings work reasonably well for white background/red microspheres
     BLUR_DEFAULT = 5
-    METHOD_DEFAULT = cv.HOUGH_GRADIENT
+    METHOD_DEFAULT = cv.HOUGH_GRADIENT_ALT
     DP_DEFAULT = 0.7
     MINDIST_DEFAULT = 40
     PARAM1_DEFAULT = 100
@@ -78,7 +82,13 @@ class CircleDetector:
         # convert image to grayscale
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         # blur image (Hough transforms work better on smooth images)
+        # img = cv.medianBlur(img, blur)
+        # hist equ
+        # img = self.histogram_equalization(img)
         img = cv.medianBlur(img, blur)
+
+
+
         # find circles using Hough Transform
         circles = cv.HoughCircles(image = img,
                                 method=method,
@@ -87,11 +97,43 @@ class CircleDetector:
                                 param1=param1,
                                 param2=param2,
                                 maxRadius=maxRadius,
-                                minRadius=minRadius)        
-        return circles
+                                minRadius=minRadius)      
+
+        # import code
+        # code.interact(local=dict(globals(), **locals())) 
+        # remove duplicate circles, since min dist doesn't seem to be working
+        # for similarly-sized circles:
+        
+        # for i, c in enumerate(circles[0,:]):
+        # xc = circles[0][:,0].tolist()
+        # yc = circles[0][:,1].tolist()
+        # uxc = set(xc) # unique x's
+        # uyc = set(yc) # unique y's
+        if circles is not None:
+            centres = circles[0][:,0:2].tolist()
+            # nonoverlapping centres
+            # nonunique_centre_indices = [c for c, i in enumerate(centres) if centres.count(i) > 1]
+            # nonunique_centre = [c for i, c in enumerate(centres) if centres.count(c) > 1]
+            
+            unique_centres = []
+            idx_unique = []
+            for i, c in enumerate(centres):
+                if c not in unique_centres:
+                    unique_centres.append(c)
+                    idx_unique.append(i)
+            circles_unique = circles[0][idx_unique,:]
+            circles_unique = np.expand_dims(circles_unique, axis=0)
+
+            return circles_unique
+        else:
+            return None
 
 
-    def draw_circles(self, img, circles, outer_circle_color=(0, 0, 255), thickness=8):
+    def histogram_equalization(self, img):
+        """ equalize histogram to increase global contrast of images, distribute intensities better"""
+        return cv.equalizeHist(img)
+
+    def draw_circles(self, img, circles, outer_circle_color=(0, 255, 0), thickness=8):
         """ draw circles onto image"""
         for circ, i in enumerate(circles[0,:], start=1):
             cv.circle(img, 

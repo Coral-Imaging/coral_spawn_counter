@@ -7,18 +7,14 @@ create spawn count table given images in a folder
 """
 
 import cv2 as cv
+import sys
 import os
 import pandas as pd
 from pprint import *
+import shutil
 
 
 from coral_spawn_counter.Image import Image
-
-# directories
-root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
-
-# hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
-hostnames = os.listdir(root_dir) # we assume a folder structure as shown below
 
 img_folder = 'images'
 table_name = 'spawn_counts.csv'
@@ -29,35 +25,62 @@ FORCE_REDO = False
 
 # detection parameters for far focus cslics: cslics2:
 det_param_far = {'blur': 5,
-                'dp': 0.7,
-                'minDist': 10,
-                'param1': 20,
-                'param2': 20,
-                'maxRadius': 20,
-                'minRadius': 5}
+                'dp': 1.6,
+                'minDist': 25,
+                'param1': 75,
+                'param2': 0.5,
+                'maxRadius': 40,
+                'minRadius': 25}
 
 # detection parameters for near focus cslics: cslics04
-det_param_close = {'blur': 5,
-                'dp': 0.7,
-                'minDist': 30,
-                'param1': 75,
-                'param2': 20,
-                'maxRadius': 40,
-                'minRadius': 10}
+det_param_close_cslics04 = {'blur': 9,
+                'dp': 2.5,
+                'minDist': 50,
+                'param1': 50,
+                'param2': 0.5,
+                'maxRadius': 80,
+                'minRadius': 50}
 
-det_param_wide = det_param_close # no detection parameters for wide FOV yet
+det_param_close_cslics03 = {'blur': 9,
+                'dp': 2.5,
+                'minDist': 50,
+                'param1': 50,
+                'param2': 0.5,
+                'maxRadius': 80,
+                'minRadius': 50}
 
-host_det_param = {"cslics01": det_param_close,
+# parameters for HOUGH_GRADIENT (not HOUGH_GRADIENT_ALT)
+# det_param_close_cslics03 = {'blur': 5,
+#                 'dp': 1.35,
+#                 'minDist': 50,
+#                 'param1': 75,
+#                 'param2': 20,
+#                 'maxRadius': 80,
+#                 'minRadius': 50}
+
+det_param_wide = {'blur': 3,
+                'dp': 2.5,
+                'minDist': 5,
+                'param1': 50,
+                'param2': 0.5,
+                'maxRadius': 12,
+                'minRadius': 5}  # no detection parameters for wide FOV yet
+
+host_det_param = {"cslics01": det_param_far,
               "cslics02": det_param_far,
-              "cslics03": det_param_far,
-              "cslics04": det_param_close,
+              "cslics03": det_param_close_cslics03,
+              "cslics04": det_param_close_cslics04,
               "cslics06": det_param_wide,
               "cslics07": det_param_wide,
               "cslicsdt": det_param_wide
              }
 
+wide_lens = ['cslics06', 'cslics07']
+
 # for each host, grab all images, process them (count spawn), read metadata, save table
-for host in hostnames:
+# for host in hostnames:
+    
+def spawn_table(host):
     print(host)
     img_dir = os.path.join(root_dir, host, img_folder)
     img_list = os.listdir(img_dir)
@@ -75,6 +98,7 @@ for host in hostnames:
 
     # read in current spawn table if it already exists (so we don't reprocess images)
     spawn_table_file = os.path.join(root_dir, host, metadata_folder, table_name)
+
     if os.path.exists(spawn_table_file):
         # print('spawn_counts.csv already exists, reading it to find which images are already processed')
         df0 = pd.read_csv(spawn_table_file)
@@ -84,6 +108,8 @@ for host in hostnames:
 
     imgs = []
     phases = []
+
+    # evaluate how many there are to do. If # is greater than 60, then don't do  because we'll get overlapping processes?
 
     for img_name in img_list:
 
@@ -95,8 +121,13 @@ for host in hostnames:
         print(f'Processing {img_name}')
         img = Image(os.path.join(img_dir, img_name))
 
-        img.count_spawn(det_param=host_det_param[host])
-        img.save_detection_img(save_dir=os.path.join(root_dir, host, img_detections))
+        # HACK because wide lens is not suited for circle detection at the moment
+        if host in wide_lens:
+            img.count = 0
+            shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
+        else:
+            img.count_spawn(det_param=host_det_param[host])
+            img.save_detection_img(save_dir=os.path.join(root_dir, host, img_detections))
 
         if 'phase' in img.metadata:
             phases.append(img.metadata['phase'])
@@ -108,7 +139,7 @@ for host in hostnames:
 
     if len(imgs) == 0:
         # no changes, so no new file to write
-        continue
+        return False
 
     # unpackage columns of data for spawn count table
     cam_id = [int(img.metadata['camera_index']) for img in imgs]
@@ -129,5 +160,25 @@ for host in hostnames:
         df.to_csv(spawn_table_file, mode='w', index=False)
     else:    
         df.to_csv(spawn_table_file, mode='a', header=False, index=False)
+        
+    return True
+
+
+if __name__ == "__main__":
+
+    # directories
+    root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
+    # root_dir = '/home/cslics/Pictures/cslics_data_test'
+
+    # hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
+    # hostnames = os.listdir(root_dir) # we assume a folder structure as shown below
+
+
+    if len(sys.argv) == 1:
+        print('Missing required argument: [REMOTE HOSTNAME]')
+        sys.exit(1)
+
+    host = sys.argv[1]
+
+    spawn_table(host)
     
-print('done')
