@@ -14,7 +14,7 @@ from pprint import *
 import shutil
 import PIL.Image as PIL_Image
 
-from coral_spawn_counter.Image import CoralImage
+from coral_spawn_counter.CoralImage import CoralImage
 
 img_folder = 'images'
 table_name = 'spawn_counts.csv'

@@ -101,12 +101,12 @@ class CoralImage:
 
 if __name__ == "__main__":
 
-    print('Image.py')
+    print('CoralImage.py')
 
     img_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data/cslics03/images'
     img_list = os.listdir(img_dir)
     img_list.sort()
-    img = Image(os.path.join(img_dir, img_list[-1]))
+    img = CoralImage(os.path.join(img_dir, img_list[-1]))
     img.read_metadata(img_name = os.path.join(img_dir, img_list[4]))
 
 
