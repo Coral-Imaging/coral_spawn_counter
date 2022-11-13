@@ -7,7 +7,7 @@ circle detector using Hough transforms
 import cv2 as cv
 import os
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
 

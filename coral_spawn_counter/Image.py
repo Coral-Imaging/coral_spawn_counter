@@ -15,14 +15,14 @@ from pprint import *
 
 from coral_spawn_counter.circle_detector import CircleDetector
 
-class Image:
+class CoralImage:
 
     def __init__(self, img_name, img=None):
 
         # for now, only accepting PIL images, png files
         self.img_name = img_name
         self.img_basename = os.path.basename(img_name)
-        self.img = PIL_Image.open(img_name)
+        # self.img = PIL_Image.open(img_name)
         self.count = 0
         self.detections = []
         self.metadata = self.read_metadata()
@@ -30,18 +30,13 @@ class Image:
         self.SpawnCounter = CircleDetector()
 
 
-    def count_spawn(self, img=None, det_param=None):
-        if img is None:
-            img = self.img
-        
+    def count_spawn(self, img, det_param=None):    
         count, circles = self.SpawnCounter.count_spawn(np.array(img), det_param)
         self.count = count
         self.detections = circles
 
 
-    def save_detection_img(self, img=None, img_name=None, save_dir=None):
-        if img is None:
-            img = self.img
+    def save_detection_img(self, img, img_name=None, save_dir=None):
         if img_name is None:
             img_name = self.img_basename
         if save_dir is None:
@@ -53,8 +48,8 @@ class Image:
         self.SpawnCounter.save_detections(img=np.array(img), img_name=img_name, save_dir=save_dir)
 
 
-    def set_img(self, img):
-        self.img = img
+    # def set_img(self, img):
+    #     self.img = img
 
     def set_img_name(self, img_name):
         self.img_name = img_name
@@ -70,8 +65,8 @@ class Image:
         self.metadata = metadata
         
 
-    def get_img(self):
-        return self.img
+    # def get_img(self):
+    #     return self.img
     
     def get_img_name(self):
         return self.img_name

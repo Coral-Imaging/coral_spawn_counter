@@ -12,9 +12,9 @@ import os
 import pandas as pd
 from pprint import *
 import shutil
+import PIL.Image as PIL_Image
 
-
-from coral_spawn_counter.Image import Image
+from coral_spawn_counter.Image import CoralImage
 
 img_folder = 'images'
 table_name = 'spawn_counts.csv'
@@ -119,23 +119,27 @@ def spawn_table(host):
                 continue
 
         print(f'Processing {img_name}')
-        img = Image(os.path.join(img_dir, img_name))
+        
+        cimg = CoralImage(os.path.join(img_dir, img_name))
 
         # HACK because wide lens is not suited for circle detection at the moment
         if host in wide_lens:
-            img.count = 0
+            cimg.count = 0
             shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
         else:
-            img.count_spawn(det_param=host_det_param[host])
-            img.save_detection_img(save_dir=os.path.join(root_dir, host, img_detections))
+            # only open/save single image at a time to reduce memory requirements
+            # (previously, each img was saved with Image)
+            img = PIL_Image.open(os.path.join(img_dir, img_name))
+            cimg.count_spawn(img, det_param=host_det_param[host])
+            cimg.save_detection_img(img, save_dir=os.path.join(root_dir, host, img_detections))
 
-        if 'phase' in img.metadata:
-            phases.append(img.metadata['phase'])
+        if 'phase' in cimg.metadata:
+            phases.append(cimg.metadata['phase'])
         else:
             phases.append('n/a')
         
-        print(f'{img_name}: {img.count}')
-        imgs.append(img)
+        print(f'{img_name}: {cimg.count}')
+        imgs.append(cimg)
 
     if len(imgs) == 0:
         # no changes, so no new file to write
