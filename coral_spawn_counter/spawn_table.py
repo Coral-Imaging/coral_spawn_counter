@@ -25,12 +25,20 @@ FORCE_REDO = False
 
 # detection parameters for far focus cslics: cslics2:
 det_param_far = {'blur': 5,
-                'dp': 1.6,
+                'dp': 1,
+                'minDist': 25,
+                'param1': 100,
+                'param2': 0.1,
+                'maxRadius': 40,
+                'minRadius': 15}
+
+det_param_med_cslics01 = {'blur': 7,
+                'dp': 1,
                 'minDist': 25,
                 'param1': 75,
-                'param2': 0.5,
-                'maxRadius': 40,
-                'minRadius': 25}
+                'param2': 0.3,
+                'maxRadius': 70,
+                'minRadius': 20}
 
 # detection parameters for near focus cslics: cslics04
 det_param_close_cslics04 = {'blur': 9,
@@ -66,7 +74,7 @@ det_param_wide = {'blur': 3,
                 'maxRadius': 12,
                 'minRadius': 5}  # no detection parameters for wide FOV yet
 
-host_det_param = {"cslics01": det_param_far,
+host_det_param = {"cslics01": det_param_med_cslics01,
               "cslics02": det_param_far,
               "cslics03": det_param_close_cslics03,
               "cslics04": det_param_close_cslics04,
@@ -120,26 +128,35 @@ def spawn_table(host):
 
         print(f'Processing {img_name}')
         
-        cimg = CoralImage(os.path.join(img_dir, img_name))
+        try: 
+            # NOTE sometimes image connection/writing gets interrupted, and thus an image ends up in the data folder
+            # that is incomplete image, and in this situation, we want to skip the image
 
-        # HACK because wide lens is not suited for circle detection at the moment
-        if host in wide_lens:
-            cimg.count = 0
-            shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
-        else:
-            # only open/save single image at a time to reduce memory requirements
-            # (previously, each img was saved with Image)
-            img = PIL_Image.open(os.path.join(img_dir, img_name))
-            cimg.count_spawn(img, det_param=host_det_param[host])
-            cimg.save_detection_img(img, save_dir=os.path.join(root_dir, host, img_detections))
+            cimg = CoralImage(os.path.join(img_dir, img_name))
 
-        if 'phase' in cimg.metadata:
-            phases.append(cimg.metadata['phase'])
-        else:
-            phases.append('n/a')
-        
-        print(f'{img_name}: {cimg.count}')
-        imgs.append(cimg)
+            # HACK because wide lens is not suited for circle detection at the moment
+            if host in wide_lens:
+                cimg.count = 0
+                shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
+            else:
+                # only open/save single image at a time to reduce memory requirements
+                # (previously, each img was saved with Image)
+                img = PIL_Image.open(os.path.join(img_dir, img_name))
+                cimg.count_spawn(img, det_param=host_det_param[host])
+                cimg.save_detection_img(img, save_dir=os.path.join(root_dir, host, img_detections))
+
+            if 'phase' in cimg.metadata:
+                phases.append(cimg.metadata['phase'])
+            else:
+                phases.append('n/a')
+            
+            print(f'{img_name}: {cimg.count}')
+            imgs.append(cimg)
+
+        except Exception as e:
+            print(e)
+            print(f'Error processing image {img_name} - thus skipping')
+
 
     if len(imgs) == 0:
         # no changes, so no new file to write
@@ -171,8 +188,8 @@ def spawn_table(host):
 if __name__ == "__main__":
 
     # directories
-    root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
-    # root_dir = '/home/cslics/Pictures/cslics_data_test'
+    # root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
+    root_dir = '/home/cslics/Pictures/cslics_data_Nov15_test'
 
     # hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
     # hostnames = os.listdir(root_dir) # we assume a folder structure as shown below
