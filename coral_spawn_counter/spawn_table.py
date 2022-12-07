@@ -10,6 +10,7 @@ import cv2 as cv
 import sys
 import os
 import pandas as pd
+import json
 from pprint import *
 import shutil
 import PIL.Image as PIL_Image
@@ -21,69 +22,14 @@ table_name = 'spawn_counts.csv'
 img_detections = 'detections'
 metadata_folder = 'metadata'
 
-FORCE_REDO = False
+FORCE_REDO = True
 
-# detection parameters for far focus cslics: cslics2:
-det_param_far = {'blur': 5,
-                'dp': 1,
-                'minDist': 25,
-                'param1': 100,
-                'param2': 0.1,
-                'maxRadius': 40,
-                'minRadius': 15}
-
-det_param_med_cslics01 = {'blur': 7,
-                'dp': 1,
-                'minDist': 25,
-                'param1': 75,
-                'param2': 0.3,
-                'maxRadius': 70,
-                'minRadius': 20}
-
-# detection parameters for near focus cslics: cslics04
-det_param_close_cslics04 = {'blur': 9,
-                'dp': 2.5,
-                'minDist': 50,
-                'param1': 50,
-                'param2': 0.5,
-                'maxRadius': 80,
-                'minRadius': 50}
-
-det_param_close_cslics03 = {'blur': 9,
-                'dp': 2.5,
-                'minDist': 50,
-                'param1': 50,
-                'param2': 0.5,
-                'maxRadius': 80,
-                'minRadius': 50}
-
-# parameters for HOUGH_GRADIENT (not HOUGH_GRADIENT_ALT)
-# det_param_close_cslics03 = {'blur': 5,
-#                 'dp': 1.35,
-#                 'minDist': 50,
-#                 'param1': 75,
-#                 'param2': 20,
-#                 'maxRadius': 80,
-#                 'minRadius': 50}
-
-det_param_wide = {'blur': 3,
-                'dp': 2.5,
-                'minDist': 5,
-                'param1': 50,
-                'param2': 0.5,
-                'maxRadius': 12,
-                'minRadius': 5}  # no detection parameters for wide FOV yet
-
-host_det_param = {"cslics01": det_param_med_cslics01,
-              "cslics02": det_param_far,
-              "cslics03": det_param_close_cslics03,
-              "cslics04": det_param_close_cslics04,
-              "cslics06": det_param_wide,
-              "cslics07": det_param_wide,
-              "cslicsdt": det_param_wide
-             }
-
-wide_lens = ['cslics06', 'cslics07']
+# read circle detection parameters from file:
+det_param_path = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/cslics04/metadata'
+det_param_file = 'circ_det_param.json'
+with open(os.path.join(det_param_path, det_param_file), 'r') as f:
+    det_param = json.load(f)
+pprint(det_param)
 
 # for each host, grab all images, process them (count spawn), read metadata, save table
 # for host in hostnames:
@@ -95,6 +41,7 @@ def spawn_table(host):
     img_list.sort() # sort list so latest info goes at the end of the table
     # pprint(img_list)
 
+    print(f'number of images to process: {len(img_list)}')
     # TODO read in the existing spawn_count file, and only do detections on images
     # that have not yet been processed
 
@@ -135,15 +82,15 @@ def spawn_table(host):
             cimg = CoralImage(os.path.join(img_dir, img_name))
 
             # HACK because wide lens is not suited for circle detection at the moment
-            if host in wide_lens:
-                cimg.count = 0
-                shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
-            else:
+            # if host in wide_lens:
+            #     cimg.count = 0
+            #     shutil.copy(os.path.join(img_dir, img_name), os.path.join(det_dir, img_name))
+            # else:
                 # only open/save single image at a time to reduce memory requirements
                 # (previously, each img was saved with Image)
-                img = PIL_Image.open(os.path.join(img_dir, img_name))
-                cimg.count_spawn(img, det_param=host_det_param[host])
-                cimg.save_detection_img(img, save_dir=os.path.join(root_dir, host, img_detections))
+            img = PIL_Image.open(os.path.join(img_dir, img_name))
+            cimg.count_spawn(img, det_param=det_param)
+            cimg.save_detection_img(img, save_dir=os.path.join(root_dir, host, img_detections))
 
             if 'phase' in cimg.metadata:
                 phases.append(cimg.metadata['phase'])
@@ -189,7 +136,8 @@ if __name__ == "__main__":
 
     # directories
     # root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
-    root_dir = '/home/cslics/Pictures/cslics_data_Nov15_test'
+    # root_dir = '/home/cslics/Pictures/cslics_data_Nov15_test'
+    root_dir = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis'
 
     # hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
     # hostnames = os.listdir(root_dir) # we assume a folder structure as shown below

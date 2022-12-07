@@ -118,7 +118,7 @@ class CircleDetector:
             unique_centres = []
             idx_unique = []
             for i, c in enumerate(centres):
-                if c not in unique_centres:
+                if c not in unique_centres: # TODO ideally, replace this with a small range
                     unique_centres.append(c)
                     idx_unique.append(i)
             circles_unique = circles[0][idx_unique,:]
@@ -160,7 +160,9 @@ class CircleDetector:
         return count, circles
 
 
-    def save_detections(self, img, img_name, save_dir):
+    def save_detections(self, img, img_name, save_dir, resize):
+
+        # resize to scale the image down - save memory/space
 
         if self.circles is not None:
             img_c = self.draw_circles(img, self.circles)
@@ -170,4 +172,7 @@ class CircleDetector:
         img_name_circle = img_name[:-4] + '_circ.png'
         # expect RGB, but since CV, need to save as BGR
         img_c = cv.cvtColor(img_c, cv.COLOR_RGB2BGR)
-        cv.imwrite(os.path.join(save_dir, img_name_circle), img_c)
+
+        img_s = cv.resize(img_c, (0, 0), fx=resize, fy=resize)
+
+        cv.imwrite(os.path.join(save_dir, img_name_circle), img_s)

@@ -36,7 +36,7 @@ class CoralImage:
         self.detections = circles
 
 
-    def save_detection_img(self, img, img_name=None, save_dir=None):
+    def save_detection_img(self, img, img_name=None, save_dir=None, resize=0.5):
         if img_name is None:
             img_name = self.img_basename
         if save_dir is None:
@@ -45,7 +45,7 @@ class CoralImage:
         
         # print(save_dir)
         os.makedirs(save_dir, exist_ok=True)
-        self.SpawnCounter.save_detections(img=np.array(img), img_name=img_name, save_dir=save_dir)
+        self.SpawnCounter.save_detections(img=np.array(img), img_name=img_name, save_dir=save_dir, resize=resize)
 
 
     # def set_img(self, img):

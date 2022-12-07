@@ -16,8 +16,9 @@ from coral_spawn_counter.CoralImage import CoralImage
 
 # localtion of spawn table
 # root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
-root_dir = '/home/cslics/Pictures/cslics_data_Nov14_test'
-host = 'cslics01'
+# root_dir = '/home/cslics/Pictures/cslics_data_Nov14_test'
+root_dir = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/'
+host = 'cslics04'
 spawn_table_file = os.path.join(root_dir, host, 'metadata', 'spawn_counts.csv')
 
 df = pd.read_csv(spawn_table_file)
@@ -25,6 +26,15 @@ df = pd.read_csv(spawn_table_file)
 img_names = df['image_name'].tolist()
 capture_times = df['capture_time'].tolist()
 counts = df['count'].tolist()
+window_size = 31 # TODO needs careful decision making onto window size for meaningful numbers
+counts_mean = df['count'].rolling(window=window_size).mean()
+
+x = np.arange(0,len(counts), 1)
+y = np.array(counts)
+x_rolling_mean = x[window_size:len(x)-window_size]
+
+# import code
+# code.interact(local=dict(globals(), **locals()))
 
 # since we know that there's 30 images/sample, we take a moving average of 30?
 # TODO organise according to time/samples?
@@ -33,9 +43,11 @@ avg_count = np.mean(counts)
 std_count = np.std(counts)
 print(f'For {host}:, mean count: {avg_count}, std_dev: {std_count}')
 
-x = np.arange(0,len(counts), 1)
-y = np.array(counts)
-plt.plot(x, y)
+
+
+plt.plot(x, y, label='count')
+plt.plot(x, counts_mean, label='rolling mean {}'.format(window_size))
+plt.plot()
 plt.title(host)
 plt.ylabel('count')
 plt.xlabel('sample number (not yet time)')
