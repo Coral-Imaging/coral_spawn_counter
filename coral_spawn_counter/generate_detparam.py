@@ -6,19 +6,20 @@ import json
 import os
 
 # save file information
-save_path = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/cslics04/metadata'
+# save_path = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/cslics04/metadata'
+save_path = '/media/cslics/cslics_ssd/AIMS_2022_Dec_Spawning/20221213_datagrab/cslics_test/metadata'
 save_file = 'circ_det_param.json'
 
 # dictionary to save:
 # detection parameters
 
-circle_det_param = {'blur': 9,
-                     'dp': 2.5,
-                     'minDist': 45,
+circle_det_param = {'blur': 7,
+                     'dp': 1,
+                     'minDist': 20,
                      'param1': 45,
-                     'param2': 0.5,
-                     'maxRadius': 80,
-                     'minRadius': 45}
+                     'param2': 0.2,
+                     'maxRadius': 50,
+                     'minRadius': 20}
 
 # save det param to file
 save_det_param_file = os.path.join(save_path, save_file)

@@ -22,14 +22,11 @@ table_name = 'spawn_counts.csv'
 img_detections = 'detections'
 metadata_folder = 'metadata'
 
-FORCE_REDO = True
+FORCE_REDO = False
 
-# read circle detection parameters from file:
-det_param_path = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/cslics04/metadata'
-det_param_file = 'circ_det_param.json'
-with open(os.path.join(det_param_path, det_param_file), 'r') as f:
-    det_param = json.load(f)
-pprint(det_param)
+
+# TODO learn how to use mutliple processors for the detection
+# https://docs.python.org/2/library/multiprocessing.html
 
 # for each host, grab all images, process them (count spawn), read metadata, save table
 # for host in hostnames:
@@ -137,10 +134,16 @@ if __name__ == "__main__":
     # directories
     # root_dir = '/home/cslics/cslics_ws/src/rrap-downloader/cslics_data'
     # root_dir = '/home/cslics/Pictures/cslics_data_Nov15_test'
-    root_dir = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis'
+    # root_dir = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221113_AMaggieTenuis'
+    # root_dir = '/media/cslics/cslics_ssd/2022_NovSpawning/20221113_AMaggieTenuis'
+    # root_dir = '/media/cslics/cslics_ssd/AIMS_2022_Dec_Spawning/20221213_datagrab/cslics_data'
+    root_dir = '/media/cslics/cslics_ssd/AIMS_2022_Dec_Spawning/20221213_datagrab'
+    # root_dir = '/home/cslics/Dropbox/QUT/GreatBarrierReefRestoration_Automation/Transition2Deployment/CSLICS/cslics_sample_images/time_series_example/20221114_AMaggieTenuis'
 
     # hostnames = ['cslics02', 'cslics04'] # TODO automatically grab hostnames in root_dir
     # hostnames = os.listdir(root_dir) # we assume a folder structure as shown below
+
+    # read circle detection parameters from file:
 
 
     if len(sys.argv) == 1:
@@ -148,6 +151,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     host = sys.argv[1]
+
+    det_param_path = os.path.join(root_dir, host, metadata_folder)
+    det_param_file = 'circ_det_param.json'
+    with open(os.path.join(det_param_path, det_param_file), 'r') as f:
+        det_param = json.load(f)
+    pprint(det_param)
 
     spawn_table(host)
     
