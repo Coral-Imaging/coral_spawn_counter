@@ -6,27 +6,26 @@ but for now, just has metadata reader/extracter
 properties for counts, detections
 """
 
-import PIL.Image as PIL_Image
-from PIL.PngImagePlugin import PngInfo
+# import PIL.Image as PIL_Image
+# from PIL.PngImagePlugin import PngInfo
 import json
 import numpy as np
 import os
 from pprint import *
 
+from annotation.Image import Image
 from coral_spawn_counter.circle_detector import CircleDetector
 
-class CoralImage:
+class CoralImage(Image):
 
     def __init__(self, img_name, img=None):
-
+        
+        Image.__init(self, img_name)
         # for now, only accepting PIL images, png files
         self.img_name = img_name
-        self.img_basename = os.path.basename(img_name)
         # self.img = PIL_Image.open(img_name)
         self.count = 0
         self.detections = []
-        self.metadata = self.read_metadata()
-
         self.SpawnCounter = CircleDetector()
 
 
@@ -38,7 +37,7 @@ class CoralImage:
 
     def save_detection_img(self, img, img_name=None, save_dir=None, resize=0.5):
         if img_name is None:
-            img_name = self.img_basename
+            img_name = self.img_dir
         if save_dir is None:
             path = os.path.dirname(__file__)
             save_dir = os.path.join(path, 'detections')
@@ -51,48 +50,17 @@ class CoralImage:
     # def set_img(self, img):
     #     self.img = img
 
-    def set_img_name(self, img_name):
-        self.img_name = img_name
-
-
     def set_count(self, count):
         self.count = count
 
     def set_detections(self, detections):
         self.detections = detections
-
-    def set_metadata(self, metadata):
-        self.metadata = metadata
-        
-
-    # def get_img(self):
-    #     return self.img
     
-    def get_img_name(self):
-        return self.img_name
-
     def get_count(self):
         return self.count
 
     def get_detections(self):
         return self.detections
-
-    def get_metadata(self):
-        return self.metadata
-
-
-    def read_metadata(self, img_name=None):
-        # print('reading metadata')
-        if img_name is None:
-            img_name = self.img_name
-        img_md = PIL_Image.open(img_name)
-        # print(img_md.text)
-        return img_md.text
-
-    def print_metadata(self):
-        # print(f'metadata: {self.metadata}')
-        pprint(self.metadata)
-
 
     def numpy_array(self):
         return np.array(self.img)

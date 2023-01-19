@@ -37,7 +37,7 @@ def seconds_to_date(time):
 # root_dir = '/media/agkelpie/cslics_ssd/2022_NovSpawning/20221112_AMaggieTenuis/'
 # root_dir = '/home/cslics/Dropbox/QUT/GreatBarrierReefRestoration_Automation/Transition2Deployment/CSLICS/cslics_sample_images/time_series_example/20221114_AMaggieTenuis'
 # root_dir = '/media/cslics/cslics_ssd/2022_NovSpawning/20221113_AMaggieTenuis'
-root_dir = '/media/cslics/cslics_ssd/AIMS_2022_Dec_Spawning/20221213_datagrab'
+root_dir = '/media/dorian/cslics_ssd/AIMS_2022_Dec_Spawning/20221213_datagrab'
 host = 'cslics01_sample'
 spawn_table_file = os.path.join(root_dir, host, 'metadata', 'spawn_counts.csv')
 
@@ -93,13 +93,7 @@ ax1.xaxis.set_major_formatter(xfmt)
 manual_counts = [540000, 540000]
 manual_times = ['2022-12-13 22:35', '2022-12-14 00:30']
 
-# manual_counts = [568200, 468400, 416500, 277700, 273000, 227500]
-# manual_times = ['2022-11-14 19:30',
-#                 '2022-11-15 20:51',
-#                 '2022-11-16 14:35',
-#                 '2022-11-16 16:03',
-#                 '2022-11-17 16:39',
-#                 '2022-11-18 19:22']
+
 mtime_format = '%Y-%m-%d %H:%M'
 manual_times = [datetime.datetime.strptime(mt, mtime_format) for mt in manual_times]
 
