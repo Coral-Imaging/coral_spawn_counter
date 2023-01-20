@@ -56,33 +56,63 @@ class Annotations:
     
     def convert_annotations(self):
         """
-        convert raw annotations into internal annotation format (nested classes of annotation regions)
+        convert raw annotations into internal annotation format (nested list of classes of annotation regions)
         """
-        data = []
         
         # get image height/width from an image file in img_dir
         # assume all images are of the same size in the same img_dir
         im = PILImage.open(os.path.join(self.img_dir, self.img_list[0]))
         width, height = im.size
         
+        AnnotatedImages = []
         for image in self.annotations_raw:
+            AnnImage = None
             if image.tag == 'image':
                 img_name = image.attrib['name']
                 id = image.attrib['id']
                 width = image.attrib['width']
                 height = image.attrib['height']
                 
-                # TODO make Image object 
-                
+                # make Image object 
+                AnnImage = Image(os.path.join(self.img_dir, img_name), 
+                                 width=width, 
+                                 height=height, 
+                                 camera=str(id))
+
+                Regions = []
                 for anno in image:
                     if anno.tag == 'box':
-                        label = anno.attrib['label']
-                        xtl = anno.attrib['xtl']
-                        ytl = anno.attrib['ytl']
-                        ybr = anno.attrib['ybr']
-                        xbr = anno.attrib['xbr']
-                    
-                # TODO make an Annotated Region object
+                        label = str(anno.attrib['label'])
+                        xtl = int(float(anno.attrib['xtl']))
+                        ytl = int(float(anno.attrib['ytl']))
+                        ybr = int(float(anno.attrib['ybr']))
+                        xbr = int(float(anno.attrib['xbr']))
+                        x = [xtl, xbr, xbr, xtl]
+                        y = [ytl, ytl, ybr, ybr]
+                        Box = AnnotationRegion(class_name=label,
+                                               x = x,
+                                               y = y,
+                                               shape_type='rect')
+                        Regions.append(Box)
+
+                AnnImage.regions = Regions
+
+            if AnnImage is not None:
+                AnnotatedImages.append(AnnImage)
         
-            # TODO append to list of Image objects
-        return False
+        return AnnotatedImages
+
+
+if __name__ == "__main__":
+
+    print('Annotations.py')
+
+    # in the 100 images
+    data_dir = '/home/agkelpie/Data/RRAP_2022_NovSpawning/coral100_group4'
+    img_dir = os.path.join(data_dir, 'images')
+    ann_file = os.path.join(data_dir, 'metadata/annotations.xml')
+
+    ImageAnnotations = Annotations(ann_file=ann_file, img_dir=img_dir)
+
+    import code
+    code.interact(local=dict(globals(), **locals()))

@@ -16,11 +16,13 @@ class AnnotationRegion(Region):
     
     def __init__(self, class_name, x, y, shape_type):
         Region.__init__(self, class_name, x, y)
-        if shape_type not in [self.SHAPE_TYPES]:
-            self.error('Unknown shape type passed to AnnotationRegion __init__()')
-            exit(-1)
-        else:
+        if shape_type in self.SHAPE_TYPES:
             self.shape_type = str(shape_type)
+        else:
+
+            TypeError('Unknown shape type passed to AnnotationRegion __init__()')
+            print(f'shape_type = {shape_type}')
+            self.shape_type = 'unknown'
             
             
     def print(self):
