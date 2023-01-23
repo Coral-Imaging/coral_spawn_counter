@@ -20,14 +20,14 @@ import torchvision.transforms as T
 from PIL import Image as PILImage
 from torchvision.transforms import functional as tvtransfunc
 
+# https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data
 
-CLASS_DICT = {"Background": 0,
-              "Egg": 1,
-              "First Cleavage": 2,
-              "Two-Cell Stage": 3,
-              "Four-Eight Cell Stage": 4,
-              "Advanced": 5,
-              "Damaged": 6}
+CLASS_DICT = {"Egg": 0,
+              "First Cleavage": 1,
+              "Two-Cell Stage": 2,
+              "Four-Eight Cell Stage": 3,
+              "Advanced": 4,
+              "Damaged": 5}
 CLASS_COLORS = ['black', 'green', 'blue', 'purple', 'orange', 'yellow', 'brown']
 # TODO specific colours for opencv drawing
 

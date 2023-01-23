@@ -8,9 +8,12 @@ import torch
 from torchvision import transforms
 from torchvision.models import yolov5
 from torch.utils.data import DataLoader
+
 from torch.optim import Adam
 from torch.nn import BCELoss
-from PIL import Image
+from PIL import Image as PILImage
+
+from train.CoralSpawnDataset import CoralSpawnDataset
 
 # load YOLOv5 model
 model = yolov5.yolov5m()
@@ -36,4 +39,24 @@ loss_fn = BCELoss()
 train_dataset = CoralSpawnDataset()
 train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 
+# training loop
+num_epochs = 5
+for epoch in range(num_epochs):
+    for i, target in enumerate(train_dataloader):
+        image, sample = target
+        image = image.to('cuda')
+        labels = labels.to('cuda')
+        poly = poly.to('cuda')
+        
+        # forward pass
+        outputs = model(image, sample)
+        
+        # compute loss
+        loss = loss_fn(outputs, labels)
+        
+        # backward pass and optimisation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
 
