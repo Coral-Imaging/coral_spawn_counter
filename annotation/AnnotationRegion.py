@@ -4,7 +4,7 @@
 Annotated Region class, which has annotation and region properties
 """
 
-from Region import Region
+from annotation.Region import Region
 
 class AnnotationRegion(Region):
     

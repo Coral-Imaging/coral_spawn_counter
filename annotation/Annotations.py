@@ -9,8 +9,8 @@ import os
 from PIL import Image as PILImage
 import xml.etree.ElementTree as ET
 
-from AnnotationRegion import AnnotationRegion
-from Image import Image
+from annotation.AnnotationRegion import AnnotationRegion
+from annotation.Image import Image
 
 class Annotations:
     
@@ -108,9 +108,9 @@ if __name__ == "__main__":
     print('Annotations.py')
 
     # in the 100 images
-    data_dir = '/home/agkelpie/Data/RRAP_2022_NovSpawning/coral100_group4'
+    data_dir = '/home/dorian/Data/acropora_maggie_tenuis_dataset_100_renamed/combined_100'
     img_dir = os.path.join(data_dir, 'images')
-    ann_file = os.path.join(data_dir, 'metadata/annotations.xml')
+    ann_file = os.path.join(data_dir, 'metadata/annotations_updated.xml')
 
     ImageAnnotations = Annotations(ann_file=ann_file, img_dir=img_dir)
 

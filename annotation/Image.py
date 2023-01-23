@@ -4,7 +4,6 @@
 Image class, which has annotation properties
 """
 
-from Region import Region
 import PIL.Image as PIL_Image
 from PIL.PngImagePlugin import PngInfo
 import os
