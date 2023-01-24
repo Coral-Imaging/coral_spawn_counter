@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# rename images by adding cslics_id to front of image names
+# rename images by adding cslics_id to front of image names from cvat annotations format
 import os
 import shutil
 import xml.etree.ElementTree as ET
