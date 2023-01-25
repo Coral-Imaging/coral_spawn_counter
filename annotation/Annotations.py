@@ -15,6 +15,7 @@ from annotation.Image import Image
 class Annotations:
     
     # class labels
+    # TODO should just read the obj.names file in the metadata
     ATTR_STAGE = 'name'
     STAGE_EGG = 'Egg'
     STAGE_FIRST_CLEAVAGE = 'First Cleavage'
@@ -28,33 +29,48 @@ class Annotations:
     SHAPE_RECT = 'rect'
     
     def __init__(self, ann_file: str, img_dir: str):
-        self.ann_file = ann_file # absolute filepath
+        self.ann_file = ann_file # absolute filepath to obj.data file
         
         # load annotation data
-        self.annotations_raw = self.read_cvat_annotations_raw()
+        # self.annotations_raw = self.read_cvat_annotations_raw()
+        self.annotations_raw = self.read_yolo_annotations_raw()
         
         # image directory
         self.img_dir = img_dir
         self.img_list = list(sorted(os.listdir(self.img_dir)))
         
-        # check annotations for consistency
+        # TODO check annotations for consistency
         
         # convert to internal annotations format
-        self.annotations = self.convert_annotations()
+        # self.annotations = self.convert_annotations_cvat()
+        self.annotations = self.convert_annotations_yolo()
         
+    def read_yolo_annotations_raw(self):
+        """read yolo annotations from the various files
+        return img metadata as a list for each image in yolo format
+        """
+
+        # self.ann_file gives access to obj.data file:
+        with open(self.ann_file, 'r') as file:
+            lines = file.readlines()
+
+        n_classes = lines[0].strip()
+        # read in object names
+        # read in training.txt, which has the list of all the images
+        # read in the folder that has all the .txt files of all the annotations
+
+
         
     def read_cvat_annotations_raw(self):
         """
         read raw annotations from cvat annotations file,
         return img metadata as a list for each image
         """
-        
         # get root of xml tree
-        root = ET.parse(self.ann_file).getroot()
-        
-        return root
+        return ET.parse(self.ann_file).getroot()
+
     
-    def convert_annotations(self):
+    def convert_annotations_cvat(self):
         """
         convert raw annotations into internal annotation format (nested list of classes of annotation regions)
         """
