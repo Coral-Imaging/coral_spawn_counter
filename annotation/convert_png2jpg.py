@@ -9,10 +9,10 @@ from PIL.PngImagePlugin import PngInfo
 from PIL.JpegImagePlugin import JpegImageFile
 
 # image directory
-img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images'
+img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_900/images'
 print(f'converting .png images from {img_dir}')
 
-img_dir_new = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images_jpg'
+img_dir_new = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_900/images_jpg'
 os.makedirs(img_dir_new, exist_ok=True)
 print(f'saving .jpg images in {img_dir_new}')
 
