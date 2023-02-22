@@ -28,6 +28,10 @@ from sklearn.model_selection import train_test_split
 
 
 def clean_dirs(target_img_dir, target_meta_dir, target_ann_file):
+    """
+    clear relevant folders and files for new dataset split creation
+    automatically deletes existing folder & contents if exists, then makes anew
+    """
     if os.path.isdir(target_img_dir):
         shutil.rmtree(target_img_dir)
     os.makedirs(target_img_dir)
@@ -38,7 +42,28 @@ def clean_dirs(target_img_dir, target_meta_dir, target_ann_file):
 
     if os.path.exists(target_ann_file):
         os.remove(target_ann_file)
-    
+
+
+def allocate_dataset_files(filenames, img_dir, target_img_dir, target_meta_dir, target_ann_file):
+    """
+    copy images from original img_dir to target image dir
+    copy annotation text files into target annotation dir
+    create image list text file
+    """
+    # copy images
+    for fname in filenames:
+        shutil.copyfile(os.path.join(img_dir, fname),os.path.join(target_img_dir, fname))
+
+    # copy annotations
+    for fname in filenames:
+        ann_file = fname[:-4] + '.txt'
+        shutil.copyfile(os.path.join(meta_dir, ann_file),os.path.join(target_meta_dir, ann_file))
+
+    # write the text file of all the image names
+    with open(target_ann_file, 'w') as f:
+        for fname in filenames:
+            f.write(fname + '\n')
+        
 # Inputs
 # ==================================================================================================
 
@@ -58,7 +83,7 @@ if not ((train_ratio + val_ratio + test_ratio) == 1):
     ValueError(train_ratio, 'sum of train/val/test ratios must equal 1')
 
 # image folder with all images
-img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images'
+img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images_jpg'
 
 # image metadata folder
 meta_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/obj_train_data'
@@ -121,8 +146,8 @@ print(f'n_val = {n_val}')
 print(f'n_test = {n_test}')
 
 # randomly split the images (might use pytorch random split of images?)
-train_val_filenames, test_filenames = train_test_split(img_list, test_size=test_ratio, random_state=42) # hopefully works with 0 as test_ratio?
-train_filenames, val_filenames = train_test_split(train_val_filenames, test_size=val_ratio, random_state=42)
+train_val_filenames, test_filenames = train_test_split(img_list, test_size=int(n_test), random_state=42) # hopefully works with 0 as test_ratio?
+train_filenames, val_filenames = train_test_split(train_val_filenames, test_size=int(n_val), random_state=42)
 
 # sanity check:
 print(f'length of train_filenames = {len(train_filenames)}')
@@ -133,30 +158,29 @@ print(f'length of test_filenames = {len(test_filenames)}')
 # generate relevant folders, copy images into folders
 # generate list of images .txt file
 # generate/copy all annotation .txt files into relevant folders
+allocate_dataset_files(train_filenames, img_dir, img_train_dir, meta_train_dir, ann_train_file)
+allocate_dataset_files(val_filenames, img_dir, img_val_dir, meta_val_dir, ann_val_file)
+allocate_dataset_files(test_filenames, img_dir, img_test_dir, meta_test_dir, ann_test_file)
 
-# TODO turn this into a function!
-# copy images
-for fname in train_filenames:
-    shutil.copyfile(os.path.join(img_dir, fname),os.path.join(img_train_dir, fname))
+# check:
+print(f'num img files in img_train_dir = {len(os.listdir(img_train_dir))}')
+print(f'num img files in img_val_dir = {len(os.listdir(img_val_dir))}')
+print(f'num img files in img_test_dir = {len(os.listdir(img_test_dir))}')
 
-# copy annotations
-for fname in train_filenames:
-    ann_file = fname[:-4] + '.txt'
-    shutil.copyfile(os.path.join(meta_dir, ann_file),os.path.join(meta_train_dir, ann_file))
+print(f'num txt files in meta_train_dir = {len(os.listdir(meta_train_dir))}')
+print(f'num txt files in meta_val_dir = {len(os.listdir(meta_val_dir))}')
+print(f'num txt files in meta_test_dir = {len(os.listdir(meta_test_dir))}')
 
-# write the text file of all the image names
-with open(ann_train_file, 'w') as f:
-    for fname in train_filenames:
-        f.write(fname)
+with open(ann_train_file, 'r') as f:
+    ann_train_lines = f.readlines()
+with open(ann_val_file, 'r') as f:
+    ann_val_lines = f.readlines()
+with open(ann_test_file, 'r') as f:
+    ann_test_lines = f.readlines()
     
-
-
-# for fname in val_filenames:
-#     shutil.copyfile(os.path.join(img_dir, fname),os.path.join(img_val_dir, fname))
-
-# for fname in test_filenames:
-#     shutil.copyfile(os.path.join(img_dir, fname),os.path.join(img_test_dir, fname))
-
+print(f'num lines in ann_train_file = {len(ann_train_lines)}')
+print(f'num lines in ann_val_file = {len(ann_val_lines)}')
+print(f'num lines in ann_test_file = {len(ann_test_lines)}')
 
 
 print('done')
