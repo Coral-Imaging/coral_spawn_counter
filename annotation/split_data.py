@@ -23,7 +23,6 @@ output:
 
 import os
 import shutil
-import random
 from sklearn.model_selection import train_test_split
 
 
@@ -97,21 +96,21 @@ ann_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/meta
 
 # training:
 # TODO does not delete existing sets, so would simply just add more files into the mix - should delete existing sets, if not empty - with user input
-img_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/img_train'
+img_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/train'
 meta_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train'
 ann_train_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train.txt'
 clean_dirs(img_train_dir, meta_train_dir, ann_train_file)
 
 # validation
 if val_ratio > 0:
-    img_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/img_val'
+    img_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/val'
     meta_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val'
     ann_val_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val.txt'
     clean_dirs(img_val_dir, meta_val_dir, ann_val_file)
 
 # testing
 if test_ratio > 0:
-    img_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/img_test'
+    img_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
     meta_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test'
     ann_test_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test.txt'
     clean_dirs(img_test_dir, meta_test_dir, ann_test_file)
