@@ -19,8 +19,45 @@ import cv2 as cv
 # data folder location
 # output folder/file setup - should probably be a .csv due to Excel compatibility
 
+def save_text_predictions(predictions, imgname, txtsavedir, classes):
+    """
+    save predictions/detections into text file
+    [x1 y1 x2 y2 conf class_idx class_name]
+    """
+    txtsavename = os.path.basename(imgname)
+    txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
+
+    # predictions [ pix pix pix pix conf class ]
+    with open(txtsavepath, 'w') as f:
+        for p in predictions:
+            x1, y1, x2, y2 = p[0:4].tolist()
+            conf = p[4]
+            class_idx = int(p[5])
+            class_name = classes[class_idx]
+            f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
+    return True
+
+
+def save_image_predictions(predictions, img, imgname, imgsavedir, class_colours, classes):
+    """
+    save predictions/detections on image
+    """
+
+    for p in predictions:
+        x1, y1, x2, y2 = p[0:4].tolist()
+        conf = p[4]
+        cls = int(p[5])        
+        cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
+        cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
+
+    imgsavename = os.path.basename(imgname)
+    imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
+    cv.imwrite(imgsave_path, img)
+    return True
+
+
 def nms(pred, conf_thresh, iou_thresh, classes, max_det):
-    """ perform non-maxima suppression on predictions 
+    """ perform class-agnostic non-maxima suppression on predictions 
     pred = [x1 y1 x2 y2 conf class] tensor
     """
 
@@ -34,8 +71,37 @@ def nms(pred, conf_thresh, iou_thresh, classes, max_det):
     pred = pred[pred[:, 4] > conf_thresh]
     boxes = pred[:, :4]
     scores = pred[:, 4]
-    keep = cv.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf_thresh, iou_thresh)
+    # keep = cv.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf_thresh, iou_thresh)
+
+    # sort scores into descending order
+    _, indices = torch.sort(scores, descending=True)
+
+    # class-agnostic nms
+    # iteratively adds the highest scoring detection to the list of final detections, 
+    # calculates the IoU of this detection with all other detections, and 
+    # removes any detections with IoU above the threshold. 
+    # This process continues until there are no detections left.
+    keep = []
+    while indices.numel() > 0:
+        # get the highest scoring detection
+        i = indices[0]
+        
+        # add the detection to the list of final detections
+        keep.append(i.item())
+
+        # calculate the IoU highest scoring detection within all other detections
+        if indices.numel() == 1:
+            break
+        else:
+            overlaps = torchvision.ops.box_iou(boxes[indices[1:]], boxes[i].unsqueeze(0)).squeeze()
+
+        # keep only detections with IOU below certain threshold
+        indices = indices[1:]
+        indices = indices[overlaps <= iou_thresh]
+
     return pred[keep, :]
+
+
 
 # model
 weightsfile = '/home/agkelpie/Code/cslics_ws/src/yolov5/weights/yolov5l6_20220223.pt'
@@ -70,50 +136,60 @@ root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
+# TODO put this into specific file, similar to agklepie project
+# define class-specific colours
+orange = [255, 128, 0] # four-eight cell stage
+blue = [0, 212, 255] # first cleavage
+purple = [170, 0, 255] # two-cell stage
+yellow = [255, 255, 0] # advanced
+brown = [144, 65, 2] # damaged
+green = [0, 255, 00] # egg
+class_colours = {classes[0]: orange,
+                 classes[1]: blue,
+                 classes[2]: purple,
+                 classes[3]: yellow,
+                 classes[4]: brown,
+                 classes[5]: green}
+
+# where to save image detections
+imgsave_dir = os.path.join(root_dir, 'images', 'detections_images')
+os.makedirs(imgsave_dir, exist_ok=True)
+
+# where to save text detections
+txtsavedir = os.path.join(imgsave_dir, 'detections_textfiles')
+os.makedirs(txtsavedir, exist_ok=True)
+    
 # for each image:
-for imgname in imglist:
+for i, imgname in enumerate(imglist):
+
+    print(f'predictions on {i}/{len(imglist)}')
+    # if i >= 3: # for debugging purposes
+    #     break
+
     # load image
     img = cv.imread(imgname)
 
     # inference
     pred = model([img], size=img_size)
     
-    pred.print()
-    pred.save()
-    pred.pandas().xyxy[0] # predictions as pandas dataframe object
-    
-
-    # nms - possibly import from yolov5? but for now, just use torch's built-in
-    # pred = non_max_suppression(pred, 
-    #                            conf_thresh,
-    #                            iou_thresh,
-    #                            classes,
-    #                            agnostic_nms,
-    #                            max_det=max_det)
+    # pred.print()
+    # pred.save()
+    # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
 
     predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
-
-    for p in predictions:
-        x1, y1, x2, y2 = p[0:4].tolist()
-        conf = p[4]
-        cls = int(p[5])
-        cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-        cv.putText(img, f"{cls}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-    cv.imshow("Coral spawn detections", img)
-    cv.waitKey(0)
     
-    import code
-    code.interact(local=dict(globals(), **locals()))
-    cv.destroyAllWindows()
+    # save predictions as an image
+    save_image_predictions(predictions, img, imgname, imgsave_dir, class_colours, classes)
     
+    # save predictions as a text file (TODO make a funtion)
+    save_text_predictions(predictions, imgname, txtsavedir, classes)
+                               
     
+# TODO actually make this a class and then a "have .run" method to peform detections
+# TODO write a separate script that reads in these text files and generates a plot in post
 
-# output
-save_img = '/home/agkelpie/Code/cslics_ws/src/coral_spawn_counter/detector/runs'
-# create/draw on image
+print('done')
 
-# save_txt = # TODO
-
-
+import code
+code.interact(local=dict(globals(), **locals()))
     

@@ -14,22 +14,24 @@ import os
 from pprint import *
 
 from annotation.Image import Image
-from coral_spawn_counter.circle_detector import CircleDetector
+from coral_spawn_counter.CircleDetector import CircleDetector
 
 class CoralImage(Image):
 
-    def __init__(self, img_name, img=None):
+    def __init__(self, img_name, txt_name, img=None, detections=None, fertratio=None):
         
-        Image.__init(self, img_name)
+        Image.__init__(self, img_name)
         # for now, only accepting PIL images, png files
         self.img_name = img_name
-        # self.img = PIL_Image.open(img_name)
+        self.img = None # PIL_Image.open(img_name) # insane memory costs for large number of Images
+        self.txt_name = txt_name
         self.count = 0
-        self.detections = []
-        self.SpawnCounter = CircleDetector()
+        self.detections = detections
+        self.fertratio = fertratio
+        self.SpawnCounter = CircleDetector() # TODO push this into separate function
 
 
-    def count_spawn(self, img, det_param=None):    
+    def count_spawn(self, img, det_param=None):    # TODO make this a unique function for circle detection
         count, circles = self.SpawnCounter.count_spawn(np.array(img), det_param)
         self.count = count
         self.detections = circles
