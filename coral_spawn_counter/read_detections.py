@@ -7,6 +7,7 @@ plot them into time history
 
 import os
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 from coral_spawn_counter.CoralImage import CoralImage
 
@@ -16,9 +17,6 @@ from coral_spawn_counter.CoralImage import CoralImage
 # save each image as list of annotations - maybe we can reuse the Image/Annotations?
 # we can use CoralImage to hold image name and detections
 # detectiosn are a list of pred = [x1 y1 x2 y2 conf class]
-
-
-
 
 
 # read in classes
@@ -44,7 +42,6 @@ class_colours = {classes[0]: orange,
 # where images are saved:
 imgsave_dir = os.path.join(root_dir, 'images', 'detections_images')
 
-
 # where text detections are asaved:
 txtsavedir = os.path.join(imgsave_dir, 'detections_textfiles')
 
@@ -54,12 +51,11 @@ txt_list = sorted(os.listdir(txtsavedir))
 # for each txt name, open up and read
 print('importing in detections')
 results = []
-for txt in txt_list:
+for i, txt in enumerate(txt_list):
+    print(f'importing detections {i}/{len(txt_list)}')
     with open(os.path.join(txtsavedir, txt), 'r') as f:
-        # [x1 y1 x2 y2 conf class_idx class_name] \n
-        detections = f.readlines()
-    
-    detections = [det.split() for det in detections]
+        detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
+    detections = [det.rsplit() for det in detections]
     
     # corresponding image name:
     # TODO find corresponding image name in imgsave_dir
@@ -80,26 +76,35 @@ results.sort(key=lambda x: x.metadata['capture_time'])
 print('getting counts from detections')
 count_eggs = []
 count_first = []
+count_two = []
+count_four = []
+count_adv = []
+count_dmg = []
 capture_time_str = []
 for res in results:
     # create a list of strings of all the detections for the given image
     counted_classes = [det[6] for det in res.detections]
-    
+
     # do list comprehensions on counted_classes  # TODO consider putting this as a function into CoralImage/detections
+    # could I replace this with iterating over the classes dictionary?
     count_eggs.append(counted_classes.count('Egg'))
-    count_first.append(counted_classes.count('First')) # TODO fix class names to be all one continuous string (no spaces)
+    count_first.append(counted_classes.count('FirstCleavage')) # TODO fix class names to be all one continuous string (no spaces)
+    count_two.append(counted_classes.count('TwoCell'))
+    count_four.append(counted_classes.count('FourEightCell'))
+    count_adv.append(counted_classes.count('Advanced'))
+    count_dmg.append(counted_classes.count('Damaged'))
     capture_time_str.append(res.metadata['capture_time'])
-    
 
 # parse capture_time into datetime objects so we can sort them
-from datetime import datetime
 capture_times = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time_str]
-# count_eggs = [res.det for res in results]
-
 
 # plot those detections into a matplotlib graph
 plt.plot(capture_times, count_eggs, label='Egg')
-plt.plot(capture_times, count_first, label='First')
+plt.plot(capture_times, count_first, label='First Cleavage')
+plt.plot(capture_times, count_two, label='Two Cell Stage')
+plt.plot(capture_times, count_four, label='Four-Eight Cell Stage')
+plt.plot(capture_times, count_adv, label='Advanced')
+plt.plot(capture_times, count_dmg, label='Damaged')
 
 plt.xlabel('Date')
 plt.ylabel('Count')

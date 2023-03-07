@@ -167,22 +167,25 @@ for i, imgname in enumerate(imglist):
     #     break
 
     # load image
-    img = cv.imread(imgname)
+    try:
+        img = cv.imread(imgname)
 
-    # inference
-    pred = model([img], size=img_size)
+        # inference
+        pred = model([img], size=img_size)
     
-    # pred.print()
-    # pred.save()
-    # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
+        # pred.print()
+        # pred.save()
+        # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
 
-    predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
-    
-    # save predictions as an image
-    save_image_predictions(predictions, img, imgname, imgsave_dir, class_colours, classes)
-    
-    # save predictions as a text file (TODO make a funtion)
-    save_text_predictions(predictions, imgname, txtsavedir, classes)
+        predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
+        
+        # save predictions as an image
+        save_image_predictions(predictions, img, imgname, imgsave_dir, class_colours, classes)
+        
+        # save predictions as a text file (TODO make a funtion)
+        save_text_predictions(predictions, imgname, txtsavedir, classes)
+    except:
+        print('unable to read image or do model prediction --> skipping')
                                
     
 # TODO actually make this a class and then a "have .run" method to peform detections
