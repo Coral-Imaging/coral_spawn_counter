@@ -20,7 +20,8 @@ from coral_spawn_counter.CoralImage import CoralImage
 
 
 # read in classes
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
+# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
+root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03'
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
@@ -40,10 +41,10 @@ class_colours = {classes[0]: orange,
                  classes[5]: green}
 
 # where images are saved:
-imgsave_dir = os.path.join(root_dir, 'images', 'detections_images')
+imgsave_dir = os.path.join(root_dir, 'detections', 'detections_images')
 
 # where text detections are asaved:
-txtsavedir = os.path.join(imgsave_dir, 'detections_textfiles')
+txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
 
 # read in each .txt file
 txt_list = sorted(os.listdir(txtsavedir))
@@ -111,7 +112,11 @@ plt.ylabel('Count')
 plt.title('Cell Counts over Time')
 plt.legend()
 
+plt.savefig(os.path.join(root_dir,'detections','CellCountPlot.png'))
+
 plt.show()
+
+
 
 
 

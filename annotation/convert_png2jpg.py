@@ -23,12 +23,12 @@ for i, img_name in enumerate(img_list):
     print(f'{i}/{len(img_list)}: {img_name}')
     try: 
         img_png = PIL_Image.open(os.path.join(img_dir, img_name))
+        img_jpg = img_png.convert('RGB')
+        img_jpg.save(os.path.join(img_dir_new, img_name[:-4] + '.jpg'))
     except:
         print(f'unable to open png file {img_name}')
         print('assume png file is garbage, removing png file')
         os.remove(os.path.join(img_dir, img_name))
-        
-    img_jpg = img_png.convert('RGB')
-    img_jpg.save(os.path.join(img_dir_new, img_name[:-4] + '.jpg'))
 
+    
 print('done')

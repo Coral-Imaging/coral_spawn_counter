@@ -118,7 +118,8 @@ model = model.to(device)
 model.eval() # model into evaluation mode
     
 # source images
-sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
+# sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
+sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03/images_jpg'
 batch_size = 1
 # imgslist = sorted(os.listdir(sourceimages).endswidth(".png")) # assume correct input, probably should use glob
 imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
@@ -132,7 +133,8 @@ model.max_det = 1000
 
 # classes:
 # read in classes
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
+# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
+root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03'
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
@@ -152,13 +154,13 @@ class_colours = {classes[0]: orange,
                  classes[5]: green}
 
 # where to save image detections
-imgsave_dir = os.path.join(root_dir, 'images', 'detections_images')
+imgsave_dir = os.path.join(root_dir, 'detections', 'detections_images')
 os.makedirs(imgsave_dir, exist_ok=True)
 
 # where to save text detections
-txtsavedir = os.path.join(imgsave_dir, 'detections_textfiles')
+txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
 os.makedirs(txtsavedir, exist_ok=True)
-    
+
 # for each image:
 for i, imgname in enumerate(imglist):
 
@@ -186,6 +188,9 @@ for i, imgname in enumerate(imglist):
         save_text_predictions(predictions, imgname, txtsavedir, classes)
     except:
         print('unable to read image or do model prediction --> skipping')
+        print(f'skipped: imgname = {imgname}')
+        import code
+        code.interact(local=dict(globals(), **locals()))
                                
     
 # TODO actually make this a class and then a "have .run" method to peform detections
