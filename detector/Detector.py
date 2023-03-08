@@ -198,6 +198,6 @@ for i, imgname in enumerate(imglist):
 
 print('done')
 
-import code
-code.interact(local=dict(globals(), **locals()))
+# import code
+# code.interact(local=dict(globals(), **locals()))
     

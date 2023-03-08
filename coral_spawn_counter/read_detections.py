@@ -8,6 +8,7 @@ plot them into time history
 import os
 import matplotlib.pyplot as plt
 from datetime import datetime
+import pickle
 
 from coral_spawn_counter.CoralImage import CoralImage
 
@@ -73,52 +74,9 @@ for i, txt in enumerate(txt_list):
 # sort results based on metadata capture time
 results.sort(key=lambda x: x.metadata['capture_time'])
 
-# get counts as arrays:
-print('getting counts from detections')
-count_eggs = []
-count_first = []
-count_two = []
-count_four = []
-count_adv = []
-count_dmg = []
-capture_time_str = []
-for res in results:
-    # create a list of strings of all the detections for the given image
-    counted_classes = [det[6] for det in res.detections]
-
-    # do list comprehensions on counted_classes  # TODO consider putting this as a function into CoralImage/detections
-    # could I replace this with iterating over the classes dictionary?
-    count_eggs.append(counted_classes.count('Egg'))
-    count_first.append(counted_classes.count('FirstCleavage')) # TODO fix class names to be all one continuous string (no spaces)
-    count_two.append(counted_classes.count('TwoCell'))
-    count_four.append(counted_classes.count('FourEightCell'))
-    count_adv.append(counted_classes.count('Advanced'))
-    count_dmg.append(counted_classes.count('Damaged'))
-    capture_time_str.append(res.metadata['capture_time'])
-
-# parse capture_time into datetime objects so we can sort them
-capture_times = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time_str]
-
-# plot those detections into a matplotlib graph
-plt.plot(capture_times, count_eggs, label='Egg')
-plt.plot(capture_times, count_first, label='First Cleavage')
-plt.plot(capture_times, count_two, label='Two Cell Stage')
-plt.plot(capture_times, count_four, label='Four-Eight Cell Stage')
-plt.plot(capture_times, count_adv, label='Advanced')
-plt.plot(capture_times, count_dmg, label='Damaged')
-
-plt.xlabel('Date')
-plt.ylabel('Count')
-plt.title('Cell Counts over Time')
-plt.legend()
-
-plt.savefig(os.path.join(root_dir,'detections','CellCountPlot.png'))
-
-plt.show()
-
-
-
-
+# save all variables to a file using pickle
+with open('detection_results.pkl', 'wb') as f:
+    pickle.dump(results, f)
 
 print('done')
         
