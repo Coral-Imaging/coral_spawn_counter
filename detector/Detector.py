@@ -119,10 +119,15 @@ model.eval() # model into evaluation mode
     
 # source images
 # sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
-sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03/images_jpg'
+# sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics01/images_jpg'
+root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+sourceimages = os.path.join(root_dir, 'images_jpg')
 batch_size = 1
 # imgslist = sorted(os.listdir(sourceimages).endswidth(".png")) # assume correct input, probably should use glob
 imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
+
+print('running Detector.py on:')
+print(f'source images: {sourceimages}')
 
 # parameters
 img_size = 1280
@@ -134,7 +139,6 @@ model.max_det = 1000
 # classes:
 # read in classes
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03'
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
@@ -164,7 +168,7 @@ os.makedirs(txtsavedir, exist_ok=True)
 # for each image:
 for i, imgname in enumerate(imglist):
 
-    print(f'predictions on {i}/{len(imglist)}')
+    print(f'predictions on {i+1}/{len(imglist)}')
     # if i >= 3: # for debugging purposes
     #     break
 

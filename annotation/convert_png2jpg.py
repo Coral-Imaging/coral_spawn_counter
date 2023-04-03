@@ -9,10 +9,10 @@ from PIL.PngImagePlugin import PngInfo
 from PIL.JpegImagePlugin import JpegImageFile
 
 # image directory
-img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03/images_png'
+img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01/images_png'
 print(f'converting .png images from {img_dir}')
 
-img_dir_new = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03/images_jpg'
+img_dir_new = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01/images_jpg'
 os.makedirs(img_dir_new, exist_ok=True)
 print(f'saving .jpg images in {img_dir_new}')
 
@@ -20,7 +20,7 @@ print(f'saving .jpg images in {img_dir_new}')
 img_list = sorted(os.listdir(img_dir))
 
 for i, img_name in enumerate(img_list):
-    print(f'{i}/{len(img_list)}: {img_name}')
+    print(f'{i+1}/{len(img_list)}: converting {img_name}')
     try: 
         img_png = PIL_Image.open(os.path.join(img_dir, img_name))
         img_jpg = img_png.convert('RGB')

@@ -12,8 +12,6 @@ import pickle
 
 from coral_spawn_counter.CoralImage import CoralImage
 
-
-
 # read them in line-by-line for each image
 # save each image as list of annotations - maybe we can reuse the Image/Annotations?
 # we can use CoralImage to hold image name and detections
@@ -22,9 +20,10 @@ from coral_spawn_counter.CoralImage import CoralImage
 
 # read in classes
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03'
+root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
+
 
 # TODO put this into specific file, similar to agklepie project
 # define class-specific colours
@@ -51,10 +50,10 @@ txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
 txt_list = sorted(os.listdir(txtsavedir))
 
 # for each txt name, open up and read
-print('importing in detections')
+print(f'importing in detections for {root_dir}')
 results = []
 for i, txt in enumerate(txt_list):
-    print(f'importing detections {i}/{len(txt_list)}')
+    print(f'importing detections {i+1}/{len(txt_list)}')
     with open(os.path.join(txtsavedir, txt), 'r') as f:
         detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
     detections = [det.rsplit() for det in detections]
@@ -75,7 +74,8 @@ for i, txt in enumerate(txt_list):
 results.sort(key=lambda x: x.metadata['capture_time'])
 
 # save all variables to a file using pickle
-with open('detection_results.pkl', 'wb') as f:
+savefile = os.path.join(root_dir, 'detection_results.pkl')
+with open(savefile, 'wb') as f:
     pickle.dump(results, f)
 
 print('done')

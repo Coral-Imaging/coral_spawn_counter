@@ -12,11 +12,34 @@ import seaborn.objects as so
 
 from coral_spawn_counter.CoralImage import CoralImage
 
+root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+basename = os.path.basename(root_dir)
+
+# TODO experimental pickle support for saving interactive matplotlib figures
+# https://fredborg-braedstrup.dk/blog/2014/10/10/saving-mpl-figures-using-pickle/
+
 # load variables from file
-with open('detection_results.pkl', 'rb') as f:
+with open(os.path.join(root_dir, 'detection_results.pkl'), 'rb') as f:
     results = pickle.load(f)
 
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics03'
+with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
+    classes = [line.strip() for line in f.readlines()]
+
+# TODO put this into specific file, similar to agklepie project
+# define class-specific colours
+sns_colors = sns.color_palette()
+orange = sns_colors[3] # four-eight cell stage
+blue = sns_colors[1] # first cleavage
+purple = sns_colors[2] # two-cell stage
+yellow = sns_colors[4] # advanced
+brown = sns_colors[5] # damaged
+green = sns_colors[0] # egg
+class_colours = {classes[0]: orange,
+                 classes[1]: blue,
+                 classes[2]: purple,
+                 classes[3]: yellow,
+                 classes[4]: brown,
+                 classes[5]: green}
 
 # get counts as arrays:
 print('getting counts from detections')
@@ -55,7 +78,7 @@ plotdatadict = {'capture times': capture_times,
 df = pd.DataFrame(plotdatadict)
 # plotdata = pd.Series(count_eggs)
 
-window_size = 10
+window_size = 20
 count_eggs_mean = df['eggs'].rolling(window_size).mean()
 count_eggs_std = df['eggs'].rolling(window_size).std()
 
@@ -68,39 +91,29 @@ count_two_std = df['two'].rolling(window_size).std()
 count_four_mean = df['four'].rolling(window_size).mean()
 count_four_std = df['four'].rolling(window_size).std()
 
-count_adv = df['adv'].rolling(window_size).mean()
-count_adv = df['adv'].rolling(window_size).std()
+count_adv_mean = df['adv'].rolling(window_size).mean()
+count_adv_std = df['adv'].rolling(window_size).std()
 
-count_dmg = df['dmg'].rolling(window_size).mean()
-count_adv = df['dmg'].rolling(window_size).std()
+count_dmg_mean = df['dmg'].rolling(window_size).mean()
+count_dmg_std = df['dmg'].rolling(window_size).std()
 
 # TODO fert ratio is just first cleavage to eggs, or everything else to eggs?
-count_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
+countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 
-fert_ratio = (count_first_mean + count_two_mean + count_four_mean + count_adv)/ count_total
+fert_ratio = (count_first_mean + count_two_mean + count_four_mean + count_adv)/ countperimage_total
 
-
-
-# sns.lineplot(data=df,
-#              x="capture times",
-#              y="eggs",
-#              err_style='band',
-#              errorbar=('sd', 2))
-
-# plot those detections into a matplotlib graph
-# plt.plot(capture_times, label='capture times', marker='o')
-
+# ===========================================================================
 sns.set_theme(style='whitegrid')
 
 # plt.plot(capture_times, count_eggs, label='Egg')
 n = 1
 fig1, ax1 = plt.subplots()
 
-plt.plot(capture_times, count_eggs_mean, label='Egg', color='b')
-plt.fill_between(capture_times, count_eggs_mean - n*count_eggs_std, count_eggs_mean + n*count_eggs_std, color='b', alpha=0.2)
+plt.plot(capture_times, count_eggs_mean, label='Egg', color=class_colours['Egg'])
+plt.fill_between(capture_times, count_eggs_mean - n*count_eggs_std, count_eggs_mean + n*count_eggs_std, color=class_colours['Egg'], alpha=0.2)
 
-plt.plot(capture_times, count_first_mean, label='First Cleavage', color='orange')
-plt.fill_between(capture_times, count_first_mean - count_first_std*n, count_first_mean + n*count_first_std, color='orange', alpha=0.2)
+plt.plot(capture_times, count_first_mean, label='First Cleavage', color=class_colours['FirstCleavage'])
+plt.fill_between(capture_times, count_first_mean - count_first_std*n, count_first_mean + n*count_first_std, color=class_colours['FirstCleavage'], alpha=0.2)
 
 # plt.plot(capture_times, count_first, label='First Cleavage')
 # plt.plot(capture_times, count_two, label='Two Cell Stage')
@@ -114,30 +127,58 @@ plt.fill_between(capture_times, count_first_mean - count_first_std*n, count_firs
 
 plt.xlabel('Date')
 plt.ylabel('Count')
-plt.title('Cell Counts over Time')
+plt.title(f'{basename}: Cell Counts over Time')
 plt.legend()
-plt.savefig(os.path.join(root_dir,'detections','CellCounts.png'))
+plt.savefig(os.path.join(root_dir,'detections','CellCountsEggsFirst.png'))
 
 
+# ===========================================================================
+fig1a, ax1a = plt.subplots()
+plt.plot(capture_times, count_eggs_mean, label='Egg', color=class_colours['Egg'])
+plt.fill_between(capture_times, count_eggs_mean - n*count_eggs_std, count_eggs_mean + n*count_eggs_std, color=class_colours['Egg'], alpha=0.2)
 
+plt.plot(capture_times, count_first_mean, label='First Cleavage', color=class_colours['FirstCleavage'])
+plt.fill_between(capture_times, count_first_mean - count_first_std*n, count_first_mean + n*count_first_std, color=class_colours['FirstCleavage'], alpha=0.2)
+
+plt.plot(capture_times, count_two_mean, label='Two-Cell Stage', color=class_colours['TwoCell'])
+plt.fill_between(capture_times, count_two_mean - count_two_std*n, count_two_mean + n*count_two_std, color=class_colours['TwoCell'], alpha=0.2)
+
+plt.plot(capture_times, count_four_mean, label='Four-Eight-Cell Stage', color=class_colours['FourEightCell'])
+plt.fill_between(capture_times, count_four_mean - count_four_std*n, count_four_mean + n*count_four_std, color=class_colours['FourEightCell'], alpha=0.2)
+
+plt.plot(capture_times, count_adv_mean, label='Advanced', color=class_colours['Advanced'])
+plt.fill_between(capture_times, count_adv_mean - count_adv_std*n, count_adv_mean + n*count_adv_std, color=class_colours['Advanced'], alpha=0.2)
+
+plt.plot(capture_times, count_dmg_mean, label='Damaged', color=class_colours['Damaged'])
+plt.fill_between(capture_times, count_dmg_mean - count_dmg_std*n, count_dmg_mean + n*count_dmg_std, color=class_colours['Damaged'], alpha=0.2)
+
+plt.xlabel('Date')
+plt.ylabel('Count')
+plt.title(f'{basename}: Cell Counts over Time')
+plt.legend()
+plt.savefig(os.path.join(root_dir,'detections','CellCountsAll.png'))
+
+
+# ===========================================================================
 fig2, ax2 = plt.subplots()
 sns.set_theme(style='whitegrid')
 plt.plot(capture_times, fert_ratio, label='Fertilisation Ratio')
 plt.xlabel('Date')
 plt.ylabel('fert ratio')
-plt.title('Fertilisation Ratio over Time')
+plt.title(f'{basename}: Fertilisation Ratio over Time')
 plt.legend()
 plt.savefig(os.path.join(root_dir, 'detections','FertRatio.png'))
 
 
+# ===========================================================================
 fig3, ax3 = plt.subplots()
 sns.set_theme(style='darkgrid')
-plt.plot(capture_times, count_total, label='Total Count')
+plt.plot(capture_times, countperimage_total, label='Total Count/Image')
 plt.xlabel('Date')
 plt.ylabel('Count')
-plt.title('Total Coral Spawn Count over Time')
+plt.title(f'{basename}: Total Coral Spawn Count/Image over Time')
 plt.legend()
-plt.savefig(os.path.join(root_dir, 'detections', 'TotalCoralSpawnCount.png'))
+plt.savefig(os.path.join(root_dir, 'detections', 'TotalCoralSpawnCountPerImage.png'))
 
 # # plot time deltas:
 # from datetime import timedelta
@@ -153,6 +194,28 @@ plt.savefig(os.path.join(root_dir, 'detections', 'TotalCoralSpawnCount.png'))
 # plt.xlabel('index')
 # plt.ylabel('seconds')
 # plt.savefig(os.path.join(root_dir, 'detections','CaptureTimeDeltas100.png'))
+
+# TODO actual surface counts
+# estimated tank surface area
+rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
+area_tank = np.pi * rad_tank**2
+# note: cslics surface area counts differ for different cslics!!
+# area_cslics = 2.3**2*(3/4) # cm^2 for cslics03 @ 15cm distance - had micro1 lens
+# area_cslics = 2.35**2*(3/4) # cm2 for cslics01 @ 15.5 cm distance with micro2 lens
+area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
+nimage_to_tank_surface = area_tank / area_cslics
+
+counttank_total = countperimage_total * nimage_to_tank_surface
+
+# ===========================================================================
+fig4, ax4 = plt.subplots()
+sns.set_theme(style='darkgrid')
+plt.plot(capture_times, counttank_total, label='Total Count')
+plt.xlabel('Date')
+plt.ylabel('Count')
+plt.title(f'{basename}: Total Coral Spawn Count for Tank Surface over Time')
+plt.legend()
+plt.savefig(os.path.join(root_dir, 'detections', 'TotalCoralSpawnCountPerTankSurface.png'))
 
 plt.show()
 
