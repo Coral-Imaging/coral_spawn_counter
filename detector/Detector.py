@@ -104,7 +104,7 @@ def nms(pred, conf_thresh, iou_thresh, classes, max_det):
 
 
 # model
-weightsfile = '/home/agkelpie/Code/cslics_ws/src/yolov5/weights/yolov5l6_20220223.pt'
+weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 # model = torch.load((weightsfile), map_location='cpu')
 model = torch.hub.load('ultralytics/yolov5', 'custom', path=weightsfile, trust_repo=True) # TODO make sure this can be run offline?
@@ -120,7 +120,8 @@ model.eval() # model into evaluation mode
 # source images
 # sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
 # sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics01/images_jpg'
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
 sourceimages = os.path.join(root_dir, 'images_jpg')
 batch_size = 1
 # imgslist = sorted(os.listdir(sourceimages).endswidth(".png")) # assume correct input, probably should use glob
@@ -174,11 +175,14 @@ for i, imgname in enumerate(imglist):
 
     # load image
     try:
-        img = cv.imread(imgname)
+        img_bgr = cv.imread(imgname) # BGR
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
 
         # inference
-        pred = model([img], size=img_size)
-    
+        
+        pred = model([img_rgb], size=img_size)
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
         # pred.print()
         # pred.save()
         # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
@@ -186,7 +190,7 @@ for i, imgname in enumerate(imglist):
         predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
         
         # save predictions as an image
-        save_image_predictions(predictions, img, imgname, imgsave_dir, class_colours, classes)
+        save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, class_colours, classes)
         
         # save predictions as a text file (TODO make a funtion)
         save_text_predictions(predictions, imgname, txtsavedir, classes)
