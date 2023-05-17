@@ -108,60 +108,7 @@ def computecentroids(contours, moments):
 def computearea(colntours, moments):
     return [moments[i]['m00'] for i in range(len(contours))]  
     
-    
 
-img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
-img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
-
-max_img = 2
-for i, img_name in enumerate(img_list):
-    if i >= max_img:
-        print('hit max img')
-        break
-    
-    img = cv.imread(img_name) # BGR
-    img = cv.cvtColor(img, cv.COLOR_BGR2GRAY) # RGB
-    
-    # TODO image processing/smoothing?
-    img_blur = cv.GaussianBlur(img, (5, 5), 0)
-    
-    # create binary image (findcontours will treat anything > 1 as 1)
-    # use canny edge filter 
-    # https://docs.opencv.org/4.6.0/dd/d1a/group__imgproc__feature.html#ga04723e007ed888ddf11d9ba04e2232de
-    thresh1 = 200 # first threshold for hysteresis procedure, smallest used for edge linking
-    thresh2 = 250 # second, largest value used to find intiial segments for strong edges
-    apertureSize = 5
-    img_e = cv.Canny(img, thresh1, thresh2, apertureSize, L2gradient=False)
-    
-    # show the image
-    fig, ax = plt.subplots()
-    ax.imshow(img_blur)
-    
-    fig2, ax2 = plt.subplots()
-    ax2.imshow(img_e)
-    
-    plt.show()
-    
-    # cv.simpleblobdetector too simple, cannot get pixel values/locations of
-    # # blobs themselves, so instead find contours
-    # contours, hierarchy = cv.findContours(img, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
-    
-    # hierarchy = hierarchy[0,:,:] # drop the first singleton dimension
-    # parent = hierarchy[:, 2]
-    # children = getchildren(contours, hierarchy)
-    
-    
-    # # get moments as a dictionary for each contour
-    # mu = [cv.moments(contours[i])
-    #         for i in range(len(contours))]
-    
-    # moments = hierarchicalmoments(contours, hierarchy, mu)
-    
-    # # get mass centers/centroids:
-    # mc = np.array(computecentroids(contours, moments))
-    # uc = mc[:, 0]
-    # vc = mc[:, 1]
-    
 def drawBlobs(image,
               contours,
               hierarchy,
@@ -254,4 +201,121 @@ def drawBlobs(image,
                        color=color[i],
                        thickness=textthickness)
 
-        return image.__class__(drawing)
+        return drawing
+    
+    
+
+img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
+img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
+# img_dir = '/home/dorian/Code/turtles/turtle_datasets/job10_mini/frames_0_200'
+# img_list = sorted(glob.glob(os.path.join(img_dir, '*.PNG')))
+
+save_dir = 'output'
+os.makedirs(save_dir, exist_ok=True)
+
+
+max_img = 10
+for i, img_name in enumerate(img_list):
+    if i >= max_img:
+        print('hit max img')
+        break
+    
+    img = cv.imread(img_name, 0) # BGR
+
+    img_height, img_width = img.shape
+    # img = cv.cvtColor(img, cv.COLOR_BGR2GRAY) # RGB
+    # desired_width = 1280
+    # desired_height = int(np.ceil(img_height / img_width * desired_width))
+    # img = cv.resize(img, (desired_width, desired_height))
+    
+    # TODO image processing/smoothing?
+    ksize = 61 # very high due to large noise and large scale features
+    img = cv.GaussianBlur(img, (ksize, ksize), 0)
+    
+            
+    # import code
+    # code.interact(local=dict(globals(), **locals()))
+    
+    # CANNY EDGE DETECTION
+    canny = cv.Canny(img, 3, 5, L2gradient=True)
+    
+    
+    CANNY_GUI = False
+    if CANNY_GUI:
+        # cre`ate binary image (findcontours will treat anything > 1 as 1)
+        # use canny edge filter 
+        # https://docs.opencv.org/4.6.0/dd/d1a/group__imgproc__feature.html#ga04723e007ed888ddf11d9ba04e2232de
+        low_threshold = 255/3 # first threshold for hysteresis procedure, smallest used for edge linking
+        high_threshold = 5 # second, largest value used to find intiial segments for strong edges
+        apertureSize = 5
+        
+        canny = cv.Canny(img, 85, 255, 5)
+        
+        def callback(x):
+            print(x)
+            
+        cv.namedWindow('image', cv.WINDOW_NORMAL)
+        cv.createTrackbar('L', 'image', 0, 255, callback)
+        cv.createTrackbar('U', 'image', 0, 255, callback)
+        # cv.createTrackbar('A', 'image', 0, 300, callback)
+        while (1):
+            np_horz_concat = np.concatenate((img, canny), axis=1) # to display image side-by-side
+            cv.imshow('image', np_horz_concat)
+            k = cv.waitKey(1) & 0xFF
+            if k == 27: # escape key
+                break
+            l = cv.getTrackbarPos('L', 'image')
+            u = cv.getTrackbarPos('U', 'image')
+            # a = cv.getTrackbarPos('A', 'image')
+            canny = cv.Canny(img, l, u, L2gradient=True)
+            # img_e = cv.Can`ny(img, low_threshold, high_threshold, apertureSize, L2gradient=True)
+    
+    # morphological operations
+    k = 21
+    kernel = np.ones((k,k), np.uint8)
+    canny = cv.dilate(canny, kernel, iterations = 1)
+    canny = cv.morphologyEx(canny, cv.MORPH_CLOSE, kernel)
+    canny = cv.morphologyEx(canny, cv.MORPH_OPEN, kernel)
+    
+    save_img_name = os.path.basename(img_name)[:-4] + '_blob.jpg'
+    
+    plt.imsave(os.path.join(save_dir, save_img_name), canny)
+    
+    
+    # show the image
+    # fig, ax = plt.subplots()
+    # ax.imshow(canny)
+    
+    # fig2, ax2 = plt.subplots()
+    # ax2.imshow(img_e)
+    
+    # plt.show()
+    
+    # cv.simpleblobdetector too simple, cannot get pixel values/locations of
+    # # blobs themselves, so instead find contours
+    contours, hierarchy = cv.findContours(canny, mode=cv.RETR_TREE, method=cv.CHAIN_APPROX_NONE)
+    
+    hierarchy = hierarchy[0,:,:] # drop the first singleton dimension
+    parent = hierarchy[:, 2]
+    children = getchildren(contours, hierarchy)
+    
+    
+    # # get moments as a dictionary for each contour
+    mu = [cv.moments(contours[i])
+            for i in range(len(contours))]
+    
+    moments = hierarchicalmoments(contours, hierarchy, mu)
+    
+    # # get mass centers/centroids:
+    mc = np.array(computecentroids(contours, moments))
+    uc = mc[:, 0]
+    vc = mc[:, 1]
+    
+    drawing = drawBlobs(canny, contours, hierarchy, uc, vc)
+    
+    fig, ax = plt.subplots()
+    ax.imshow(drawing) 
+    plt.show()
+    
+    # TODO reject too-small and too weird blobs
+    # TODO write to xml file to upload blob annotations
