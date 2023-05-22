@@ -214,7 +214,7 @@ save_dir = 'output'
 os.makedirs(save_dir, exist_ok=True)
 
 
-max_img = 10
+max_img = 1
 for i, img_name in enumerate(img_list):
     if i >= max_img:
         print('hit max img')
@@ -228,10 +228,15 @@ for i, img_name in enumerate(img_list):
     # desired_height = int(np.ceil(img_height / img_width * desired_width))
     # img = cv.resize(img, (desired_width, desired_height))
     
+    img_base_name = os.path.basename(img_name)[:-4]
+    save_orig_img_name = os.path.join(save_dir, img_base_name + '_00_orig.jpg')
+    cv.imwrite(save_orig_img_name, img)
     # TODO image processing/smoothing?
     ksize = 61 # very high due to large noise and large scale features
     img = cv.GaussianBlur(img, (ksize, ksize), 0)
     
+    save_blur_img_name = os.path.join(save_dir, img_base_name + '_01_blur.jpg')
+    cv.imwrite(save_blur_img_name, img)
             
     # import code
     # code.interact(local=dict(globals(), **locals()))
@@ -239,6 +244,8 @@ for i, img_name in enumerate(img_list):
     # CANNY EDGE DETECTION
     canny = cv.Canny(img, 3, 5, L2gradient=True)
     
+    save_edge_img_name = os.path.join(save_dir, img_base_name + '_02_edge.jpg')
+    cv.imwrite(save_edge_img_name, canny)
     
     CANNY_GUI = False
     if CANNY_GUI:
@@ -277,9 +284,10 @@ for i, img_name in enumerate(img_list):
     canny = cv.morphologyEx(canny, cv.MORPH_CLOSE, kernel)
     canny = cv.morphologyEx(canny, cv.MORPH_OPEN, kernel)
     
-    save_img_name = os.path.basename(img_name)[:-4] + '_blob.jpg'
+    save_morph_img_name = os.path.join(save_dir, img_base_name + '_03_morph.jpg')
+    cv.imwrite(save_morph_img_name, canny)
     
-    plt.imsave(os.path.join(save_dir, save_img_name), canny)
+    # plt.imsave(os.path.join(save_dir, save_blob_img_name), canny)
     
     
     # show the image
@@ -313,9 +321,19 @@ for i, img_name in enumerate(img_list):
     
     drawing = drawBlobs(canny, contours, hierarchy, uc, vc)
     
-    fig, ax = plt.subplots()
-    ax.imshow(drawing) 
-    plt.show()
+    save_blob_img_name = os.path.join(save_dir, img_base_name + '_blob.jpg')
+    cv.imwrite(save_blob_img_name, drawing)
+    
+    # fig, ax = plt.subplots()
+    # ax.imshow(drawing) 
+    # plt.show()
     
     # TODO reject too-small and too weird blobs
+    
+    
     # TODO write to xml file to upload blob annotations
+    
+    
+    
+    import code
+    code.interact(local=dict(globals(), **locals()))
