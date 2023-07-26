@@ -2,6 +2,7 @@
 
 """blob_detection.py
 detect blobs for sub-surface annotation
+# NOTE: has a GUI (controlled by boolean) to interactively select edge threshods
 """
 
 
@@ -214,7 +215,7 @@ save_dir = 'output'
 os.makedirs(save_dir, exist_ok=True)
 
 
-max_img = 1
+max_img = 2
 for i, img_name in enumerate(img_list):
     if i >= max_img:
         print('hit max img')
