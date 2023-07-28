@@ -16,7 +16,7 @@ class Image:
                  filesize: int = None,
                  width: int = None,
                  height: int = None, 
-                 camera: str = None):
+                 camera: str = 'raspberry pi hq camera'):
         self.img_name = img_name
         self.img_dir = os.path.basename(img_name)
         self.filesize = filesize
@@ -42,9 +42,25 @@ class Image:
         # print('reading metadata')
         if img_name is None:
             img_name = self.img_name
+            
+        
+        img_suffix = os.path.splitext(img_name)[1]
         img_md = PIL_Image.open(img_name)
+        import code
+        code.interact(local=dict(globals(), **locals()))
         # print(img_md.text)
-        return img_md.text
+        png_suffix = ['.png', '.PNG']
+        jpg_suffix = ['.jpg', '.JPG', '.jpeg', '.JPEG']
+        if img_suffix in png_suffix:
+            return img_md.text
+        elif img_suffix in jpg_suffix: # HACK until we have proper metadata file structure associated with cslics
+            camera_index = img_name[7] # NOTE only works for single-digit cslics
+            capture_time = img_name[9:36]
+            metadata_dict = {'camera_index': camera_index,
+                             'capture_time': capture_time}
+            return metadata_dict
+        else:
+            return TypeError('Unknown image type (not jpg or png)')
     
     def print_metadata(self):
         # print(f'metadata: {self.metadata}')
@@ -54,7 +70,7 @@ class Image:
         print('Filename: ' + self.img_name)
         print(f'Filesize: {self.filesize}')
         print(f'Image (width, height): ({self.width, self.height}) pix')
-        print('Camera: ' + self.camera)
+        print(f'Camera: {self.camera}')
         print('Regions: ')
         for region in self.regions:
             region.print()
@@ -63,6 +79,20 @@ class Image:
 if __name__ == "__main__":
     
     print('Image.py')
+    
+    import glob
+    # img_dir = '/home/dorian/Data/cslics_2022_datasets/202211_amtenuis_1000/images_png'
+    # img_list = sorted(glob.glob(os.path.join(img_dir, '*.png')))
+    
+    img_dir = '/home/dorian/Data/cslics_2022_datasets/202211_amtenuis_1000/images_jpg'
+    img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
+    i = 0
+    
+    img_name = img_list[i]
+    img = Image(img_name)
+    
+    img.print()
+    
     
     import code
     code.interact(local=dict(globals(), **locals()))
