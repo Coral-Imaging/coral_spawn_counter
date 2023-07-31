@@ -25,12 +25,12 @@ from coral_spawn_counter.CoralImage import CoralImage
 
 
 # subset of images
-img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
-save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset_detections'
+# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
+# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset_detections'
 
 # full image set
-# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_jpg'
-# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
+img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_jpg'
+save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
 
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
 
@@ -51,8 +51,8 @@ image_index = []
 capture_time = []
 
 LOAD = False
-SAVE_PRELIM_IMAGES = False
-MAX_IMG = 10
+SAVE_PRELIM_IMAGES = True
+MAX_IMG = 10000
 
 def convert_to_decimal_days(dates_list):
     if not dates_list:
@@ -249,8 +249,8 @@ decimal_days = convert_to_decimal_days(capture_time_dt)
 
 
 # convert blobs_count into actual count, not interior list of indices
-count = [len(blobs_index) for blobs_index in blobs_count]
-count = np.array(count)
+image_count = [len(blobs_index) for blobs_index in blobs_count]
+image_count = np.array(image_count)
 
 # counts per image to density counts:
 # need volume:
@@ -260,7 +260,7 @@ image_volume = 0.10 # mL
 
 # density count:
 # density_count = [c / image_volume for c in count]
-density_count = count * image_volume
+density_count = image_count * image_volume
 
 # overall tank count: 
 tank_volume = 500 * 1000 # 500 L * 1000 mL/L
@@ -269,7 +269,8 @@ tank_count = density_count * tank_volume
 # show averages to apply rolling means
 plotdatadict = {
     'index': image_index,
-    'image_count': count,
+    'capture_time_days': decimal_days,
+    'image_count': image_count,
     'density_count': density_count,
     'tank_count': tank_count
 }
@@ -291,8 +292,8 @@ sns.set_theme(style='whitegrid')
 
 
 fig1, ax1 = plt.subplots()
-plt.plot(image_index, image_count_mean, label='count')
-plt.fill_between(image_index, 
+plt.plot(decimal_days, image_count_mean, label='count')
+plt.fill_between(decimal_days, 
                  image_count_mean - n*image_count_std,
                  image_count_mean + n*image_count_std,
                  alpha=0.2)
@@ -303,8 +304,8 @@ plt.savefig(os.path.join(save_plot_dir, 'subsubfacecounts.png'))
 
 
 fig2, ax2 = plt.subplots()
-plt.plot(image_index, density_count_mean, label='density [count/mL]')
-plt.fill_between(image_index, 
+plt.plot(decimal_days, density_count_mean, label='density [count/mL]')
+plt.fill_between(decimal_days, 
                  density_count_mean - n*density_count_std,
                  density_count_mean + n*density_count_std,
                  alpha=0.2)
@@ -315,8 +316,8 @@ plt.savefig(os.path.join(save_plot_dir, 'subsubface_densitycounts.png'))
 
 
 fig3, ax3 = plt.subplots()
-plt.plot(image_index, tank_count_mean, label='tank count [count]')
-plt.fill_between(image_index, 
+plt.plot(decimal_days, tank_count_mean, label='tank count [count]')
+plt.fill_between(decimal_days, 
                  tank_count_mean - n*tank_count_std,
                  tank_count_mean + n*tank_count_std,
                  alpha=0.2)
