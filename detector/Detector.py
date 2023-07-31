@@ -11,6 +11,7 @@ import glob
 import numpy as np
 from PIL import Image as PILImage
 import cv2 as cv
+import code
 
 
 # can probably follow along detect.py on how to run model
@@ -54,6 +55,27 @@ def save_image_predictions(predictions, img, imgname, imgsavedir, class_colours,
     imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
     cv.imwrite(imgsave_path, img)
     return True
+
+def save_image_summary(predictions, summarysavedir):
+    try:
+        "save the total counts info from the image in a small text file for the gui"
+        #Amalgamate class counts
+        data = [0 for i in range(len(classes))]
+        values, classCounts = np.unique(predictions.numpy()[:,-1], return_counts=True)
+        for i in range(len(values)):
+            index = int(values[i])
+            data[index] = classCounts[i]
+        #Write to a text file / the metadata
+        txtsavename = os.path.basename(imgname)
+        txtsavepath = os.path.join(summarysavedir, txtsavename[:-4] + '_summary.txt')
+        with open(txtsavepath, 'w') as f:
+            dataStr = "   0: " + str(data[0]) + "   1: " + str(data[1]) + "   2: " + str(data[2]) + "    3: " + str(data[3]) + "   4: " + str(data[4]) + "   5: " + str(data[5])
+            f.write(dataStr)
+    except:
+        code.interact(local=dict(globals(), **locals()))
+    return True
+
+    
 
 
 def nms(pred, conf_thresh, iou_thresh, classes, max_det):
@@ -104,7 +126,7 @@ def nms(pred, conf_thresh, iou_thresh, classes, max_det):
 
 
 # model
-weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
+weightsfile = '/home/henry/CSLICS/coral_spawn_counter/yolov5l6_20220223.pt'
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 # model = torch.load((weightsfile), map_location='cpu')
 model = torch.hub.load('ultralytics/yolov5', 'custom', path=weightsfile, trust_repo=True) # TODO make sure this can be run offline?
@@ -121,8 +143,9 @@ model.eval() # model into evaluation mode
 # sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
 # sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics01/images_jpg'
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
-root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
-sourceimages = os.path.join(root_dir, 'images_jpg')
+# root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
+root_dir = '/home/henry/CSLICS/coral_spawn_counter/'
+sourceimages = os.path.join(root_dir, 'microsphere_images')
 batch_size = 1
 # imgslist = sorted(os.listdir(sourceimages).endswidth(".png")) # assume correct input, probably should use glob
 imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
@@ -140,8 +163,8 @@ model.max_det = 1000
 # classes:
 # read in classes
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
-with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
-    classes = [line.strip() for line in f.readlines()]
+# with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
+#     classes = [line.strip() for line in f.readlines()]
 
 # TODO put this into specific file, similar to agklepie project
 # define class-specific colours
@@ -151,6 +174,8 @@ purple = [170, 0, 255] # two-cell stage
 yellow = [255, 255, 0] # advanced
 brown = [144, 65, 2] # damaged
 green = [0, 255, 00] # egg
+
+classes = [0,1,2,3,4,5]
 class_colours = {classes[0]: orange,
                  classes[1]: blue,
                  classes[2]: purple,
@@ -166,6 +191,10 @@ os.makedirs(imgsave_dir, exist_ok=True)
 txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
 os.makedirs(txtsavedir, exist_ok=True)
 
+# where to save text detections
+summarysavedir = os.path.join(root_dir, 'detections', 'detections_summaries')
+os.makedirs(txtsavedir, exist_ok=True)
+
 # for each image:
 for i, imgname in enumerate(imglist):
 
@@ -174,33 +203,33 @@ for i, imgname in enumerate(imglist):
     #     break
 
     # load image
-    try:
-        img_bgr = cv.imread(imgname) # BGR
-        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+    # try:
+    img_bgr = cv.imread(imgname) # BGR
+    img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
 
-        # inference
-        
-        pred = model([img_rgb], size=img_size)
-        # import code
-        # code.interact(local=dict(globals(), **locals()))
-        # pred.print()
-        # pred.save()
-        # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
-
-        predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
-        
-        # save predictions as an image
-        save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, class_colours, classes)
-        
-        # save predictions as a text file (TODO make a funtion)
-        save_text_predictions(predictions, imgname, txtsavedir, classes)
-    except:
-        print('unable to read image or do model prediction --> skipping')
-        print(f'skipped: imgname = {imgname}')
-        import code
-        code.interact(local=dict(globals(), **locals()))
-                               
+    # inference
     
+    pred = model([img_rgb], size=img_size)
+
+    predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
+    
+    # save predictions as an image
+    save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, class_colours, classes)
+    
+    # save predictions as a text file (TODO make a funtion)
+    save_text_predictions(predictions, imgname, txtsavedir, classes)
+
+    save_image_summary(predictions, summarysavedir)
+    break #TODO REMOVE
+
+
+    # except:
+    #     print('unable to read image or do model prediction --> skipping')
+    #     print(f'skipped: imgname = {imgname}')
+    #     import code
+    #     code.interact(local=dict(globals(), **locals()))
+                               
+
 # TODO actually make this a class and then a "have .run" method to peform detections
 # TODO write a separate script that reads in these text files and generates a plot in post
 
