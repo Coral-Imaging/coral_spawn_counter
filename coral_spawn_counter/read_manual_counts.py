@@ -11,7 +11,7 @@ from datetime import datetime
 
 
 def read_manual_counts(file):
-    df = pd.read_csv(os.path.join(filepath, filename))
+    df = pd.read_csv(os.path.join(file))
 
     # datetime 
     # time of manual counts
@@ -32,7 +32,7 @@ def read_manual_counts(file):
 
 if __name__ == "__main__":
     
-    filepath = '/media/dorian/DT4TB/2022_NovSpawning/20221113_AMaggieTenuis/cslics04/metadata'
+    filepath = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/metadata'
     filename = '20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv'
     file = os.path.join(filepath, filename)
     
