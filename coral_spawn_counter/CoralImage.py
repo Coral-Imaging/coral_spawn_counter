@@ -21,7 +21,7 @@ class CoralImage(Image):
     def __init__(self, img_name, txt_name, img=None, detections=None, fertratio=None):
         
         Image.__init__(self, img_name)
-        # for now, only accepting PIL images, png files
+        # for now, only jpgs or pngs
         self.img_name = img_name
         self.img = None # PIL_Image.open(img_name) # insane memory costs for large number of Images
         self.txt_name = txt_name

@@ -16,17 +16,25 @@ import matplotlib as mpl
 import seaborn.objects as so
 import pickle
 import pandas as pd
+from datetime import datetime
 
 import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image
 
-img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
-# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_jpg'
-img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
-# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
-save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset_detections'
-save_plot_dir = os.path.join(save_dir, 'plots')
+from coral_spawn_counter.CoralImage import CoralImage
 
+
+# subset of images
+img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
+save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset_detections'
+
+# full image set
+# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_jpg'
+# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
+
+img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
+
+save_plot_dir = os.path.join(save_dir, 'plots')
 save_img_dir = os.path.join(save_dir, 'images')
 
 subsurface_det_file = 'subsurface_det.pkl'
@@ -40,20 +48,55 @@ os.makedirs(save_img_dir, exist_ok=True)
 blobs_count = []
 blobs_list = []
 image_index = []
+capture_time = []
 
 LOAD = False
-SAVE_PRELIM_IMAGES = True
+SAVE_PRELIM_IMAGES = False
+MAX_IMG = 10
 
-if not LOAD:
-    max_img = 10000
+def convert_to_decimal_days(dates_list):
+    if not dates_list:
+        return []  # Return an empty list if the input list is empty
+
+    time_zero = dates_list[0]  # Time zero is the first element date in the list
+    decimal_days_list = []
+
+    for date in dates_list:
+        time_difference = date - time_zero
+        decimal_days = time_difference.total_seconds() / (60 * 60 * 24)
+        decimal_days_list.append(decimal_days)
+
+    return decimal_days_list
+
+
+
+if LOAD:
+    # load pickle file for blobs_list and blobs_count
+    
+    with open(subsurface_det_path, 'rb') as f:
+        save_data = pickle.load(f)
+        
+    blobs_list = save_data['blobs_list']
+    blobs_count = save_data['blobs_count']
+    image_index = save_data['image_index']
+    capture_time = save_data['capture_time']
+    
+else:
+    # do the thing
     
     for i, img_name in enumerate(img_list):
-        if i >= max_img:
-            print('hit max img')
+        if i >= MAX_IMG:
+            print(f'{i}: hit max img - stop here')
             break
         
         print(f'{i}: img_name = {img_name}')    
         img_base_name = os.path.basename(img_name)[:-4]
+        
+        # create coral image:
+        # TODO - loop the Hough transform method into here,
+        # also has metadata -> capture times
+        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
+        capture_time.append(coral_image.metadata['capture_time'])
         
         # read in image
         im = Image(img_name)
@@ -65,7 +108,7 @@ if not LOAD:
         if SAVE_PRELIM_IMAGES:
             im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_orig.jpg'))
         
-        # TODO
+        # TODO try this, see if it improves detections?
         # try histogram normalization (same as equalization)
         # spreads out the cumulative distribution of pixels in a linear fashion
         # brings out the shadows
@@ -119,9 +162,9 @@ if not LOAD:
         # blobby.printBlobs()
         
         # TODO reject too-small and too weird blobs
-        area_min = 10000
+        area_min = 5000
         area_max = 40000
-        circ_min = 0.65
+        circ_min = 0.5
         circ_max = 1.0
         
         b0 = [b for b in blobby if ((b.area < area_max and b.area > area_min) and (b.circularity > circ_min and b.circularity < circ_max))]
@@ -191,21 +234,18 @@ if not LOAD:
     with open(subsurface_det_path, 'wb') as f:
         save_data ={'blobs_list': blobs_list,
                     'blobs_count': blobs_count,
-                    'image_index': image_index}
+                    'image_index': image_index,
+                    'capture_time': capture_time}
         pickle.dump(save_data, f)
     
-else:
-    # load pickle file for blobs_list and blobs_count
-    
-    with open(subsurface_det_path, 'rb') as f:
-        save_data = pickle.load(f)
-    blobs_list = save_data['blobs_list']
-    blobs_count = save_data['blobs_count']
-    image_index = save_data['image_index']
-    
 
-# import code
-# code.interact(local=dict(globals(), **locals()))
+
+
+
+# capture time convert from strings to decimal days
+# parse capture_time into datetime objects so we can sort them
+capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+decimal_days = convert_to_decimal_days(capture_time_dt)
 
 
 # convert blobs_count into actual count, not interior list of indices
@@ -216,7 +256,7 @@ count = np.array(count)
 # need volume:
 # calculated by hand to be approximately 0.1 mL 
 # 2.23 cm x 1.675 cm x 0.267 cm
-image_volume = 0.1 # mL
+image_volume = 0.10 # mL
 
 # density count:
 # density_count = [c / image_volume for c in count]
@@ -235,29 +275,51 @@ plotdatadict = {
 }
 df = pd.DataFrame(plotdatadict)
 
+window_size = 20
+image_count_mean = df['image_count'].rolling(window_size).mean()
+image_count_std = df['image_count'].rolling(window_size).std()
+
+density_count_mean = df['density_count'].rolling(window_size).mean()
+density_count_std = df['density_count'].rolling(window_size).std()
+
+tank_count_mean = df['tank_count'].rolling(window_size).mean()
+tank_count_std = df['tank_count'].rolling(window_size).std()
+n = 1 # how many std deviations to show
+
 # TODO showcase counts over time?
 sns.set_theme(style='whitegrid')
-fig, ax = plt.subplots()
-plt.plot(image_index, count, label='count')
+
+
+fig1, ax1 = plt.subplots()
+plt.plot(image_index, image_count_mean, label='count')
+plt.fill_between(image_index, 
+                 image_count_mean - n*image_count_std,
+                 image_count_mean + n*image_count_std,
+                 alpha=0.2)
 plt.xlabel('index')
-plt.ylabel('count')
+plt.ylabel('image count')
 plt.title('Subsurface Counts vs Image Index - Prelim')
 plt.savefig(os.path.join(save_plot_dir, 'subsubfacecounts.png'))
 
 
-
-
-fig, ax = plt.subplots()
-plt.plot(image_index, density_count, label='density [count/mL]')
+fig2, ax2 = plt.subplots()
+plt.plot(image_index, density_count_mean, label='density [count/mL]')
+plt.fill_between(image_index, 
+                 density_count_mean - n*density_count_std,
+                 density_count_mean + n*density_count_std,
+                 alpha=0.2)
 plt.xlabel('index')
 plt.ylabel('density')
 plt.title('Subsurface Density count/mL vs Image Index - Prelim')
 plt.savefig(os.path.join(save_plot_dir, 'subsubface_densitycounts.png'))
 
 
-
-fig, ax = plt.subplots()
-plt.plot(image_index, tank_count, label='tank count [count]')
+fig3, ax3 = plt.subplots()
+plt.plot(image_index, tank_count_mean, label='tank count [count]')
+plt.fill_between(image_index, 
+                 tank_count_mean - n*tank_count_std,
+                 tank_count_mean + n*tank_count_std,
+                 alpha=0.2)
 plt.xlabel('index')
 plt.ylabel('tank count')
 plt.title('Overall tank count vs Image Index - Prelim')

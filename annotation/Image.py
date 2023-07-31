@@ -46,16 +46,16 @@ class Image:
         
         img_suffix = os.path.splitext(img_name)[1]
         img_md = PIL_Image.open(img_name)
-        import code
-        code.interact(local=dict(globals(), **locals()))
+
         # print(img_md.text)
         png_suffix = ['.png', '.PNG']
         jpg_suffix = ['.jpg', '.JPG', '.jpeg', '.JPEG']
         if img_suffix in png_suffix:
             return img_md.text
         elif img_suffix in jpg_suffix: # HACK until we have proper metadata file structure associated with cslics
-            camera_index = img_name[7] # NOTE only works for single-digit cslics
-            capture_time = img_name[9:36]
+            base_image_name = os.path.basename(img_name)
+            camera_index = base_image_name[7] # NOTE only works for single-digit cslics
+            capture_time = base_image_name[9:31]
             metadata_dict = {'camera_index': camera_index,
                              'capture_time': capture_time}
             return metadata_dict
