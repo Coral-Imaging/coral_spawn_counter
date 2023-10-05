@@ -19,7 +19,7 @@ import cv2 as cv
 # data folder location
 # output folder/file setup - should probably be a .csv due to Excel compatibility
 
-class Detector:
+class Sub_Surface_Detector:
     DEFAULT_WEIGHT_FILE = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
     DEFAULT_IMAGE_SIZE = 1280
@@ -152,6 +152,12 @@ class Detector:
 
         return pred[keep, :]
 
+    def total_count():
+        #TODO: function with total count
+
+    def show_image_predictions():
+        #TODO: function that plots detections on image
+
     def detect(self, image):
         pred = model([image], size=self.img_size)
         return pred
@@ -179,15 +185,15 @@ class Detector:
                 img_bgr = cv.imread(imgname) # BGR
                 img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
 
-                pred = detect(image_rgb)# inference
+                pred = self.detect(image_rgb)# inference
 
                 predictions = nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
                 
                 # save predictions as an image
-                save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, self.class_colours, self.classes)
+                self.save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, self.class_colours, self.classes)
                 
                 # save predictions as a text file (TODO make a funtion)
-                save_text_predictions(predictions, imgname, txtsavedir, classes)
+                self.save_text_predictions(predictions, imgname, txtsavedir, classes)
             except:
                 print('unable to read image or do model prediction --> skipping')
                 print(f'skipped: imgname = {imgname}')
@@ -195,7 +201,7 @@ class Detector:
         print('done')
 
 
-Coral_Detector = Detector()
+Coral_Detector = Sub_Surface_Detector()
 
 # model
 # weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
