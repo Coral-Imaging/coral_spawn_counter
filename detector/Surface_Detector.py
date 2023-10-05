@@ -30,6 +30,30 @@ from coral_spawn_counter.read_manual_counts import read_manual_counts
 class Surface_Detector:
     DEFAULT_IMG_DIR = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
     DEFAULT_SAVE_DIR = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
+    DEFAULT_MANUAL_FILE = "/mnt/c/20221113_amtenuis_cslics04/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
+    DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
+    DEFAULT_DETECTION_FILE = 'detection_results.pkl'
+    DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
+    DEFAULT_WINDOW_SIZE = 20
+    MAX_IMG = 10000
+
+    def __init__(self,
+                 img_dir: str = DEFAULT_IMG_DIR,
+                 save_dir: str = DEFAULT_SAVE_DIR,
+                 manual_file: str = DEFAULT_MANUAL_FILE,
+                 root_dir: str = DEFAULT_ROOT_DIR,
+                 detection_file: str = DEFAULT_DETECTION_FILE,
+                 onject_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
+                 window_size: int = DEFAULT_WINDOW_SIZE,
+                 max_img: int = MAX_IMG):
+        self.img_dir = img_dir
+        self.save_dir = save_dir
+        self.manual_file = manual_file
+        self.root_dir = root_dir
+        self.detection_file = detection_file
+        self.object_names_file = object_names_file
+        self.window_size = window_size
+        self.max_img = max_img
 
 ####################################################
 # subset of images
