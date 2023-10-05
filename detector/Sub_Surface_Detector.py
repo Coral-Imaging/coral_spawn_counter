@@ -54,6 +54,7 @@ class Sub_Surface_Detector:
         return model
 
     def get_classes_n_colours(root_dir):
+        #TODO: make a function of something else, used in both detectors
         with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
             classes = [line.strip() for line in f.readlines()]
         orange = [255, 128, 0] # four-eight cell stage
