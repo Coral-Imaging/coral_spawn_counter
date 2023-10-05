@@ -39,14 +39,18 @@ from coral_spawn_counter.read_manual_counts import read_manual_counts
 # save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
 
 # full cslics timeline
-img_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/images_jpg'
-save_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/combined_detections'
+#img_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/images_jpg'
+img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
+#save_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/combined_detections'
+save_dir = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
 
 # manual counts list:
-manual_counts_file = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv'
+#manual_counts_file = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv'
+manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
 
 # surface root_dir
-root_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04'
+#root_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04'
+root_dir = "/mnt/c/20221113_amtenuis_cslics04"
 detections_file = 'detection_results.pkl'
 # weights_file = 
 object_names_file = 'metadata/obj.names'

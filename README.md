@@ -9,7 +9,7 @@ Code to count coral spawn (eggs), run on central computer.
 
 - `conda activate cslics`
 - navigate to coral_spawn_counter folder
-- `pip instal -e .` installs as a python package locally so other modules can use this code
+- `pip install -e .` installs as a python package locally so other modules can use this code
 
 ## Operation
 
