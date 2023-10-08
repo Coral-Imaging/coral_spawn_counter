@@ -13,12 +13,6 @@ from PIL import Image as PILImage
 import cv2 as cv
 
 
-# can probably follow along detect.py on how to run model
-# location of model
-# load model via pytorch
-# data folder location
-# output folder/file setup - should probably be a .csv due to Excel compatibility
-
 class Sub_Surface_Detector:
     DEFAULT_WEIGHT_FILE = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
@@ -37,26 +31,31 @@ class Sub_Surface_Detector:
                 max_det: int = DEFAULT_MAX_DET):
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.model = load_model(weights_file)
+        self.model = self.load_model(weights_file)
         self.model.conf = conf_thresh
         self.model.iou = iou
         self.model.agnostic = agnostic
         self.model.max_det = max_det
 
         self.root_dir = root_dir
-        self.classes, self.class_colours = get_classes_n_colours(root_dir)
-        self.image_size = image_size
+        self.classes = self.get_classes(self.root_dir)
+        self.class_colours = self.get_colours(self.classes)
+        self.img_size = image_size
 
-    def load_model(self, weights_file: str)
+    def load_model(self, weights_file: str):
         model = torch.hub.load('ultralytics/yolov5', 'custom', path=weights_file, trust_repo=True) # TODO make sure this can be run offline?
         model = model.to(self.device)
         model.eval()  # model into evaluation mode
         return model
 
-    def get_classes_n_colours(root_dir):
+    def get_classes(self, root_dir):
         #TODO: make a function of something else, used in both detectors
         with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
             classes = [line.strip() for line in f.readlines()]
+        return classes
+    
+    def get_colours(self, classes):
+        #TODO: make a function of something else, used in both detectors
         orange = [255, 128, 0] # four-eight cell stage
         blue = [0, 212, 255] # first cleavage
         purple = [170, 0, 255] # two-cell stage
@@ -69,9 +68,9 @@ class Sub_Surface_Detector:
                         classes[3]: yellow,
                         classes[4]: brown,
                         classes[5]: green}
-        return classes, class_colours
+        return class_colours
 
-    def save_text_predictions(predictions, imgname, txtsavedir, classes):
+    def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
         """
         save predictions/detections into text file
         [x1 y1 x2 y2 conf class_idx class_name]
@@ -90,7 +89,7 @@ class Sub_Surface_Detector:
         return True
 
 
-    def save_image_predictions(predictions, img, imgname, imgsavedir, class_colours, classes):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
         """
         save predictions/detections on image
         """
@@ -108,7 +107,7 @@ class Sub_Surface_Detector:
         return True
 
 
-    def nms(pred, conf_thresh, iou_thresh, classes, max_det):
+    def nms(self, pred, conf_thresh, iou_thresh, classes, max_det):
         """ perform class-agnostic non-maxima suppression on predictions 
         pred = [x1 y1 x2 y2 conf class] tensor
         """
@@ -153,26 +152,29 @@ class Sub_Surface_Detector:
 
         return pred[keep, :]
 
-    def total_count():
+    def total_count(self):
         #TODO: function with total count
+        print('not done')
 
-    def show_image_predictions():
+    def show_image_predictions(self):
         #TODO: function that plots detections on image
+        print('not done')
 
     def detect(self, image):
-        pred = model([image], size=self.img_size)
+        pred = self.model([image], size=self.img_size)
         return pred
     
-    def run():
-        sourceimages = os.path.join(root_dir, 'images_jpg')
+    def run(self):
+        sourceimages = os.path.join(self.root_dir, 'images_jpg')
         print('running Detector.py on:')
         print(f'source images: {sourceimages}')
+        imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
         
-        imgsave_dir = os.path.join(root_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
         os.makedirs(imgsave_dir, exist_ok=True)
 
         # where to save text detections
-        txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
+        txtsavedir = os.path.join(self.root_dir, 'detections', 'detections_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         for i, imgname in enumerate(imglist):
@@ -186,128 +188,39 @@ class Sub_Surface_Detector:
                 img_bgr = cv.imread(imgname) # BGR
                 img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
 
-                pred = self.detect(image_rgb)# inference
+                pred = self.detect(img_rgb)# inference
 
-                predictions = nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
+                predictions = self.nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
                 
                 # save predictions as an image
                 self.save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, self.class_colours, self.classes)
                 
-                # save predictions as a text file (TODO make a funtion)
-                self.save_text_predictions(predictions, imgname, txtsavedir, classes)
+                # save predictions as a text file
+                self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
                 print('unable to read image or do model prediction --> skipping')
                 print(f'skipped: imgname = {imgname}')
+                import code
+                code.interact(local=dict(globals(), **locals()))
 
         print('done')
 
+def main():
+    # weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
+    # weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
+    weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
+    # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+    # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
+    root_dir = "/mnt/c/20221113_amtenuis_cslics04"
 
-Coral_Detector = Sub_Surface_Detector()
+    Coral_Detector = Sub_Surface_Detector(weights_file=weightsfile, root_dir = root_dir)
+    Coral_Detector.run()
 
-# model
-# weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
-weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-# model = torch.load((weightsfile), map_location='cpu')
-model = torch.hub.load('ultralytics/yolov5', 'custom', path=weightsfile, trust_repo=True) # TODO make sure this can be run offline?
-# model = (model.get('ema') or model['model']).to(device).float()
-model = model.to(device)
-# get names
-# if hasattr(model, 'names') and isinstance(model.names, (list, tuple)):
-#     model.names = dict(enumerate(model.names)) # convert to dict
-# else:
-#     print('TODO: get names from names file')
-model.eval() # model into evaluation mode
-    
-# source images
-# sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
-# sourceimages = '/home/agkelpie/Code/cslics_ws/src/datasets/20221113_amtenuis_cslics01/images_jpg'
-# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
-# root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
-root_dir = "/mnt/c/20221113_amtenuis_cslics04"
-sourceimages = os.path.join(root_dir, 'images_jpg')
-batch_size = 1
-# imgslist = sorted(os.listdir(sourceimages).endswidth(".png")) # assume correct input, probably should use glob
-imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
+if __name__ == "__main__":
+    main()
 
-print('running Detector.py on:')
-print(f'source images: {sourceimages}')
 
-# parameters
-img_size = 1280
-model.conf = 0.25
-model.iou = 0.45
-model.agnostic = True
-model.max_det = 1000
-
-# classes:
-# read in classes
-# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
-with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
-    classes = [line.strip() for line in f.readlines()]
-
-# TODO put this into specific file, similar to agklepie project
-# define class-specific colours
-orange = [255, 128, 0] # four-eight cell stage
-blue = [0, 212, 255] # first cleavage
-purple = [170, 0, 255] # two-cell stage
-yellow = [255, 255, 0] # advanced
-brown = [144, 65, 2] # damaged
-green = [0, 255, 00] # egg
-class_colours = {classes[0]: orange,
-                 classes[1]: blue,
-                 classes[2]: purple,
-                 classes[3]: yellow,
-                 classes[4]: brown,
-                 classes[5]: green}
-
-# where to save image detections
-imgsave_dir = os.path.join(root_dir, 'detections', 'detections_images')
-os.makedirs(imgsave_dir, exist_ok=True)
-
-# where to save text detections
-txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
-os.makedirs(txtsavedir, exist_ok=True)
-
-# for each image:
-for i, imgname in enumerate(imglist):
-
-    print(f'predictions on {i+1}/{len(imglist)}')
-    # if i >= 3: # for debugging purposes
-    #     break
-
-    # load image
-    try:
-        img_bgr = cv.imread(imgname) # BGR
-        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-
-        # inference
-        
-        pred = model([img_rgb], size=img_size)
-        # import code
-        # code.interact(local=dict(globals(), **locals()))
-        # pred.print()
-        # pred.save()
-        # pred.pandas().xyxy[0] # save predictions as pandas dataframe object
-
-        predictions = nms(pred.pred[0], model.conf, model.iou, classes, model.max_det)
-        
-        # save predictions as an image
-        save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, class_colours, classes)
-        
-        # save predictions as a text file (TODO make a funtion)
-        save_text_predictions(predictions, imgname, txtsavedir, classes)
-    except:
-        print('unable to read image or do model prediction --> skipping')
-        print(f'skipped: imgname = {imgname}')
-        import code
-        code.interact(local=dict(globals(), **locals()))
-                               
-    
-# TODO actually make this a class and then a "have .run" method to peform detections
 # TODO write a separate script that reads in these text files and generates a plot in post
-
-print('done')
 
 # import code
 # code.interact(local=dict(globals(), **locals()))
