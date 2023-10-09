@@ -1,12 +1,9 @@
 #! /usr/bin/env python3
 
 """
-coral spawn counting using blobs with manual counts overlayed (copied from blob_mvt.py)
+coral spawn counting using blobs (copied from count_coral_spawn.py)
 TODO: also calls yolov5 detector onto cslics surface embryogenesis
-TODO: shows the two plots on same graph
 """
-
-
 import os
 import cv2 as cv
 import numpy as np
@@ -216,6 +213,7 @@ class Surface_Detector:
         return blobs_count, blobs_list, image_index, capture_time
 
 
+# TODO add to different file, used in this file and Plot_Detectors_Results
 def convert_to_decimal_days(dates_list, time_zero=None):
     if time_zero is None:
         time_zero = dates_list[0]  # Time zero is the first element date in the list
@@ -231,125 +229,3 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
     
-
-########################################################
-
-# read manual counts file
-
-dt, mc, tw = read_manual_counts(manual_counts_file)
-zero_time = capture_time_dt[0]
-manual_decimal_days = convert_to_decimal_days(dt, zero_time)
-
-########################################################
-
-
-
-# convert blobs_count into actual count, not interior list of indices
-image_count = [len(blobs_index) for blobs_index in blobs_count]
-image_count = np.array(image_count)
-
-# counts per image to density counts:
-# need volume:
-# calculated by hand to be approximately 0.1 mL 
-# 2.23 cm x 1.675 cm x 0.267 cm
-image_volume = 0.10 # mL
-
-# density count:
-# density_count = [c / image_volume for c in count]
-density_count = image_count * image_volume
-
-# overall tank count: 
-tank_volume = 500 * 1000 # 500 L * 1000 mL/L
-tank_count = density_count * tank_volume
-
-# show averages to apply rolling means
-plotdatadict = {
-    'index': image_index,
-    'capture_time_days': decimal_days,
-    'image_count': image_count,
-    'density_count': density_count,
-    'tank_count': tank_count
-}
-df = pd.DataFrame(plotdatadict)
-
-
-image_count_mean = df['image_count'].rolling(window_size).mean()
-image_count_std = df['image_count'].rolling(window_size).std()
-
-density_count_mean = df['density_count'].rolling(window_size).mean()
-density_count_std = df['density_count'].rolling(window_size).std()
-
-tank_count_mean = df['tank_count'].rolling(window_size).mean()
-tank_count_std = df['tank_count'].rolling(window_size).std()
-n = 1 # how many std deviations to show
-mpercent = 0.1 # range for manual counts
-
-# TODO showcase counts over time?
-sns.set_theme(style='whitegrid')
-
-
-fig1, ax1 = plt.subplots()
-plt.plot(decimal_days, image_count_mean, label='count')
-plt.fill_between(decimal_days, 
-                 image_count_mean - n*image_count_std,
-                 image_count_mean + n*image_count_std,
-                 alpha=0.2)
-plt.xlabel('days since stocking')
-plt.ylabel('image count')
-plt.title('Subsurface Counts vs Image Index - Prelim')
-plt.savefig(os.path.join(save_plot_dir, 'subsubfacecounts.png'))
-
-
-fig2, ax2 = plt.subplots()
-plt.plot(decimal_days, density_count_mean, label='density [count/mL]')
-plt.fill_between(decimal_days, 
-                 density_count_mean - n*density_count_std,
-                 density_count_mean + n*density_count_std,
-                 alpha=0.2)
-plt.xlabel('days since stocking')
-plt.ylabel('density')
-plt.title('Subsurface Density count/mL vs Image Index - Prelim')
-plt.savefig(os.path.join(save_plot_dir, 'subsubface_densitycounts.png'))
-
-
-
-
-# wholistic tank count
-fig3, ax3 = plt.subplots()
-
-# surface counts
-plt.plot(surface_decimal_days, counttank_total, label='surface count', color='orange')
-plt.fill_between(surface_decimal_days,
-                 counttank_total - n * nimage_to_tank_surface * count_total_std,
-                 counttank_total + n * nimage_to_tank_surface * count_total_std,
-                 alpha=0.2,
-                 color='orange')
-
-# subsurface counts
-plt.plot(decimal_days, tank_count_mean, label='subsurface count')
-plt.fill_between(decimal_days, 
-                 tank_count_mean - n*tank_count_std,
-                 tank_count_mean + n*tank_count_std,
-                 alpha=0.2)
-
-# manual counts
-plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o')
-plt.fill_between(manual_decimal_days, 
-                 mc - mpercent * mc,
-                 mc + mpercent * mc,
-                 alpha=0.1,
-                 color='green')
-plt.xlabel('days since stocking')
-plt.ylabel('tank count')
-plt.title('Overall tank count vs Time')
-plt.legend()
-plt.savefig(os.path.join(save_plot_dir, 'subsubface_tankcounts.png'))
-
-
-
-print('done blob_mvt.py')
-# TODO need to ascertain the validity of the blobs - not all edges are ideal - chat with Andrew
-# TODO save blob counts to txt file for reading/later usage?
-# TODO write to xml file for uploading blob annotations    
-import code
-code.interact(local=dict(globals(), **locals()))
