@@ -20,10 +20,12 @@ class Sub_Surface_Detector:
     DEFAULT_CONFIDENCE_THREASHOLD = 0.25
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
+    DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
 
     def __init__(self, 
                 weights_file: str = DEFAULT_WEIGHT_FILE,
                 root_dir: str = DEFAULT_ROOT_DIR,
+                source_img_folder: str = DEFAULT_SOURCE_IMAGES,
                 image_size: int = DEFAULT_IMAGE_SIZE,
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
@@ -39,22 +41,34 @@ class Sub_Surface_Detector:
 
         self.root_dir = root_dir
         self.classes = self.get_classes(self.root_dir)
-        self.class_colours = self.get_colours(self.classes)
+        self.class_colours = self.set_class_colours(self.classes)
         self.img_size = image_size
 
+        self.sourceimages = source_img_folder
+
     def load_model(self, weights_file: str):
+        """
+        load a yolov5 model with custom weights
+        """
         model = torch.hub.load('ultralytics/yolov5', 'custom', path=weights_file, trust_repo=True) # TODO make sure this can be run offline?
         model = model.to(self.device)
         model.eval()  # model into evaluation mode
         return model
 
     def get_classes(self, root_dir):
+        """
+        get the classes from a metadata/obj.names file
+        classes = [class1, class2, class3 etc.]
+        """
         #TODO: make a function of something else, used in both detectors
         with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
             classes = [line.strip() for line in f.readlines()]
         return classes
     
-    def get_colours(self, classes):
+    def set_class_colours(self, classes):
+        """
+        set classes to specific colours using a dictionary
+        """
         #TODO: make a function of something else, used in both detectors
         orange = [255, 128, 0] # four-eight cell stage
         blue = [0, 212, 255] # first cleavage
@@ -161,15 +175,18 @@ class Sub_Surface_Detector:
         print('not done')
 
     def detect(self, image):
+        """
+        return detections from a single rgb image
+        """
         pred = self.model([image], size=self.img_size)
         return pred
     
     def run(self):
-        sourceimages = os.path.join(self.root_dir, 'images_jpg')
-        print('running Detector.py on:')
-        print(f'source images: {sourceimages}')
-        imglist = glob.glob(os.path.join(sourceimages, '*.jpg'))
+        print('running Sub_Surface_Detector.py on:')
+        print(f'source images: {self.sourceimages}')
+        imglist = glob.glob(os.path.join(self.sourceimages, '*.jpg'))
         
+        # where to save image detections
         imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
         os.makedirs(imgsave_dir, exist_ok=True)
 
@@ -212,8 +229,9 @@ def main():
     # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
     root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+    source_img_folder = os.path.join(root_dir, 'images_jpg')
 
-    Coral_Detector = Sub_Surface_Detector(weights_file=weightsfile, root_dir = root_dir)
+    Coral_Detector = Sub_Surface_Detector(weights_file=weightsfile, root_dir = root_dir, source_img_folder=source_img_folder)
     Coral_Detector.run()
 
 if __name__ == "__main__":
