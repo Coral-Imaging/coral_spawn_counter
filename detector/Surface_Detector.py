@@ -30,9 +30,8 @@ from coral_spawn_counter.read_manual_counts import read_manual_counts
 class Surface_Detector:
     DEFAULT_IMG_DIR = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
     DEFAULT_SAVE_DIR = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
-    DEFAULT_MANUAL_FILE = "/mnt/c/20221113_amtenuis_cslics04/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
-    DEFAULT_DETECTION_FILE = 'detection_results.pkl'
+    DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
     DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
     DEFAULT_WINDOW_SIZE = 20
     MAX_IMG = 10000
@@ -40,7 +39,6 @@ class Surface_Detector:
     def __init__(self,
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
-                 manual_file: str = DEFAULT_MANUAL_FILE,
                  root_dir: str = DEFAULT_ROOT_DIR,
                  detection_file: str = DEFAULT_DETECTION_FILE,
                  onject_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
@@ -48,65 +46,173 @@ class Surface_Detector:
                  max_img: int = MAX_IMG):
         self.img_dir = img_dir
         self.save_dir = save_dir
-        self.manual_file = manual_file
         self.root_dir = root_dir
         self.detection_file = detection_file
         self.object_names_file = object_names_file
         self.window_size = window_size
         self.max_img = max_img
 
-####################################################
-# subset of images
-# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
-# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset_detections'
+    def prep_img(self, img_name, SAVE_PRELIM_IMAGES):
+        # create coral image:
+        # TODO - loop the Hough transform method into here, also has metadata -> capture times
+        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
+        capture_time.append(coral_image.metadata['capture_time'])
+        
+        # read in image
+        im = Image(img_name)
+        # grayscale
+        im_mono = im.mono()
+        # blur image
+        # HACK make a new object using GaussianBlur
+        ksize = 61
+        im_blur = Image(cv.GaussianBlur(im_mono.image, (ksize, ksize), 0))
+        # edge detection
+        canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True)
+        im_canny = Image(canny)
+        # TODO MVT GUI related to image edge thresholds?
+        # morph
+        k = 11
+        kernel = np.ones((k,k), np.uint8)
+        im_morph = Image(im_canny.dilate(kernel))
+        im_morph = im_morph.close(kernel)
+        kernel = 11
+        im_morph = im_morph.open(kernel)
 
-# full sub-surface image set
-# img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_jpg'
-# save_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/subsurface_detections'
+        # step-by-step save the image
+        if SAVE_PRELIM_IMAGES:
+            img_base_name = os.path.basename(img_name)[:-4]
+            im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_orig.jpg'))
+            im_blur.write(os.path.join(save_img_dir, img_base_name + '_01_blur.jpg'))
+            im_canny.write(os.path.join(save_img_dir, img_base_name + '_02_edge.jpg'))
+            im_morph.write(os.path.join(save_img_dir, img_base_name + '_03_morph.jpg'))
+        
+        return im_morph
 
-# full cslics timeline
-#img_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/images_jpg'
-img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
-#save_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/combined_detections'
-save_dir = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
+    def attempt_blobs(self, im_morph, SAVE_PRELIM_IMAGES, im):
+        try:
+            blobby = mvt.Blob(im_morph)
+            print(f'{len(blobby)} blobs initially found')
+            # show blobs
+            imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
 
-# manual counts list:
-#manual_counts_file = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv'
-manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
+            #  reject too-small and too weird blobs
+            area_min = 5000
+            area_max = 40000
+            circ_min = 0.5
+            circ_max = 1.0
+            b0 = [b for b in blobby if ((b.area < area_max and b.area > area_min) and (b.circularity > circ_min and b.circularity < circ_max))]
+            idx_blobs = np.arange(0, len(blobby))
+            b0_area = [b.area for b in b0]
+            b0_circ = [b.circularity for b in b0]
+            b0_cent = [b.centroid for b in b0]
+            # can do more... TODO ??
+            # icont = [i for i in idx_blobs if (blobby[i].area in b0_area and blobby[i].circularity in b0_circ)]
+            # icont = [i for i, b in enumerate(blobby) if b in b0] # this should work, but doesn't - not yet implemented...
+            icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
+                                                            blobby[i].area in b0_area and 
+                                                            blobby[i].circularity in b0_circ)] # this should work, but doesn't - not yet implemented...
+            # b0.printBlobs()
+            imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
 
-# surface root_dir
-#root_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04'
-root_dir = "/mnt/c/20221113_amtenuis_cslics04"
-detections_file = 'detection_results.pkl'
-# weights_file = 
-object_names_file = 'metadata/obj.names'
+            self.save_side_blobs(im, img_base_name = os.path.basename(img_name)[:-4])
+            image1 = im.image
 
-####################################################
+            # just plot the contours of the blobs based on imblobs_area and icont:
+            image_contours = image1
+            contour_colour = [0, 0, 255] # red in BGR
+            contour_thickness = 10
+            for i in icont:
+                cv.drawContours(image_contours,
+                                blobby._contours,
+                                i,
+                                contour_colour,
+                                thickness=contour_thickness,
+                                lineType=cv.LINE_8)
+            image3 = Image(image_contours)
+            image3.write(os.path.join(save_img_dir, img_base_name + '_blobs_contour.jpg'))
 
+            if SAVE_PRELIM_IMAGES:
+                imblobs.write(os.path.join(save_img_dir, img_base_name + '_04_blob.jpg'))
+                imblobs_area.write(os.path.join(save_img_dir, img_base_name + '_05_blob_filter.jpg'))
 
-# get image list
-img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
-
-save_plot_dir = os.path.join(save_dir, 'plots')
-save_img_dir = os.path.join(save_dir, 'images')
-
-subsurface_det_file = 'subsurface_det.pkl'
-subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
+            # TODO for now, just count these blobs over time
+            return blobby, icont
+        except:
+            print(f'No blob detection for {img_name}')
+            # append empty to keep indexes consistent
+            return [], []
     
-# save_dir = 'output2'
-os.makedirs(save_dir, exist_ok=True)
-os.makedirs(save_plot_dir, exist_ok=True)
-os.makedirs(save_img_dir, exist_ok=True)
+    def save_side_blobs(self, im, img_base_name):
+        # save side-by-side image/collage for blobs.
+        # NOTE most of this code is commented out, as orginally given to me
+        image1 = im.image
+        image2 = imblobs_area.image
+        image2_mask = imblobs_area.image > 0
+        # save side-by-side image/collage
+        # concatenated_image = Image(cv.hconcat([image1, image2]))
+        # concatenated_image.write(os.path.join(self.save_dir, img_base_name + '_concate_blobs.jpg'))
+            
+        # image overlay (probably easier to view)
+        # opacity = 0.35
+        # image_overlay = Image(cv.addWeighted(image1, 
+        #                                     1-opacity, 
+        #                                     image2,
+        #                                     opacity,
+        #                                     0))
+        # image_overlay.write(os.path.join(self.save_dir, img_base_name + '_blobs_overlay.jpg'))
 
-blobs_count = []
-blobs_list = []
-image_index = []
-capture_time = []
+    def run(self, SUBSURFACE_LOAD = False, SAVE_PRELIM_IMAGES = True):
+        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
 
-SUBSURFACE_LOAD = False
-SAVE_PRELIM_IMAGES = True
-MAX_IMG = 10000
-window_size = 20 # for rolling means, etc
+        blobs_count = []
+        blobs_list = []
+        image_index = []
+        capture_time = []
+
+        start_time = time.time()
+
+        if(SUBSURFACE_LOAD):
+            #load pickel file
+            with open(subsurface_det_path, 'rb') as f:
+                save_data = pickle.load(f)
+
+            blobs_list = save_data['blobs_list']
+            blobs_count = save_data['blobs_count']
+            image_index = save_data['image_index']
+            capture_time = save_data['capture_time']
+        else:
+            for i, img_name in enumerate(img_list):
+                if i >= MAX_IMG:
+                    print(f'{i}: hit max img - stop here')
+                    break
+        
+                print(f'{i}: img_name = {img_name}')  
+                im_morph = prep_img(img_name, SAVE_PRELIM_IMAGES) 
+                print('image prepared')
+                image_index.append(i)
+
+                blobby, icont = attempt_blobs(im_morph, SAVE_PRELIM_IMAGES, im = Image(img_name))
+                blobs_list.append(blobby)
+                blobs_count.append(icont)
+
+
+            with open(subsurface_det_path, 'wb') as f:
+                save_data ={'blobs_list': blobs_list,
+                    'blobs_count': blobs_count,
+                    'image_index': image_index,
+                    'capture_time': capture_time}
+                pickle.dump(save_data, f)
+
+        end_time = time.time()
+        duration = end_time - start_time
+        print('run time: {} sec'.format(duration))
+        print('run time: {} min'.format(duration / 60.0))
+        print('run time: {} hrs'.format(duration / 3600.0))
+
+        capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+        decimal_days = convert_to_decimal_days(capture_time_dt)
+
 
 def convert_to_decimal_days(dates_list, time_zero=None):
     if time_zero is None:
@@ -122,194 +228,7 @@ def convert_to_decimal_days(dates_list, time_zero=None):
         decimal_days_list.append(decimal_days)
 
     return decimal_days_list
-
     
-####################################################
-# SUBSURFACE COUNTING
-
-start_time = time.time()
-if SUBSURFACE_LOAD:
-    # load pickle file for blobs_list and blobs_count
-    
-    with open(subsurface_det_path, 'rb') as f:
-        save_data = pickle.load(f)
-        
-    blobs_list = save_data['blobs_list']
-    blobs_count = save_data['blobs_count']
-    image_index = save_data['image_index']
-    capture_time = save_data['capture_time']
-    
-else:
-    # do the thing
-    
-    for i, img_name in enumerate(img_list):
-        if i >= MAX_IMG:
-            print(f'{i}: hit max img - stop here')
-            break
-        
-        print(f'{i}: img_name = {img_name}')    
-        img_base_name = os.path.basename(img_name)[:-4]
-        
-        # create coral image:
-        # TODO - loop the Hough transform method into here,
-        # also has metadata -> capture times
-        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
-        capture_time.append(coral_image.metadata['capture_time'])
-        
-        # read in image
-        im = Image(img_name)
-        
-        # grayscale
-        im_mono = im.mono()
-        
-        # step-by-step save the image
-        if SAVE_PRELIM_IMAGES:
-            im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_orig.jpg'))
-        
-        # TODO try this, see if it improves detections?
-        # try histogram normalization (same as equalization)
-        # spreads out the cumulative distribution of pixels in a linear fashion
-        # brings out the shadows
-        # im_mono = im_mono.normhist()
-        
-        # if SAVE_PRELIM_IMAGES:
-        #     im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_normhist.jpg'))
-        
-        
-        # blur image
-        # im_mono.smooth(sigma=1,hw=31) # this is really really slow!
-        # HACK make a new object using GaussianBlur
-        # ksize = 61
-        ksize = 61
-        im_blur = Image(cv.GaussianBlur(im_mono.image, (ksize, ksize), 0))
-        if SAVE_PRELIM_IMAGES:
-            im_blur.write(os.path.join(save_img_dir, img_base_name + '_01_blur.jpg'))
-        
-        # edge detection
-        canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True)
-        im_canny = Image(canny)
-        # im_canny = Image(im_blur.canny(th0=5, th1=15))
-        if SAVE_PRELIM_IMAGES:
-            im_canny.write(os.path.join(save_img_dir, img_base_name + '_02_edge.jpg'))
-        
-        # TODO MVT GUI related to image edge thresholds?
-        
-        # morph!
-        k = 11
-        kernel = np.ones((k,k), np.uint8)
-        im_morph = Image(im_canny.dilate(kernel))
-        im_morph = im_morph.close(kernel)
-        kernel = 11
-        im_morph = im_morph.open(kernel)
-        if SAVE_PRELIM_IMAGES:
-            im_morph.write(os.path.join(save_img_dir, img_base_name + '_03_morph.jpg'))
-        
-        image_index.append(i)
-        # call Blobs class
-        
-        try:
-            blobby = mvt.Blob(im_morph)
-            print(f'{len(blobby)} blobs initially found')
-
-            # show blobs
-            imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
-            if SAVE_PRELIM_IMAGES:
-                imblobs.write(os.path.join(save_img_dir, img_base_name + '_04_blob.jpg'))
-            # imblobs.disp()
-            
-            # blobby.printBlobs()
-            
-            # TODO reject too-small and too weird blobs
-            area_min = 5000
-            area_max = 40000
-            circ_min = 0.5 # should be 0.5
-            circ_max = 1.0
-            
-            b0 = [b for b in blobby if ((b.area < area_max and b.area > area_min) and (b.circularity > circ_min and b.circularity < circ_max))]
-            idx_blobs = np.arange(0, len(blobby))
-            b0_area = [b.area for b in b0]
-            b0_circ = [b.circularity for b in b0]
-            b0_cent = [b.centroid for b in b0]
-            # can do more...
-            # icont = [i for i in idx_blobs if (blobby[i].area in b0_area and blobby[i].circularity in b0_circ)]
-            # icont = [i for i, b in enumerate(blobby) if b in b0] # this should work, but doesn't - not yet implemented...
-            icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
-                                                            blobby[i].area in b0_area and 
-                                                            blobby[i].circularity in b0_circ)] # this should work, but doesn't - not yet implemented...
-            
-            # b0.printBlobs()
-            imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
-            if SAVE_PRELIM_IMAGES:
-                imblobs_area.write(os.path.join(save_img_dir, img_base_name + '_05_blob_filter.jpg'))
-
-            
-            image1 = im.image
-            image2 = imblobs_area.image
-            image2_mask = imblobs_area.image > 0
-            # save side-by-side image/collage
-            # concatenated_image = Image(cv.hconcat([image1, image2]))
-            # concatenated_image.write(os.path.join(save_dir, img_base_name + '_concate_blobs.jpg'))
-            
-            # image overlay (probably easier to view)
-            # opacity = 0.35
-            # image_overlay = Image(cv.addWeighted(image1, 
-            #                                     1-opacity, 
-            #                                     image2,
-            #                                     opacity,
-            #                                     0))
-            # image_overlay.write(os.path.join(save_dir, img_base_name + '_blobs_overlay.jpg'))
-            
-            # just plot the contours of the blobs based on imblobs_area and icont:
-            image_contours = image1
-            contour_colour = [0, 0, 255] # red in BGR
-            contour_thickness = 10
-            for i in icont:
-                cv.drawContours(image_contours,
-                                blobby._contours,
-                                i,
-                                contour_colour,
-                                thickness=contour_thickness,
-                                lineType=cv.LINE_8)
-            image3 = Image(image_contours)
-            image3.write(os.path.join(save_img_dir, img_base_name + '_blobs_contour.jpg'))
-
-            # TODO for now, just count these blobs over time
-            # output into csv file or into yolo txt file format?
-            blobs_list.append(blobby)
-            blobs_count.append(icont)
-        
-        
-        except:
-            print(f'No blob detection for {img_name}')
-            
-            # append empty to keep indexes consistent
-            blobs_list.append([])
-            blobs_count.append([])
-            
-            
-    # save results as pkl file just in case the latter crashes
-    # name of the most recent spawn file:
-    with open(subsurface_det_path, 'wb') as f:
-        save_data ={'blobs_list': blobs_list,
-                    'blobs_count': blobs_count,
-                    'image_index': image_index,
-                    'capture_time': capture_time}
-        pickle.dump(save_data, f)
-    
-
-end_time = time.time()
-duration = end_time - start_time
-print('run time: {} sec'.format(duration))
-print('run time: {} min'.format(duration / 60.0))
-print('run time: {} hrs'.format(duration / 3600.0))
-
-
-
-
-# capture time convert from strings to decimal days
-# parse capture_time into datetime objects so we can sort them
-capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
-decimal_days = convert_to_decimal_days(capture_time_dt)
 
 ########################################################
 
