@@ -166,6 +166,34 @@ class Sub_Surface_Detector:
 
         return pred[keep, :]
 
+    def convert_results_2_pkl(self, imgsave_dir, textsavedir, save_file_name):
+        """
+        convert textfiles and images into CoralImage and save data in pkl file
+        """
+        # read in each .txt file
+        txt_list = sorted(os.listdir(txtsavedir))
+
+        results = []
+        for i, txt in enumerate(txt_list):
+            print(f'importing detections {i+1}/{len(txt_list)}')
+            with open(os.path.join(txtsavedir, txt), 'r') as f:
+                detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
+            detections = [det.rsplit() for det in detections]
+            # corresponding image name:
+            img_name = txt[:-8] + '.jpg' # + '.png'
+            img_name = os.path.join(root_dir, 'images_jpg', img_name)
+            CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
+                                txt_name=txt,
+                                detections=detections)
+            results.append(CImage)
+            
+        # sort results based on metadata capture time
+        results.sort(key=lambda x: x.metadata['capture_time'])
+
+        savefile = os.path.join(self.root_dir, save_file_name)
+        with open(savefile, 'wb') as f:
+            pickle.dump(results, f)
+
     def total_count(self):
         #TODO: function with total count
         print('not done')
@@ -220,7 +248,11 @@ class Sub_Surface_Detector:
                 import code
                 code.interact(local=dict(globals(), **locals()))
 
-        print('done')
+        print('done detection')
+
+        pkl_file = 'detection_results.pkl'
+        convert_results_2_pkl(imgsave_dir, textsavedir, save_file_name=pkl_file)
+        print(f'results stored in {pkl_file} file')
 
 def main():
     # weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'

@@ -11,7 +11,8 @@ Code to count coral spawn (eggs), run on central computer.
 - navigate to coral_spawn_counter folder
 - `pip install -e .` installs as a python package locally so other modules can use this code
 
-- Will also want to install machine-toolbox
+- Will also want to install machine-toolbox (0.5.4)
+- NOTE, currently using old code and code in these files does NOT work with updated machine-toolbox
 - `git clone https://github.com/petercorke/machinevision-toolbox-python.git`
 - `cd machinevision-toolbox-python`
 - `pip install -e .`
