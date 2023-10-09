@@ -213,6 +213,8 @@ class Surface_Detector:
         capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
         decimal_days = convert_to_decimal_days(capture_time_dt)
 
+        return blobs_count, blobs_list, image_index, capture_time
+
 
 def convert_to_decimal_days(dates_list, time_zero=None):
     if time_zero is None:

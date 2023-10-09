@@ -62,9 +62,10 @@ for i, txt in enumerate(txt_list):
     # corresponding image name:
     # TODO find corresponding image name in imgsave_dir
     # HACK for now, just truncate the detections name
-    img_name = txt[:-8] + '.png' # NOTE only png has the metadata, jpgs were unable to carry over metadata?
-    
-    CImage = CoralImage(img_name=os.path.join(root_dir, 'images_png', img_name), # TODO absolute vs relative? # want to grab the metadata
+    img_name = txt[:-8] + '.jpg' # + '.png' # NOTE only png has the metadata, jpgs were unable to carry over metadata?\
+    img_name = os.path.join(root_dir, 'images_jpg', img_name)
+
+    CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
                         txt_name=txt,
                         detections=detections)
     # create CoralImage object for each set of detections

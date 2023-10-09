@@ -46,7 +46,7 @@ save_dir = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
 
 # manual counts list:
 #manual_counts_file = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv'
-manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
+manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
 
 # surface root_dir
 #root_dir = '/home/dorian/Data/cslics_2022_datasets/20221113_amtenuis_cslics04'
