@@ -2,6 +2,7 @@
 
 """
 use the results from Sub_surface_detector and detector and plot them
+NOTE: Haven't tested yet
 """
 import os
 import cv2 as cv

@@ -3,6 +3,7 @@
 """
 coral spawn counting using blobs (copied from count_coral_spawn.py)
 TODO: also calls yolov5 detector onto cslics surface embryogenesis
+NOTE: Haven't tested yet
 """
 import os
 import cv2 as cv
