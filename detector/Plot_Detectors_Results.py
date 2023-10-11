@@ -2,7 +2,6 @@
 
 """
 use the results from SubSurface_detector and Surface detector pixkle files and plot them
-NOTE: Haven't tested yet
 """
 import os
 import cv2 as cv

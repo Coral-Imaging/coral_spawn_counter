@@ -13,7 +13,8 @@ from PIL import Image as PILImage
 import cv2 as cv
 from coral_spawn_counter.CoralImage import CoralImage
 import pickle
-
+from ultralytics import YOLO
+from ultralytics.engine.results import Results, Boxes
 
 class Surface_Detector:
     DEFAULT_WEIGHT_FILE = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
@@ -23,9 +24,11 @@ class Surface_Detector:
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
+    DEFAULT_YOLO8 = os.path.join(DEFAULT_ROOT_DIR, "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
     def __init__(self, 
-                weights_file: str = DEFAULT_WEIGHT_FILE,
+                #weights_file: str = DEFAULT_WEIGHT_FILE,
+                weights_file: str = DEFAULT_YOLO8,
                 root_dir: str = DEFAULT_ROOT_DIR,
                 source_img_folder: str = DEFAULT_SOURCE_IMAGES,
                 image_size: int = DEFAULT_IMAGE_SIZE,
@@ -35,11 +38,12 @@ class Surface_Detector:
                 max_det: int = DEFAULT_MAX_DET):
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        self.model = self.load_model(weights_file)
-        self.model.conf = conf_thresh
-        self.model.iou = iou
-        self.model.agnostic = agnostic
-        self.model.max_det = max_det
+        self.model = YOLO(weights_file)
+        #self.model = self.load_model(weights_file)
+        #self.model.conf = conf_thresh
+        #self.model.iou = iou
+        #self.model.agnostic = agnostic
+        #self.model.max_det = max_det
 
         self.root_dir = root_dir
         self.classes = self.get_classes(self.root_dir)
@@ -57,6 +61,7 @@ class Surface_Detector:
         model.eval()  # model into evaluation mode
         return model
 
+
     def get_classes(self, root_dir):
         """
         get the classes from a metadata/obj.names file
@@ -67,6 +72,7 @@ class Surface_Detector:
             classes = [line.strip() for line in f.readlines()]
         return classes
     
+
     def set_class_colours(self, classes):
         """
         set classes to specific colours using a dictionary
@@ -85,6 +91,7 @@ class Surface_Detector:
                         classes[4]: brown,
                         classes[5]: green}
         return class_colours
+
 
     def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
         """
@@ -107,9 +114,8 @@ class Surface_Detector:
 
     def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
         """
-        save predictions/detections on image
+        save predictions/detections (assuming predictions in yolo format) on image
         """
-
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()
             conf = p[4]
@@ -168,6 +174,7 @@ class Surface_Detector:
 
         return pred[keep, :]
 
+
     def convert_results_2_pkl(self, imgsave_dir, txtsavedir, save_file_name):
         """
         convert textfiles and images into CoralImage and save data in pkl file
@@ -198,52 +205,77 @@ class Surface_Detector:
         with open(savefile, 'wb') as f:
             pickle.dump(results, f)
 
+
     def total_count(self):
         #TODO: function with total count
         print('not done')
 
-    def show_image_predictions(self):
+
+    def show_image_predictions(self, predictions, img):
+        """
+        show predictions/detections (assurming predeictions in yolo format) for an image
+        """
         #TODO: function that plots detections on image
-        print('not done')
+        for p in predictions:
+            x1, y1, x2, y2 = p[0:4].tolist()
+            conf = p[4]
+            cls = int(p[5])        
+            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
+            cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
+        cv.show(img)
+
 
     def detect(self, image):
         """
         return detections from a single rgb image
         """
-        pred = self.model([image], size=self.img_size)
-        return pred
+        pred = self.model.predict(source=image,
+                                      save=False,
+                                      save_txt=False,
+                                      save_conf=True,
+                                      imgsz=640,
+                                      conf=0.5)
+        boxes: Boxes = pred[0].boxes 
+        pred = []
+        for b in boxes:
+            cls = int(b.cls)
+            conf = float(b.conf)
+            xyxyn = b.xyxyn.numpy()[0]
+            x1n = xyxyn[0]
+            y1n = xyxyn[1]
+            x2n = xyxyn[2]
+            y2n = xyxyn[3]  
+            pred.append([x1n, y1n, x2n, y2n, conf, cls])
+        #pred = self.model([image], size=self.img_size)
+        return torch.tensor(pred)
     
+
     def run(self):
         print('running Surface_Detector.py on:')
         print(f'source images: {self.sourceimages}')
         imglist = glob.glob(os.path.join(self.sourceimages, '*.jpg'))
-        
-        # where to save image detections
+        # where to save image and text detections
         imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-
-        # where to save text detections
         txtsavedir = os.path.join(self.root_dir, 'detections', 'detections_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         for i, imgname in enumerate(imglist):
-
             print(f'predictions on {i+1}/{len(imglist)}')
             if i >= 3: # for debugging purposes
+                import code
+                code.interact(local=dict(globals(), **locals()))
                 break
 
             # load image
             try:
                 img_bgr = cv.imread(imgname) # BGR
                 img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-
                 pred = self.detect(img_rgb)# inference
-
-                predictions = self.nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
-                
+                #predictions = self.nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
+                predictions = self.nms(pred, 0.25, 0.45, self.classes, 1000)
                 # save predictions as an image
                 self.save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, self.class_colours, self.classes)
-                
                 # save predictions as a text file
                 self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
@@ -258,16 +290,18 @@ class Surface_Detector:
         self.convert_results_2_pkl(imgsave_dir, txtsavedir, save_file_name=pkl_file)
         print(f'results stored in {pkl_file} file')
 
+
+
 def main():
     # weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
     # weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
-    weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
+    #weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
     root_dir = "/mnt/c/20221113_amtenuis_cslics04"
     source_img_folder = os.path.join(root_dir, 'images_jpg')
 
-    Coral_Detector = Surface_Detector(weights_file=weightsfile, root_dir = root_dir, source_img_folder=source_img_folder)
+    Coral_Detector = Surface_Detector(root_dir = root_dir, source_img_folder=source_img_folder)
     Coral_Detector.run()
 
 if __name__ == "__main__":

@@ -161,10 +161,18 @@ class SubSurface_Detector:
         #                                     0))
         # image_overlay.write(os.path.join(self.save_dir, img_base_name + '_blobs_overlay.jpg'))
 
+    def save_results_2_pkl(self, subsurface_det_path, blobs_list, blobs_count, image_index, capture_time):
+        with open(subsurface_det_path, 'wb') as f:
+            save_data ={'blobs_list': blobs_list,
+                'blobs_count': blobs_count,
+                'image_index': image_index,
+                'capture_time': capture_time}
+            pickle.dump(save_data, f)
+
+
     def run(self, SUBSURFACE_LOAD = False, SAVE_PRELIM_IMAGES = True):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
 
         blobs_count = []
         blobs_list = []
@@ -173,7 +181,6 @@ class SubSurface_Detector:
 
         start_time = time.time()
 
-    
         for i, img_name in enumerate(img_list):
             if i >= self.max_img:
                 print(f'{i}: hit max img - stop here')
@@ -187,14 +194,9 @@ class SubSurface_Detector:
             blobby, icont = self.attempt_blobs(img_name, im_morph, SAVE_PRELIM_IMAGES, im = Image(img_name))
             blobs_list.append(blobby)
             blobs_count.append(icont)
-
-
-        with open(subsurface_det_path, 'wb') as f:
-            save_data ={'blobs_list': blobs_list,
-                'blobs_count': blobs_count,
-                'image_index': image_index,
-                'capture_time': capture_time}
-            pickle.dump(save_data, f)
+        
+        subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
+        self.save_results_2_pkl(subsurface_det_path, blobs_list, blobs_count, image_index, capture_time) 
 
         end_time = time.time()
         duration = end_time - start_time
@@ -205,7 +207,6 @@ class SubSurface_Detector:
         capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
         decimal_days = convert_to_decimal_days(capture_time_dt)
 
-        return blobs_count, blobs_list, image_index, capture_time
 
 
 # TODO add to different file, used in this file and Plot_Detectors_Results
