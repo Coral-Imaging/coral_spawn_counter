@@ -20,10 +20,8 @@ import time
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
-from SubSurface_Detector import SubSurface_Detector
 
 # Consts (more below as well)
-
 window_size = 20 # for rolling means, etc
 # estimated tank surface area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
@@ -34,15 +32,17 @@ area_tank = np.pi * rad_tank**2
 area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
 nimage_to_tank_surface = area_tank / area_cslics
 capture_time = []
+n = 1 # how many std deviations to show
+mpercent = 0.1 # range for manual counts
 
 # File locations
 img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
 save_dir = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
 manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
 root_dir = "/mnt/c/20221113_amtenuis_cslics04"
-detections_file = 'detection_results.pkl'
 object_names_file = 'metadata/obj.names'
 subsurface_det_file = 'subsurface_det3.pkl'
+surface_pkl_file = 'detection_results.pkl'
 subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
 save_plot_dir = os.path.join(save_dir, 'plots')
 save_img_dir = os.path.join(save_dir, 'images')
@@ -70,13 +70,14 @@ os.makedirs(save_dir, exist_ok=True)
 os.makedirs(save_plot_dir, exist_ok=True)
 os.makedirs(save_img_dir, exist_ok=True)
 
-# load classes and results
-with open(os.path.join(root_dir, 'detection_results.pkl'), 'rb') as f:
-    results = pickle.load(f)
+# load classes
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
         
 ##################################### surface counts
+# load results
+with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
+    results = pickle.load(f)
 # get counts as arrays:
 print('getting counts from Surface')
 count_eggs = []
@@ -216,8 +217,7 @@ density_count_std = df['density_count'].rolling(window_size).std()
 
 tank_count_mean = df['tank_count'].rolling(window_size).mean()
 tank_count_std = df['tank_count'].rolling(window_size).std()
-n = 1 # how many std deviations to show
-mpercent = 0.1 # range for manual counts
+
 
 # TODO showcase counts over time?
 sns.set_theme(style='whitegrid')
@@ -289,7 +289,9 @@ wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to_tan
                             manual_decimal_days, mc, mpercent,
                             save_plot_dir)
 
-print('done blob_mvt.py')
+print('results ploted')
+
+
 # TODO need to ascertain the validity of the blobs - not all edges are ideal - chat with Andrew
 # TODO save blob counts to txt file for reading/later usage?
 # TODO write to xml file for uploading blob annotations    
