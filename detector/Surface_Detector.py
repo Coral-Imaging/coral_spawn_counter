@@ -15,7 +15,7 @@ from coral_spawn_counter.CoralImage import CoralImage
 import pickle
 
 
-class Sub_Surface_Detector:
+class Surface_Detector:
     DEFAULT_WEIGHT_FILE = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
     DEFAULT_IMAGE_SIZE = 1280
@@ -267,7 +267,7 @@ def main():
     root_dir = "/mnt/c/20221113_amtenuis_cslics04"
     source_img_folder = os.path.join(root_dir, 'images_jpg')
 
-    Coral_Detector = Sub_Surface_Detector(weights_file=weightsfile, root_dir = root_dir, source_img_folder=source_img_folder)
+    Coral_Detector = Surface_Detector(weights_file=weightsfile, root_dir = root_dir, source_img_folder=source_img_folder)
     Coral_Detector.run()
 
 if __name__ == "__main__":
