@@ -3,7 +3,6 @@
 """
 coral spawn counting using blobs (copied from count_coral_spawn.py)
 TODO: also calls yolov5 detector onto cslics surface embryogenesis
-NOTE: Haven't tested yet
 """
 import os
 import cv2 as cv
@@ -25,7 +24,7 @@ from machinevisiontoolbox.Image import Image
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
 
-class Surface_Detector:
+class SubSurface_Detector:
     DEFAULT_IMG_DIR = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
     DEFAULT_SAVE_DIR = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
@@ -39,7 +38,7 @@ class Surface_Detector:
                  save_dir: str = DEFAULT_SAVE_DIR,
                  root_dir: str = DEFAULT_ROOT_DIR,
                  detection_file: str = DEFAULT_DETECTION_FILE,
-                 onject_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
+                 object_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
                  window_size: int = DEFAULT_WINDOW_SIZE,
                  max_img: int = MAX_IMG):
         self.img_dir = img_dir
@@ -49,8 +48,10 @@ class Surface_Detector:
         self.object_names_file = object_names_file
         self.window_size = window_size
         self.max_img = max_img
+        self.save_img_dir = os.path.join(save_dir, 'images')
+        os.makedirs(self.save_img_dir, exist_ok=True)
 
-    def prep_img(self, img_name, SAVE_PRELIM_IMAGES):
+    def prep_img(self, img_name, capture_time, SAVE_PRELIM_IMAGES):
         # create coral image:
         # TODO - loop the Hough transform method into here, also has metadata -> capture times
         coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
@@ -79,15 +80,16 @@ class Surface_Detector:
         # step-by-step save the image
         if SAVE_PRELIM_IMAGES:
             img_base_name = os.path.basename(img_name)[:-4]
-            im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_orig.jpg'))
-            im_blur.write(os.path.join(save_img_dir, img_base_name + '_01_blur.jpg'))
-            im_canny.write(os.path.join(save_img_dir, img_base_name + '_02_edge.jpg'))
-            im_morph.write(os.path.join(save_img_dir, img_base_name + '_03_morph.jpg'))
+            im_mono.write(os.path.join(self.save_img_dir, img_base_name + '_00_orig.jpg'))
+            im_blur.write(os.path.join(self.save_img_dir, img_base_name + '_01_blur.jpg'))
+            im_canny.write(os.path.join(self.save_img_dir, img_base_name + '_02_edge.jpg'))
+            im_morph.write(os.path.join(self.save_img_dir, img_base_name + '_03_morph.jpg'))
         
-        return im_morph
+        return im_morph, capture_time
 
-    def attempt_blobs(self, im_morph, SAVE_PRELIM_IMAGES, im):
+    def attempt_blobs(self, img_name, im_morph, SAVE_PRELIM_IMAGES, im):
         try:
+            img_base_name = os.path.basename(img_name)[:-4]
             blobby = mvt.Blob(im_morph)
             print(f'{len(blobby)} blobs initially found')
             # show blobs
@@ -112,7 +114,7 @@ class Surface_Detector:
             # b0.printBlobs()
             imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
 
-            self.save_side_blobs(im, img_base_name = os.path.basename(img_name)[:-4])
+            self.save_side_blobs(im, img_base_name, imblobs_area)
             image1 = im.image
 
             # just plot the contours of the blobs based on imblobs_area and icont:
@@ -127,11 +129,11 @@ class Surface_Detector:
                                 thickness=contour_thickness,
                                 lineType=cv.LINE_8)
             image3 = Image(image_contours)
-            image3.write(os.path.join(save_img_dir, img_base_name + '_blobs_contour.jpg'))
+            image3.write(os.path.join(self.save_img_dir, img_base_name + '_blobs_contour.jpg'))
 
             if SAVE_PRELIM_IMAGES:
-                imblobs.write(os.path.join(save_img_dir, img_base_name + '_04_blob.jpg'))
-                imblobs_area.write(os.path.join(save_img_dir, img_base_name + '_05_blob_filter.jpg'))
+                imblobs.write(os.path.join(self.save_img_dir, img_base_name + '_04_blob.jpg'))
+                imblobs_area.write(os.path.join(self.save_img_dir, img_base_name + '_05_blob_filter.jpg'))
 
             # TODO for now, just count these blobs over time
             return blobby, icont
@@ -140,7 +142,7 @@ class Surface_Detector:
             # append empty to keep indexes consistent
             return [], []
     
-    def save_side_blobs(self, im, img_base_name):
+    def save_side_blobs(self, im, img_base_name, imblobs_area):
         # save side-by-side image/collage for blobs.
         # NOTE most of this code is commented out, as orginally given to me
         image1 = im.image
@@ -160,6 +162,7 @@ class Surface_Detector:
         # image_overlay.write(os.path.join(self.save_dir, img_base_name + '_blobs_overlay.jpg'))
 
     def run(self, SUBSURFACE_LOAD = False, SAVE_PRELIM_IMAGES = True):
+        print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
 
@@ -170,37 +173,28 @@ class Surface_Detector:
 
         start_time = time.time()
 
-        if(SUBSURFACE_LOAD):
-            #load pickel file
-            with open(subsurface_det_path, 'rb') as f:
-                save_data = pickle.load(f)
+    
+        for i, img_name in enumerate(img_list):
+            if i >= self.max_img:
+                print(f'{i}: hit max img - stop here')
+                break
+    
+            print(f'{i}: img_name = {img_name}')  
+            im_morph, capture_time = self.prep_img(img_name, capture_time, SAVE_PRELIM_IMAGES) 
+            print('image prepared')
+            image_index.append(i)
 
-            blobs_list = save_data['blobs_list']
-            blobs_count = save_data['blobs_count']
-            image_index = save_data['image_index']
-            capture_time = save_data['capture_time']
-        else:
-            for i, img_name in enumerate(img_list):
-                if i >= MAX_IMG:
-                    print(f'{i}: hit max img - stop here')
-                    break
-        
-                print(f'{i}: img_name = {img_name}')  
-                im_morph = prep_img(img_name, SAVE_PRELIM_IMAGES) 
-                print('image prepared')
-                image_index.append(i)
-
-                blobby, icont = attempt_blobs(im_morph, SAVE_PRELIM_IMAGES, im = Image(img_name))
-                blobs_list.append(blobby)
-                blobs_count.append(icont)
+            blobby, icont = self.attempt_blobs(img_name, im_morph, SAVE_PRELIM_IMAGES, im = Image(img_name))
+            blobs_list.append(blobby)
+            blobs_count.append(icont)
 
 
-            with open(subsurface_det_path, 'wb') as f:
-                save_data ={'blobs_list': blobs_list,
-                    'blobs_count': blobs_count,
-                    'image_index': image_index,
-                    'capture_time': capture_time}
-                pickle.dump(save_data, f)
+        with open(subsurface_det_path, 'wb') as f:
+            save_data ={'blobs_list': blobs_list,
+                'blobs_count': blobs_count,
+                'image_index': image_index,
+                'capture_time': capture_time}
+            pickle.dump(save_data, f)
 
         end_time = time.time()
         duration = end_time - start_time
@@ -230,3 +224,20 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
     
+def main():
+    img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
+    root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+    MAX_IMG = 30
+    detection_file = 'subsurface_det3.pkl'
+    object_names_file = 'metadata/obj.names'
+    window_size = 20
+
+    Coral_Detector = SubSurface_Detector(root_dir = root_dir, img_dir = img_dir, detection_file=detection_file, 
+        object_names_file = object_names_file, window_size=window_size, max_img = MAX_IMG)
+    Coral_Detector.run()
+    # import code
+    # code.interact(local=dict(globals(), **locals()))
+
+if __name__ == "__main__":
+    main()
+
