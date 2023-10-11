@@ -17,17 +17,15 @@ from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
 
 class Surface_Detector:
-    DEFAULT_WEIGHT_FILE = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
-    DEFAULT_IMAGE_SIZE = 1280
+    DEFAULT_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.25
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
     DEFAULT_YOLO8 = os.path.join(DEFAULT_ROOT_DIR, "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
-    def __init__(self, 
-                #weights_file: str = DEFAULT_WEIGHT_FILE,
+    def __init__(self,
                 weights_file: str = DEFAULT_YOLO8,
                 root_dir: str = DEFAULT_ROOT_DIR,
                 source_img_folder: str = DEFAULT_SOURCE_IMAGES,
@@ -39,11 +37,9 @@ class Surface_Detector:
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.model = YOLO(weights_file)
-        #self.model = self.load_model(weights_file)
-        #self.model.conf = conf_thresh
-        #self.model.iou = iou
-        #self.model.agnostic = agnostic
-        #self.model.max_det = max_det
+        self.conf = conf_thresh
+        self.iou = iou
+        self.max_det = max_det
 
         self.root_dir = root_dir
         self.classes = self.get_classes(self.root_dir)
@@ -51,15 +47,6 @@ class Surface_Detector:
         self.img_size = image_size
 
         self.sourceimages = source_img_folder
-
-    def load_model(self, weights_file: str):
-        """
-        load a yolov5 model with custom weights
-        """
-        model = torch.hub.load('ultralytics/yolov5', 'custom', path=weights_file, trust_repo=True) # TODO make sure this can be run offline?
-        model = model.to(self.device)
-        model.eval()  # model into evaluation mode
-        return model
 
 
     def get_classes(self, root_dir):
@@ -225,16 +212,24 @@ class Surface_Detector:
         cv.show(img)
 
 
+    def prep_img(self, img_name):
+        """
+        from an img name, load the image into the correct format for dections (rgb)
+        """
+        img_bgr = cv.imread(img_name) # BGR
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+        return img_rgb
+
     def detect(self, image):
         """
-        return detections from a single rgb image
+        return detections from a single rgb image, passes prediction through nms and returns them in yolo format
         """
         pred = self.model.predict(source=image,
                                       save=False,
                                       save_txt=False,
                                       save_conf=True,
-                                      imgsz=640,
-                                      conf=0.5)
+                                      imgsz=self.img_size,
+                                      conf=self.conf)
         boxes: Boxes = pred[0].boxes 
         pred = []
         for b in boxes:
@@ -246,8 +241,9 @@ class Surface_Detector:
             x2n = xyxyn[2]
             y2n = xyxyn[3]  
             pred.append([x1n, y1n, x2n, y2n, conf, cls])
-        #pred = self.model([image], size=self.img_size)
-        return torch.tensor(pred)
+        pred = torch.tensor(pred)
+        predictions = self.nms(pred, self.conf, self.iou, self.classes, self.max_det)
+        return predictions
     
 
     def run(self):
@@ -262,20 +258,17 @@ class Surface_Detector:
 
         for i, imgname in enumerate(imglist):
             print(f'predictions on {i+1}/{len(imglist)}')
-            if i >= 3: # for debugging purposes
-                import code
-                code.interact(local=dict(globals(), **locals()))
-                break
+            # if i >= 3: # for debugging purposes
+            #     import code
+            #     code.interact(local=dict(globals(), **locals()))
+            #     break
 
             # load image
             try:
-                img_bgr = cv.imread(imgname) # BGR
-                img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-                pred = self.detect(img_rgb)# inference
-                #predictions = self.nms(pred.pred[0], self.model.conf, self.model.iou, self.classes, self.model.max_det)
-                predictions = self.nms(pred, 0.25, 0.45, self.classes, 1000)
+                img_rgb = self.prep_img(imgname)
+                predictions = self.detect(img_rgb)# inference
                 # save predictions as an image
-                self.save_image_predictions(predictions, img_bgr, imgname, imgsave_dir, self.class_colours, self.classes)
+                self.save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
                 # save predictions as a text file
                 self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
@@ -307,8 +300,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-# TODO write a separate script that reads in these text files and generates a plot in post
 
 # import code
 # code.interact(local=dict(globals(), **locals()))
