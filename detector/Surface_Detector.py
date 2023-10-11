@@ -1,232 +1,306 @@
 #! /usr/bin/env python3
 
 """
-coral spawn counting using blobs (copied from count_coral_spawn.py)
-TODO: also calls yolov5 detector onto cslics surface embryogenesis
-NOTE: Haven't tested yet
+use the trained yolov5 model, and run it on a given folder/sequence of images
 """
+
 import os
-import cv2 as cv
-import numpy as np
+import torch
+import torchvision
 import glob
-import random as rng
-import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib as mpl
-import seaborn.objects as so
-import pickle
-import pandas as pd
-from datetime import datetime
-import time
-
-import machinevisiontoolbox as mvt
-from machinevisiontoolbox.Image import Image
-
+import numpy as np
+from PIL import Image as PILImage
+import cv2 as cv
 from coral_spawn_counter.CoralImage import CoralImage
-from coral_spawn_counter.read_manual_counts import read_manual_counts
+import pickle
+from ultralytics import YOLO
+from ultralytics.engine.results import Results, Boxes
 
 class Surface_Detector:
-    DEFAULT_IMG_DIR = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
-    DEFAULT_SAVE_DIR = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
     DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
-    DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
-    DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
-    DEFAULT_WINDOW_SIZE = 20
-    MAX_IMG = 10000
+    DEFAULT_IMAGE_SIZE = 640
+    DEFAULT_CONFIDENCE_THREASHOLD = 0.25
+    DEFAULT_IOU = 0.45
+    DEFAULT_MAX_DET = 1000
+    DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
+    DEFAULT_YOLO8 = os.path.join(DEFAULT_ROOT_DIR, "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
     def __init__(self,
-                 img_dir: str = DEFAULT_IMG_DIR,
-                 save_dir: str = DEFAULT_SAVE_DIR,
-                 root_dir: str = DEFAULT_ROOT_DIR,
-                 detection_file: str = DEFAULT_DETECTION_FILE,
-                 onject_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
-                 window_size: int = DEFAULT_WINDOW_SIZE,
-                 max_img: int = MAX_IMG):
-        self.img_dir = img_dir
-        self.save_dir = save_dir
+                weights_file: str = DEFAULT_YOLO8,
+                root_dir: str = DEFAULT_ROOT_DIR,
+                source_img_folder: str = DEFAULT_SOURCE_IMAGES,
+                image_size: int = DEFAULT_IMAGE_SIZE,
+                conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
+                iou: float = DEFAULT_IOU,
+                agnostic: bool = True,
+                max_det: int = DEFAULT_MAX_DET):
+        self.weights_file = weights_file
+        self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.model = YOLO(weights_file)
+        self.conf = conf_thresh
+        self.iou = iou
+        self.max_det = max_det
+
         self.root_dir = root_dir
-        self.detection_file = detection_file
-        self.object_names_file = object_names_file
-        self.window_size = window_size
-        self.max_img = max_img
+        self.classes = self.get_classes(self.root_dir)
+        self.class_colours = self.set_class_colours(self.classes)
+        self.img_size = image_size
 
-    def prep_img(self, img_name, SAVE_PRELIM_IMAGES):
-        # create coral image:
-        # TODO - loop the Hough transform method into here, also has metadata -> capture times
-        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
-        capture_time.append(coral_image.metadata['capture_time'])
-        
-        # read in image
-        im = Image(img_name)
-        # grayscale
-        im_mono = im.mono()
-        # blur image
-        # HACK make a new object using GaussianBlur
-        ksize = 61
-        im_blur = Image(cv.GaussianBlur(im_mono.image, (ksize, ksize), 0))
-        # edge detection
-        canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True)
-        im_canny = Image(canny)
-        # TODO MVT GUI related to image edge thresholds?
-        # morph
-        k = 11
-        kernel = np.ones((k,k), np.uint8)
-        im_morph = Image(im_canny.dilate(kernel))
-        im_morph = im_morph.close(kernel)
-        kernel = 11
-        im_morph = im_morph.open(kernel)
+        self.sourceimages = source_img_folder
 
-        # step-by-step save the image
-        if SAVE_PRELIM_IMAGES:
-            img_base_name = os.path.basename(img_name)[:-4]
-            im_mono.write(os.path.join(save_img_dir, img_base_name + '_00_orig.jpg'))
-            im_blur.write(os.path.join(save_img_dir, img_base_name + '_01_blur.jpg'))
-            im_canny.write(os.path.join(save_img_dir, img_base_name + '_02_edge.jpg'))
-            im_morph.write(os.path.join(save_img_dir, img_base_name + '_03_morph.jpg'))
-        
-        return im_morph
 
-    def attempt_blobs(self, im_morph, SAVE_PRELIM_IMAGES, im):
-        try:
-            blobby = mvt.Blob(im_morph)
-            print(f'{len(blobby)} blobs initially found')
-            # show blobs
-            imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
-
-            #  reject too-small and too weird blobs
-            area_min = 5000
-            area_max = 40000
-            circ_min = 0.5
-            circ_max = 1.0
-            b0 = [b for b in blobby if ((b.area < area_max and b.area > area_min) and (b.circularity > circ_min and b.circularity < circ_max))]
-            idx_blobs = np.arange(0, len(blobby))
-            b0_area = [b.area for b in b0]
-            b0_circ = [b.circularity for b in b0]
-            b0_cent = [b.centroid for b in b0]
-            # can do more... TODO ??
-            # icont = [i for i in idx_blobs if (blobby[i].area in b0_area and blobby[i].circularity in b0_circ)]
-            # icont = [i for i, b in enumerate(blobby) if b in b0] # this should work, but doesn't - not yet implemented...
-            icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
-                                                            blobby[i].area in b0_area and 
-                                                            blobby[i].circularity in b0_circ)] # this should work, but doesn't - not yet implemented...
-            # b0.printBlobs()
-            imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
-
-            self.save_side_blobs(im, img_base_name = os.path.basename(img_name)[:-4])
-            image1 = im.image
-
-            # just plot the contours of the blobs based on imblobs_area and icont:
-            image_contours = image1
-            contour_colour = [0, 0, 255] # red in BGR
-            contour_thickness = 10
-            for i in icont:
-                cv.drawContours(image_contours,
-                                blobby._contours,
-                                i,
-                                contour_colour,
-                                thickness=contour_thickness,
-                                lineType=cv.LINE_8)
-            image3 = Image(image_contours)
-            image3.write(os.path.join(save_img_dir, img_base_name + '_blobs_contour.jpg'))
-
-            if SAVE_PRELIM_IMAGES:
-                imblobs.write(os.path.join(save_img_dir, img_base_name + '_04_blob.jpg'))
-                imblobs_area.write(os.path.join(save_img_dir, img_base_name + '_05_blob_filter.jpg'))
-
-            # TODO for now, just count these blobs over time
-            return blobby, icont
-        except:
-            print(f'No blob detection for {img_name}')
-            # append empty to keep indexes consistent
-            return [], []
+    def get_classes(self, root_dir):
+        """
+        get the classes from a metadata/obj.names file
+        classes = [class1, class2, class3 etc.]
+        """
+        #TODO: make a function of something else, used in both detectors
+        with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
+            classes = [line.strip() for line in f.readlines()]
+        return classes
     
-    def save_side_blobs(self, im, img_base_name):
-        # save side-by-side image/collage for blobs.
-        # NOTE most of this code is commented out, as orginally given to me
-        image1 = im.image
-        image2 = imblobs_area.image
-        image2_mask = imblobs_area.image > 0
-        # save side-by-side image/collage
-        # concatenated_image = Image(cv.hconcat([image1, image2]))
-        # concatenated_image.write(os.path.join(self.save_dir, img_base_name + '_concate_blobs.jpg'))
+
+    def set_class_colours(self, classes):
+        """
+        set classes to specific colours using a dictionary
+        """
+        #TODO: make a function of something else, used in both detectors
+        orange = [255, 128, 0] # four-eight cell stage
+        blue = [0, 212, 255] # first cleavage
+        purple = [170, 0, 255] # two-cell stage
+        yellow = [255, 255, 0] # advanced
+        brown = [144, 65, 2] # damaged
+        green = [0, 255, 00] # egg
+        class_colours = {classes[0]: orange,
+                        classes[1]: blue,
+                        classes[2]: purple,
+                        classes[3]: yellow,
+                        classes[4]: brown,
+                        classes[5]: green}
+        return class_colours
+
+
+    def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
+        """
+        save predictions/detections into text file
+        [x1 y1 x2 y2 conf class_idx class_name]
+        """
+        txtsavename = os.path.basename(imgname)
+        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
+
+        # predictions [ pix pix pix pix conf class ]
+        with open(txtsavepath, 'w') as f:
+            for p in predictions:
+                x1, y1, x2, y2 = p[0:4].tolist()
+                conf = p[4]
+                class_idx = int(p[5])
+                class_name = classes[class_idx]
+                f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
+        return True
+
+
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
+        """
+        save predictions/detections (assuming predictions in yolo format) on image
+        """
+        for p in predictions:
+            x1, y1, x2, y2 = p[0:4].tolist()
+            conf = p[4]
+            cls = int(p[5])        
+            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
+            cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
+
+        imgsavename = os.path.basename(imgname)
+        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
+        cv.imwrite(imgsave_path, img)
+        return True
+
+
+    def nms(self, pred, conf_thresh, iou_thresh, classes, max_det):
+        """ perform class-agnostic non-maxima suppression on predictions 
+        pred = [x1 y1 x2 y2 conf class] tensor
+        """
+
+        # Checks
+        assert 0 <= conf_thresh <= 1, f'Invalid Confidence threshold {conf_thresh}, valid values are between 0.0 and 1.0'
+        assert 0 <= iou_thresh <= 1, f'Invalid IoU {iou_thresh}, valid values are between 0.0 and 1.0'
+        # if isinstance(prediction, (list, tuple)):  # YOLOv5 model in validation model, output = (inference_out, loss_out)
+        #     prediction = prediction[0]  # select only inference output
+
+        # conf = object confidence * class_confidence
+        pred = pred[pred[:, 4] > conf_thresh]
+        boxes = pred[:, :4]
+        scores = pred[:, 4]
+        # keep = cv.dnn.NMSBoxes(boxes.tolist(), scores.tolist(), conf_thresh, iou_thresh)
+
+        # sort scores into descending order
+        _, indices = torch.sort(scores, descending=True)
+
+        # class-agnostic nms
+        # iteratively adds the highest scoring detection to the list of final detections, 
+        # calculates the IoU of this detection with all other detections, and 
+        # removes any detections with IoU above the threshold. 
+        # This process continues until there are no detections left.
+        keep = []
+        while indices.numel() > 0:
+            # get the highest scoring detection
+            i = indices[0]
             
-        # image overlay (probably easier to view)
-        # opacity = 0.35
-        # image_overlay = Image(cv.addWeighted(image1, 
-        #                                     1-opacity, 
-        #                                     image2,
-        #                                     opacity,
-        #                                     0))
-        # image_overlay.write(os.path.join(self.save_dir, img_base_name + '_blobs_overlay.jpg'))
+            # add the detection to the list of final detections
+            keep.append(i.item())
 
-    def run(self, SUBSURFACE_LOAD = False, SAVE_PRELIM_IMAGES = True):
-        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
+            # calculate the IoU highest scoring detection within all other detections
+            if indices.numel() == 1:
+                break
+            else:
+                overlaps = torchvision.ops.box_iou(boxes[indices[1:]], boxes[i].unsqueeze(0)).squeeze()
 
-        blobs_count = []
-        blobs_list = []
-        image_index = []
-        capture_time = []
+            # keep only detections with IOU below certain threshold
+            indices = indices[1:]
+            indices = indices[overlaps <= iou_thresh]
 
-        start_time = time.time()
-
-        if(SUBSURFACE_LOAD):
-            #load pickel file
-            with open(subsurface_det_path, 'rb') as f:
-                save_data = pickle.load(f)
-
-            blobs_list = save_data['blobs_list']
-            blobs_count = save_data['blobs_count']
-            image_index = save_data['image_index']
-            capture_time = save_data['capture_time']
-        else:
-            for i, img_name in enumerate(img_list):
-                if i >= MAX_IMG:
-                    print(f'{i}: hit max img - stop here')
-                    break
-        
-                print(f'{i}: img_name = {img_name}')  
-                im_morph = prep_img(img_name, SAVE_PRELIM_IMAGES) 
-                print('image prepared')
-                image_index.append(i)
-
-                blobby, icont = attempt_blobs(im_morph, SAVE_PRELIM_IMAGES, im = Image(img_name))
-                blobs_list.append(blobby)
-                blobs_count.append(icont)
+        return pred[keep, :]
 
 
-            with open(subsurface_det_path, 'wb') as f:
-                save_data ={'blobs_list': blobs_list,
-                    'blobs_count': blobs_count,
-                    'image_index': image_index,
-                    'capture_time': capture_time}
-                pickle.dump(save_data, f)
+    def convert_results_2_pkl(self, imgsave_dir, txtsavedir, save_file_name):
+        """
+        convert textfiles and images into CoralImage and save data in pkl file
+        """
+        # read in each .txt file
+        txt_list = sorted(os.listdir(txtsavedir))
 
-        end_time = time.time()
-        duration = end_time - start_time
-        print('run time: {} sec'.format(duration))
-        print('run time: {} min'.format(duration / 60.0))
-        print('run time: {} hrs'.format(duration / 3600.0))
+        results = []
+        for i, txt in enumerate(txt_list):
+            if i > 3:
+                break
+            print(f'importing detections {i+1}/{len(txt_list)}')
+            with open(os.path.join(txtsavedir, txt), 'r') as f:
+                detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
+            detections = [det.rsplit() for det in detections]
+            # corresponding image name:
+            img_name = txt[:-8] + '.jpg' # + '.png'
+            img_name = os.path.join(self.root_dir, 'images_jpg', img_name)
+            CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
+                                txt_name=txt,
+                                detections=detections)
+            results.append(CImage)
+            
+        # sort results based on metadata capture time
+        results.sort(key=lambda x: x.metadata['capture_time'])
 
-        capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
-        decimal_days = convert_to_decimal_days(capture_time_dt)
+        savefile = os.path.join(self.root_dir, save_file_name)
+        with open(savefile, 'wb') as f:
+            pickle.dump(results, f)
 
-        return blobs_count, blobs_list, image_index, capture_time
+
+    def total_count(self):
+        #TODO: function with total count
+        print('not done')
 
 
-# TODO add to different file, used in this file and Plot_Detectors_Results
-def convert_to_decimal_days(dates_list, time_zero=None):
-    if time_zero is None:
-        time_zero = dates_list[0]  # Time zero is the first element date in the list
-    else:
-        time_zero = time_zero
-        
-    decimal_days_list = []
+    def show_image_predictions(self, predictions, img):
+        """
+        show predictions/detections (assurming predeictions in yolo format) for an image
+        """
+        #TODO: function that plots detections on image
+        for p in predictions:
+            x1, y1, x2, y2 = p[0:4].tolist()
+            conf = p[4]
+            cls = int(p[5])        
+            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
+            cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
+        cv.show(img)
 
-    for date in dates_list:
-        time_difference = date - time_zero
-        decimal_days = time_difference.total_seconds() / (60 * 60 * 24)
-        decimal_days_list.append(decimal_days)
 
-    return decimal_days_list
+    def prep_img(self, img_name):
+        """
+        from an img name, load the image into the correct format for dections (rgb)
+        """
+        img_bgr = cv.imread(img_name) # BGR
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+        return img_rgb
+
+    def detect(self, image):
+        """
+        return detections from a single rgb image, passes prediction through nms and returns them in yolo format
+        """
+        pred = self.model.predict(source=image,
+                                      save=False,
+                                      save_txt=False,
+                                      save_conf=True,
+                                      imgsz=self.img_size,
+                                      conf=self.conf)
+        boxes: Boxes = pred[0].boxes 
+        pred = []
+        for b in boxes:
+            cls = int(b.cls)
+            conf = float(b.conf)
+            xyxyn = b.xyxyn.numpy()[0]
+            x1n = xyxyn[0]
+            y1n = xyxyn[1]
+            x2n = xyxyn[2]
+            y2n = xyxyn[3]  
+            pred.append([x1n, y1n, x2n, y2n, conf, cls])
+        pred = torch.tensor(pred)
+        predictions = self.nms(pred, self.conf, self.iou, self.classes, self.max_det)
+        return predictions
+    
+
+    def run(self):
+        print('running Surface_Detector.py on:')
+        print(f'source images: {self.sourceimages}')
+        imglist = glob.glob(os.path.join(self.sourceimages, '*.jpg'))
+        # where to save image and text detections
+        imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
+        os.makedirs(imgsave_dir, exist_ok=True)
+        txtsavedir = os.path.join(self.root_dir, 'detections', 'detections_textfiles')
+        os.makedirs(txtsavedir, exist_ok=True)
+
+        for i, imgname in enumerate(imglist):
+            print(f'predictions on {i+1}/{len(imglist)}')
+            # if i >= 3: # for debugging purposes
+            #     import code
+            #     code.interact(local=dict(globals(), **locals()))
+            #     break
+
+            # load image
+            try:
+                img_rgb = self.prep_img(imgname)
+                predictions = self.detect(img_rgb)# inference
+                # save predictions as an image
+                self.save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
+                # save predictions as a text file
+                self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+            except:
+                print('unable to read image or do model prediction --> skipping')
+                print(f'skipped: imgname = {imgname}')
+                import code
+                code.interact(local=dict(globals(), **locals()))
+
+        print('done detection')
+
+        pkl_file = 'detection_results2.pkl'
+        self.convert_results_2_pkl(imgsave_dir, txtsavedir, save_file_name=pkl_file)
+        print(f'results stored in {pkl_file} file')
+
+
+
+def main():
+    # weightsfile = '/home/dorian/Code/cslics_ws/yolov5_coralspawn/weights/yolov5l6_20220223.pt'
+    # weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
+    #weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
+    # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+    # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
+    root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+    source_img_folder = os.path.join(root_dir, 'images_jpg')
+
+    Coral_Detector = Surface_Detector(root_dir = root_dir, source_img_folder=source_img_folder)
+    Coral_Detector.run()
+
+if __name__ == "__main__":
+    main()
+
+
+# import code
+# code.interact(local=dict(globals(), **locals()))
     

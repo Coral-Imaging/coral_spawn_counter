@@ -80,7 +80,7 @@ capture_time = []
 SURFACE_LOAD = True
 SUBSURFACE_LOAD = False
 SAVE_PRELIM_IMAGES = True
-MAX_IMG = 10000
+MAX_IMG = 30 #10000
 window_size = 20 # for rolling means, etc
 
 def convert_to_decimal_days(dates_list, time_zero=None):
@@ -403,6 +403,9 @@ density_count = image_count * image_volume
 # overall tank count: 
 tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 tank_count = density_count * tank_volume
+
+mpl.use('Agg')
+print("Above line just for Java while testing")
 
 # show averages to apply rolling means
 plotdatadict = {

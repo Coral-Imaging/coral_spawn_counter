@@ -1,8 +1,7 @@
 #! /usr/bin/env python3
 
 """
-use the results from Sub_surface_detector and detector and plot them
-NOTE: Haven't tested yet
+use the results from SubSurface_detector and Surface detector pixkle files and plot them
 """
 #test
 t = 1
@@ -25,18 +24,8 @@ import time
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
 
-
-# Consts
-
-# counts per image to density counts: need volume:
-# calculated by hand to be approximately 0.1 mL 
-# 2.23 cm x 1.675 cm x 0.267 cm
-image_volume = 0.10 # mL
-# density_count = [c / image_volume for c in count]
-density_count = image_count * image_volume
-# overall tank count: 
-tank_volume = 500 * 1000 # 500 L * 1000 mL/L
-tank_count = density_count * tank_volume
+# Consts (more below as well)
+window_size = 20 # for rolling means, etc
 # estimated tank surface area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
@@ -45,15 +34,18 @@ area_tank = np.pi * rad_tank**2
 # area_cslics = 2.35**2*(3/4) # cm2 for cslics01 @ 15.5 cm distance with micro2 lens
 area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
 nimage_to_tank_surface = area_tank / area_cslics
+capture_time = []
+n = 1 # how many std deviations to show
+mpercent = 0.1 # range for manual counts
 
 # File locations
 img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
 save_dir = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
 manual_counts_file = "/mnt/c/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
 root_dir = "/mnt/c/20221113_amtenuis_cslics04"
-detections_file = 'detection_results.pkl'
 object_names_file = 'metadata/obj.names'
-subsurface_det_file = 'subsurface_det.pkl'
+subsurface_det_file = 'subsurface_det3.pkl'
+surface_pkl_file = 'detection_results.pkl'
 subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
 save_plot_dir = os.path.join(save_dir, 'plots')
 save_img_dir = os.path.join(save_dir, 'images')
@@ -81,14 +73,16 @@ os.makedirs(save_dir, exist_ok=True)
 os.makedirs(save_plot_dir, exist_ok=True)
 os.makedirs(save_img_dir, exist_ok=True)
 
-# load classes and results
-with open(os.path.join(root_dir, 'detection_results.pkl'), 'rb') as f:
-    results = pickle.load(f)
+# load classes
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
         
+##################################### surface counts
+# load results
+with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
+    results = pickle.load(f)
 # get counts as arrays:
-print('getting counts from detections')
+print('getting counts from Surface')
 count_eggs = []
 count_first = []
 count_two = []
@@ -96,6 +90,7 @@ count_four = []
 count_adv = []
 count_dmg = []
 capture_time_str = []
+
 for res in results:
     # create a list of strings of all the detections for the given image
     counted_classes = [det[6] for det in res.detections]
@@ -116,46 +111,71 @@ surface_capture_times = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in captu
 surface_counts = [count_eggs[i] + count_first[i] + count_two[i] + count_four[i] + count_adv[i] for i in range(len(count_eggs))]
 # apply rolling means
 
-plotdatadict = {'capture times': surface_capture_times,
-                'eggs': count_eggs,
-                'first': count_first,
-                'two': count_two,
-                'four': count_four,
-                'adv': count_adv,
-                'dmg': count_dmg,
-                'total': surface_counts}
+def plot_surface_counts(surface_capture_times, count_eggs, count_first, count_two, count_four,
+                        count_adv, count_dmg, surface_counts):
+    plotdatadict = {'capture times': surface_capture_times,
+                    'eggs': count_eggs,
+                    'first': count_first,
+                    'two': count_two,
+                    'four': count_four,
+                    'adv': count_adv,
+                    'dmg': count_dmg,
+                    'total': surface_counts}
 
-df = pd.DataFrame(plotdatadict)
+    df = pd.DataFrame(plotdatadict)
 
-count_eggs_mean = df['eggs'].rolling(window_size).mean()
-count_eggs_std = df['eggs'].rolling(window_size).std()
+    count_eggs_mean = df['eggs'].rolling(window_size).mean()
+    count_eggs_std = df['eggs'].rolling(window_size).std()
 
-count_first_mean = df['first'].rolling(window_size).mean()
-count_first_std = df['first'].rolling(window_size).std()
+    count_first_mean = df['first'].rolling(window_size).mean()
+    count_first_std = df['first'].rolling(window_size).std()
 
-count_two_mean = df['two'].rolling(window_size).mean()
-count_two_std = df['two'].rolling(window_size).std()
+    count_two_mean = df['two'].rolling(window_size).mean()
+    count_two_std = df['two'].rolling(window_size).std()
 
-count_four_mean = df['four'].rolling(window_size).mean()
-count_four_std = df['four'].rolling(window_size).std()
+    count_four_mean = df['four'].rolling(window_size).mean()
+    count_four_std = df['four'].rolling(window_size).std()
 
-count_adv_mean = df['adv'].rolling(window_size).mean()
-count_adv_std = df['adv'].rolling(window_size).std()
+    count_adv_mean = df['adv'].rolling(window_size).mean()
+    count_adv_std = df['adv'].rolling(window_size).std()
 
-count_dmg_mean = df['dmg'].rolling(window_size).mean()
-count_dmg_std = df['dmg'].rolling(window_size).std()
+    count_dmg_mean = df['dmg'].rolling(window_size).mean()
+    count_dmg_std = df['dmg'].rolling(window_size).std()
 
-count_total_mean = df['total'].rolling(window_size).mean()
-count_total_std = df['total'].rolling(window_size).std()
+    count_total_mean = df['total'].rolling(window_size).mean()
+    count_total_std = df['total'].rolling(window_size).std()
+
+    return count_total_mean, count_total_std
+
+count_total_mean, count_total_std = plot_surface_counts(surface_capture_times, count_eggs, count_first, count_two, count_four,
+                        count_adv, count_dmg, surface_counts)
 
 # sum everything
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
-
 counttank_total = count_total_mean * nimage_to_tank_surface
 
-########################################################
+#######################################################################
 
+# Subsurface load pixle data
+# load pickle file for blobs_list and blobs_count
+
+with open(subsurface_det_path, 'rb') as f:
+    save_data = pickle.load(f)
+    
+blobs_list = save_data['blobs_list']
+blobs_count = save_data['blobs_count']
+image_index = save_data['image_index']
+capture_time = save_data['capture_time']
+
+# convert blobs_count into actual count, not interior list of indices
+image_count = [len(blobs_index) for blobs_index in blobs_count]
+image_count = np.array(image_count)
+
+capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+decimal_days = convert_to_decimal_days(capture_time_dt)
+
+########################################################
 # read manual counts file
 
 dt, mc, tw = read_manual_counts(manual_counts_file)
@@ -163,12 +183,23 @@ zero_time = capture_time_dt[0]
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
 
 ########################################################
-# beter way to do this? Surface_detector save results and then load?
-blobs_count, blobs_list, image_index, capture_time = Surface_Detector().run
 
-# convert blobs_count into actual count, not interior list of indices
-image_count = [len(blobs_index) for blobs_index in blobs_count]
-image_count = np.array(image_count)
+# Consts
+
+# counts per image to density counts: need volume:
+# calculated by hand to be approximately 0.1 mL 
+# 2.23 cm x 1.675 cm x 0.267 cm
+image_volume = 0.10 # mL
+# density_count = [c / image_volume for c in count]
+density_count = image_count * image_volume
+# overall tank count: 
+tank_volume = 500 * 1000 # 500 L * 1000 mL/L
+tank_count = density_count * tank_volume
+
+mpl.use('Agg')
+print("Above line just for Java while testing")
+
+##############################################################################
 
 # show averages to apply rolling means
 plotdatadict = {
@@ -189,8 +220,7 @@ density_count_std = df['density_count'].rolling(window_size).std()
 
 tank_count_mean = df['tank_count'].rolling(window_size).mean()
 tank_count_std = df['tank_count'].rolling(window_size).std()
-n = 1 # how many std deviations to show
-mpercent = 0.1 # range for manual counts
+
 
 # TODO showcase counts over time?
 sns.set_theme(style='whitegrid')
@@ -262,7 +292,9 @@ wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to_tan
                             manual_decimal_days, mc, mpercent,
                             save_plot_dir)
 
-print('done blob_mvt.py')
+print('results ploted')
+
+
 # TODO need to ascertain the validity of the blobs - not all edges are ideal - chat with Andrew
 # TODO save blob counts to txt file for reading/later usage?
 # TODO write to xml file for uploading blob annotations    
