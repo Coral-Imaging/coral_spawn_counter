@@ -150,7 +150,7 @@ class SubSurface_Detector:
             if self.save_prelim:
                 imblobs.write(os.path.join(self.save_img_dir, img_base_name + '_04_blob.jpg'))
                 imblobs_area.write(os.path.join(self.save_img_dir, img_base_name + '_05_blob_filter.jpg'))
-
+            print(f'{len(icont)} blobs passed threasholds')
             # TODO for now, just count these blobs over time
             return blobby, icont
         except:
@@ -166,45 +166,23 @@ class SubSurface_Detector:
                 'capture_time': capture_time}
             pickle.dump(save_data, f)
 
-    # def blob_2_box(self, img_name, blobby):
-    #     #TODO class confidence currently at 0.5
-    #     img = cv.imread(img_name)
-    #     imgw, imgh = img.shape[1], img.shape[0]
-    #     #cv.imshow('img', img)
-    #     bb = []
-    #     for blob in blobby:
-    #         current_blob = blob[0]
-    #         centroid_x, centroid_y = current_blob.centroid
-            
-    #         #NOTE not very accurate because blobs aren't circles
-    #         radius = np.sqrt(current_blob.area / np.pi)
-
-    #         x1 = (centroid_x - radius)/(imgw*2)
-    #         y1 = (centroid_y - radius)/(imgh*2)
-    #         x2 = (centroid_x + radius)/(imgw*2)
-    #         y2 = (centroid_y + radius)/(imgh*2)
-    #         print([x1,y1,x2,y2])
-    #         # width = np.sqrt(current_blob.area / (np.pi * current_blob.aspect))
-    #         # height = current_blob.area / (np.pi * width)
-
-    #         bb.append([x1, y1, x2, y2, 0.5, 3, 3])
-    #     return torch.tensor(bb)
     def blob_2_box(self, img_name, icont, blobby):
         img = cv.imread(img_name)
         contours = blobby._contours
         imgw, imgh = img.shape[1], img.shape[0]
         bb = []
-        for c in contours:
-            x, y, w, h = cv.boundingRect(c)
-            cv.rectangle(img, (x,y), (x+w, y+h), (0, 0, 255), 2)
-            print([x,y,x+w,y+h])
-            x1 = x/(imgw*2)
-            y1 = y/(imgh*2)
-            x2 = (x+w)/(imgw*2)
-            y2 = (y+h)/(imgh*2)
-            bb.append([x1, y1, x2, y2, 0.5, 3, 3])
-        plt.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
-        plt.show()
+        for i, c in enumerate(contours):
+            if i in icont:
+                x, y, w, h = cv.boundingRect(c)
+                cv.rectangle(img, (x,y), (x+w, y+h), (0, 0, 255), 2)
+                x1 = x/(imgw*2)
+                y1 = y/(imgh*2)
+                x2 = (x+w)/(imgw*2)
+                y2 = (y+h)/(imgh*2)
+                bb.append([x1, y1, x2, y2, 0.5, 3, 3])
+        #debug visualise
+        #plt.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
+        #plt.show()
         return torch.tensor(bb)
 
     def save_text_predictions(self, predictions, imgname, txtsavedir):
@@ -300,7 +278,7 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 def main():
     img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
     root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
-    MAX_IMG = 3
+    MAX_IMG = 10000
     detection_file = 'subsurface_det_testing.pkl'
     object_names_file = 'metadata/obj.names'
     window_size = 20
