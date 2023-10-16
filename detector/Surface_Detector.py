@@ -11,10 +11,12 @@ import glob
 import numpy as np
 from PIL import Image as PILImage
 import cv2 as cv
+
 from coral_spawn_counter.CoralImage import CoralImage
 import pickle
 from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
+from Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions
 
 class Surface_Detector:
     DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
@@ -41,79 +43,11 @@ class Surface_Detector:
         self.max_det = max_det
 
         self.root_dir = root_dir
-        self.classes = self.get_classes(self.root_dir)
-        self.class_colours = self.set_class_colours(self.classes)
+        self.classes = get_classes(self.root_dir)
+        self.class_colours = set_class_colours(self.classes)
         self.img_size = image_size
 
         self.sourceimages = source_img_folder
-
-
-    def get_classes(self, root_dir):
-        """
-        get the classes from a metadata/obj.names file
-        classes = [class1, class2, class3 etc.]
-        """
-        #TODO: make a function of something else, used in both detectors
-        with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
-            classes = [line.strip() for line in f.readlines()]
-        return classes
-    
-
-    def set_class_colours(self, classes):
-        """
-        set classes to specific colours using a dictionary
-        """
-        #TODO: make a function of something else, used in both detectors
-        orange = [255, 128, 0] # four-eight cell stage
-        blue = [0, 212, 255] # first cleavage
-        purple = [170, 0, 255] # two-cell stage
-        yellow = [255, 255, 0] # advanced
-        brown = [144, 65, 2] # damaged
-        green = [0, 255, 00] # egg
-        class_colours = {classes[0]: orange,
-                        classes[1]: blue,
-                        classes[2]: purple,
-                        classes[3]: yellow,
-                        classes[4]: brown,
-                        classes[5]: green}
-        return class_colours
-
-
-    def save_text_predictions(self, predictions, imgname, txtsavedir):
-        """
-        save predictions/detections into text file
-        [x1 y1 x2 y2 conf class_idx class_name]
-        """
-        txtsavename = os.path.basename(imgname)
-        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
-
-        # predictions [ pix pix pix pix conf class ]
-        with open(txtsavepath, 'w') as f:
-            for p in predictions:
-                x1, y1, x2, y2 = p[0:4].tolist()
-                conf = p[4]
-                class_idx = int(p[5])
-                class_name = self.classes[class_idx]
-                f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
-        return True
-
-
-    def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
-        """
-        save predictions/detections (assuming predictions in yolo format) on image
-        """
-        for p in predictions:
-            x1, y1, x2, y2 = p[0:4].tolist()
-            conf = p[4]
-            cls = int(p[5])        
-            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
-            cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
-
-        imgsavename = os.path.basename(imgname)
-        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
-        cv.imwrite(imgsave_path, img)
-        return True
-
 
     def nms(self, pred, conf_thresh, iou_thresh, classes, max_det):
         """ perform class-agnostic non-maxima suppression on predictions 
@@ -161,9 +95,10 @@ class Surface_Detector:
         return pred[keep, :]
 
 
-    def convert_results_2_pkl(self, imgsave_dir, txtsavedir, save_file_name):
+    def convert_results_2_pkl(self, txtsavedir, save_file_name):
         """
-        convert textfiles and images into CoralImage and save data in pkl file
+        convert textfiles and images into CoralImage and save data in pkl file,
+        assuming textfiles in [[x1 y1 x2 y2 conf class_idx class_name] yolo formt
         """
         # read in each .txt file
         txt_list = sorted(os.listdir(txtsavedir))
@@ -190,16 +125,10 @@ class Surface_Detector:
             pickle.dump(results, f)
 
 
-    def total_count(self):
-        #TODO: function with total count
-        print('not done')
-
-
     def show_image_predictions(self, predictions, img):
         """
         show predictions/detections (assurming predeictions in yolo format) for an image
         """
-        #TODO: function that plots detections on image
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()
             conf = p[4]
@@ -217,9 +146,11 @@ class Surface_Detector:
         img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
         return img_rgb
 
+
     def detect(self, image):
         """
-        return detections from a single rgb image, passes prediction through nms and returns them in yolo format
+        return detections from a single rgb image, 
+        passes prediction through nms and returns them in yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
         pred = self.model.predict(source=image,
                                       save=False,
@@ -255,9 +186,9 @@ class Surface_Detector:
 
         for i, imgname in enumerate(imglist):
             print(f'predictions on {i+1}/{len(imglist)}')
-            #if i >= 3: # for debugging purposes
-            #     import code
-            #     code.interact(local=dict(globals(), **locals()))
+            if i >= self.max_det: # for debugging purposes
+                import code
+                code.interact(local=dict(globals(), **locals()))
             #    break
 
             # load image
@@ -265,9 +196,9 @@ class Surface_Detector:
                 img_rgb = self.prep_img(imgname)
                 predictions = self.detect(img_rgb)# inference
                 # save predictions as an image
-                self.save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
+                save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
                 # save predictions as a text file
-                self.save_text_predictions(predictions, imgname, txtsavedir)
+                save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
                 print('unable to read image or do model prediction --> skipping')
                 print(f'skipped: imgname = {imgname}')
@@ -290,8 +221,9 @@ def main():
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
     root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     source_img_folder = os.path.join(root_dir, 'images_jpg')
+    yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
 
-    Coral_Detector = Surface_Detector(root_dir = root_dir, source_img_folder=source_img_folder)
+    Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=1000)
     Coral_Detector.run()
 
 if __name__ == "__main__":

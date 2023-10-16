@@ -23,6 +23,8 @@ import time
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
+from detector.Detector_helper import convert_to_decimal_days
+
 
 # Consts (more below as well)
 window_size = 20 # for rolling means, etc
@@ -49,23 +51,6 @@ surface_pkl_file = 'detection_results2.pkl'
 subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
 save_plot_dir = os.path.join(save_dir, 'plots')
 save_img_dir = os.path.join(save_dir, 'images')
-
-# Helper functions
-
-def convert_to_decimal_days(dates_list, time_zero=None):
-    if time_zero is None:
-        time_zero = dates_list[0]  # Time zero is the first element date in the list
-    else:
-        time_zero = time_zero
-        
-    decimal_days_list = []
-
-    for date in dates_list:
-        time_difference = date - time_zero
-        decimal_days = time_difference.total_seconds() / (60 * 60 * 24)
-        decimal_days_list.append(decimal_days)
-
-    return decimal_days_list
 
 # File setup
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))

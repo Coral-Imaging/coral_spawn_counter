@@ -11,20 +11,31 @@ import os
 import glob
 import torch
 
+from detector.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
+
 class RedCircle_Detector():
     DEFAULT_DATA_DIR = '/home/java/Java/data/cslics_microsphere_data'
+    DEFAULT_CLASS_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    DEFAULT_IMG_DIR = os.path.join(DEFAULT_DATA_DIR, 'images')
+    DEFAULT_SAVE_DIR = os.path.join(DEFAULT_DATA_DIR, 'red_circles')
+    DEFAULT_MAX_DECT = 1000
     
     def __init__(self,
                  data_dir: str = DEFAULT_DATA_DIR,
-                 show_circle: bool = True):
+                 img_dir: str = DEFAULT_IMG_DIR,
+                 save_dir: str = DEFAULT_SAVE_DIR,
+                 show_circle: bool = True,
+                 class_dir: str = DEFAULT_CLASS_DIR,
+                 max_dect: int = DEFAULT_MAX_DECT):
         self.data_dir = data_dir
-        self.img_dir = os.path.join(self.data_dir, 'images')
+        self.img_dir = img_dir
         self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        self.save_dir = os.path.join(data_dir, 'red_circles')
+        self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
-        self.classes = self.get_classes("/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04")
-        self.class_colours = self.set_class_colours(self.classes)
+        self.classes = get_classes(class_dir)
+        self.class_colours = set_class_colours(self.classes)
         self.show_circles = show_circle
+        self.max_dect = max_dect
         self.count = 0
 
     def find_circles(self,
@@ -37,6 +48,9 @@ class RedCircle_Detector():
                     param2=30,
                     maxRadius=125,
                     minRadius=20):
+        """
+        Find circles in a given image with specified parameters
+        """
         # TODO rename parameters for more readability
         # convert image to grayscale
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -53,6 +67,7 @@ class RedCircle_Detector():
                                 minRadius=minRadius)
         return circles
 
+
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=8):
         """ draw circles onto image"""
         for circ, i in enumerate(circles[0,:], start=1):
@@ -63,67 +78,29 @@ class RedCircle_Detector():
                     thickness=thickness)
         return img
 
+
     def convert_circle_to_box(self, x,y,r, image_width, image_height):
-        # no less than zero
-        # no more than image width, height
+        """ convert a circle to a box, maxing sure to stay within the image bounds"""
         xmin = max(0, x - r)
         xmax = min(image_width, x + r)
         ymin = max(0, y - r)
         ymax = min(image_height, y + r)
-        # bbox format following Pascal VOC dataset:
-        # [xmin, ymin, xmax, ymax]
         return xmin, ymin, xmax, ymax
 
-    def get_classes(self, root_dir):
-            """
-            get the classes from a metadata/obj.names file
-            classes = [class1, class2, class3 etc.]
-            """
-            #TODO: make a function of something else, used in both detectors
-            with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
-                classes = [line.strip() for line in f.readlines()]
-            return classes
-
-    def set_class_colours(self, classes):
-            """
-            set classes to specific colours using a dictionary
-            """
-            #TODO: make a function of something else, used in both detectors
-            orange = [255, 128, 0] # four-eight cell stage
-            blue = [0, 212, 255] # first cleavage
-            purple = [170, 0, 255] # two-cell stage
-            yellow = [255, 255, 0] # advanced
-            brown = [144, 65, 2] # damaged
-            green = [0, 255, 00] # egg
-            class_colours = {classes[0]: orange,
-                            classes[1]: blue,
-                            classes[2]: purple,
-                            classes[3]: yellow,
-                            classes[4]: brown,
-                            classes[5]: green}
-            return class_colours
-
-    def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
-            """
-            save predictions/detections (assuming predictions in yolo format) on image
-            """
-            for p in predictions:
-                x1, y1, x2, y2 = p[0:4].tolist()
-                conf = p[4]
-                cls = int(p[5])        
-                cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
-                cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
-
-            imgsavename = os.path.basename(imgname)
-            imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
-            cv.imwrite(imgsave_path, img)
-            return True
 
     def prep_img(self, img_name):
+        """
+        from an img_name, load the image into the correct format for dections (cv.imread)
+        """
         img = cv.imread(img_name)
         return img
 
+
     def detect(self, image):
+        """
+        return detections from a single prepared image, 
+        attempts to find circles and then converts the circles into yolo format [x1 y1 x2 y2 conf class_idx class_name]
+        """
         img_height, img_width, _ = image.shape
         circles = self.find_circles(image)
         if circles is not None:
@@ -157,7 +134,6 @@ class RedCircle_Detector():
             pred.append([x1, y1, x2, y2, 0.5, 3, 3])
         return torch.tensor(pred)
 
-    def save_text_predictions(self, predictions, imgname, txtsavedir):
         """
         save predictions/detections into text file
         [x1 y1 x2 y2 conf class_idx class_name]
@@ -175,11 +151,12 @@ class RedCircle_Detector():
                 f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
         return True
 
+
     def run(self):   
         txtsavedir = os.path.join(self.data_dir, 'textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
         for i, img_name in enumerate(self.img_list):
-            if i > 3:
+            if i > self.max_dect:
                 break
             
             print(f'{i}: img_name = {img_name}')  
@@ -188,14 +165,15 @@ class RedCircle_Detector():
             # detect circles
             predictions = self.detect(img)
 
-            self.save_image_predictions(predictions, img, img_name, self.save_dir, self.class_colours, self.classes)
-            self.save_text_predictions(predictions, img_name, txtsavedir)
+            save_image_predictions(predictions, img, img_name, self.save_dir, self.class_colours, self.classes)
+            save_text_predictions(predictions, img_name, txtsavedir, self.classes)
             import code
             code.interact(local=dict(globals(), **locals()))
 
 def main():
-    
-    Coral_Detector = RedCircle_Detector()
+    data_dir = '/home/java/Java/data/cslics_microsphere_data'
+    max_dect = 3
+    Coral_Detector = RedCircle_Detector(data_dir=data_dir, max_dect=max_dect)
     Coral_Detector.run()
     # import code
     # code.interact(local=dict(globals(), **locals()))
