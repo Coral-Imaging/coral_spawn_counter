@@ -26,9 +26,9 @@ from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
 
 class SubSurface_Detector:
-    DEFAULT_IMG_DIR = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
-    DEFAULT_SAVE_DIR = "/mnt/c/20221113_amtenuis_cslics04/combined_detections"
-    DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
+    DEFAULT_IMG_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
+    DEFAULT_SAVE_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
+    DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
     DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
     DEFAULT_WINDOW_SIZE = 20
@@ -54,6 +54,10 @@ class SubSurface_Detector:
         self.save_prelim = save_prelim_img
         self.capture_time_list = []
         self.classes = self.get_classes(root_dir)
+        #help with detection
+        self.count = 0
+        self.blobby = []
+        self.icont = []
         os.makedirs(self.save_img_dir, exist_ok=True)
 
     def get_classes(self, root_dir):
@@ -162,29 +166,48 @@ class SubSurface_Detector:
                 'capture_time': capture_time}
             pickle.dump(save_data, f)
 
-    def blob_2_box(self, img_name, blobby):
-        #TODO class confidence currently at 0.5
-        img = cv.imread(img_name)
-        imgw, imgh = img.shape[1], img.shape[0]
-        #cv.imshow('img', img)
-        bb = []
-        for blob in blobby:
-            current_blob = blob[0]
-            centroid_x, centroid_y = current_blob.centroid
+    # def blob_2_box(self, img_name, blobby):
+    #     #TODO class confidence currently at 0.5
+    #     img = cv.imread(img_name)
+    #     imgw, imgh = img.shape[1], img.shape[0]
+    #     #cv.imshow('img', img)
+    #     bb = []
+    #     for blob in blobby:
+    #         current_blob = blob[0]
+    #         centroid_x, centroid_y = current_blob.centroid
             
-            width = np.sqrt(current_blob.area / (np.pi * current_blob.aspect))
-            height = current_blob.area / (np.pi * width)
+    #         #NOTE not very accurate because blobs aren't circles
+    #         radius = np.sqrt(current_blob.area / np.pi)
 
-            # Calculate upper-left and lower-right coordinates of the bounding box
-            x1 = centroid_x - width / 2
-            y1 = centroid_y - height / 2
-            x2 = centroid_x + width / 2
-            y2 = centroid_y + height / 2
+    #         x1 = (centroid_x - radius)/(imgw*2)
+    #         y1 = (centroid_y - radius)/(imgh*2)
+    #         x2 = (centroid_x + radius)/(imgw*2)
+    #         y2 = (centroid_y + radius)/(imgh*2)
+    #         print([x1,y1,x2,y2])
+    #         # width = np.sqrt(current_blob.area / (np.pi * current_blob.aspect))
+    #         # height = current_blob.area / (np.pi * width)
 
+    #         bb.append([x1, y1, x2, y2, 0.5, 3, 3])
+    #     return torch.tensor(bb)
+    def blob_2_box(self, img_name, icont, blobby):
+        img = cv.imread(img_name)
+        contours = blobby._contours
+        imgw, imgh = img.shape[1], img.shape[0]
+        bb = []
+        for c in contours:
+            x, y, w, h = cv.boundingRect(c)
+            cv.rectangle(img, (x,y), (x+w, y+h), (0, 0, 255), 2)
+            print([x,y,x+w,y+h])
+            x1 = x/(imgw*2)
+            y1 = y/(imgh*2)
+            x2 = (x+w)/(imgw*2)
+            y2 = (y+h)/(imgh*2)
             bb.append([x1, y1, x2, y2, 0.5, 3, 3])
+        plt.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
+        plt.show()
         return torch.tensor(bb)
 
-    def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
+    def save_text_predictions(self, predictions, imgname, txtsavedir):
         """
         save predictions/detections into text file
         [x1 y1 x2 y2 conf class_idx class_name]
@@ -198,10 +221,20 @@ class SubSurface_Detector:
                 x1, y1, x2, y2 = p[0:4].tolist()
                 conf = p[4]
                 class_idx = int(p[5])
-                class_name = classes[class_idx]
+                class_name = self.classes[class_idx]
                 f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
         return True
 
+    def detect(self, image):
+        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        img_name = img_list[self.count]
+        blobby, icont = self.attempt_blobs(img_name, image, im = Image(img_name))
+        predictions = self.blob_2_box(img_name, icont, blobby)
+        self.blobby = blobby
+        self.icont = icont
+        self.count += 1
+        return predictions
+    
     def run(self, SUBSURFACE_LOAD = False):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
@@ -217,8 +250,8 @@ class SubSurface_Detector:
         for i, img_name in enumerate(img_list):
             if i >= self.max_img:
                 print(f'{i}: hit max img - stop here')
-                import code
-                code.interact(local=dict(globals(), **locals()))
+                #import code
+                #code.interact(local=dict(globals(), **locals()))
                 break
     
             print(f'{i}: img_name = {img_name}')  
@@ -226,11 +259,10 @@ class SubSurface_Detector:
             print('image prepared')
             image_index.append(i)
 
-            blobby, icont = self.attempt_blobs(img_name, im_morph, im = Image(img_name))
-            predictions = self.blob_2_box(img_name, blobby)
-            self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            blobs_list.append(blobby)
-            blobs_count.append(icont)
+            predictions = self.detect(im_morph)
+            self.save_text_predictions(predictions, img_name, txtsavedir)
+            blobs_list.append(self.blobby)
+            blobs_count.append(self.icont)
         
         subsurface_det_path = os.path.join(self.save_dir, self.detection_file)
         self.save_results_2_pkl(subsurface_det_path, blobs_list, blobs_count, image_index, self.capture_time_list) 
@@ -241,8 +273,11 @@ class SubSurface_Detector:
         print('run time: {} min'.format(duration / 60.0))
         print('run time: {} hrs'.format(duration / 3600.0))
 
-        capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time_list]
+        capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in self.capture_time_list]
         decimal_days = convert_to_decimal_days(capture_time_dt)
+
+        import code
+        code.interact(local=dict(globals(), **locals()))
 
 
 
@@ -263,10 +298,10 @@ def convert_to_decimal_days(dates_list, time_zero=None):
     return decimal_days_list
     
 def main():
-    img_dir = "/mnt/c/20221113_amtenuis_cslics04/images_jpg"
-    root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+    img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
+    root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     MAX_IMG = 3
-    detection_file = 'subsurface_det3.pkl'
+    detection_file = 'subsurface_det_testing.pkl'
     object_names_file = 'metadata/obj.names'
     window_size = 20
 

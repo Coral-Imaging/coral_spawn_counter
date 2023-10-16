@@ -17,13 +17,13 @@ from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
 
 class Surface_Detector:
-    DEFAULT_ROOT_DIR = "/mnt/c/20221113_amtenuis_cslics04"
+    DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     DEFAULT_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.25
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
-    DEFAULT_YOLO8 = os.path.join(DEFAULT_ROOT_DIR, "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
+    DEFAULT_YOLO8 = os.path.join("/home/java/Java/data/java_added_files", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
     def __init__(self,
                 weights_file: str = DEFAULT_YOLO8,
@@ -32,7 +32,6 @@ class Surface_Detector:
                 image_size: int = DEFAULT_IMAGE_SIZE,
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
-                agnostic: bool = True,
                 max_det: int = DEFAULT_MAX_DET):
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -80,7 +79,7 @@ class Surface_Detector:
         return class_colours
 
 
-    def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
+    def save_text_predictions(self, predictions, imgname, txtsavedir):
         """
         save predictions/detections into text file
         [x1 y1 x2 y2 conf class_idx class_name]
@@ -94,7 +93,7 @@ class Surface_Detector:
                 x1, y1, x2, y2 = p[0:4].tolist()
                 conf = p[4]
                 class_idx = int(p[5])
-                class_name = classes[class_idx]
+                class_name = self.classes[class_idx]
                 f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
         return True
 
@@ -171,8 +170,6 @@ class Surface_Detector:
 
         results = []
         for i, txt in enumerate(txt_list):
-            if i > 3:
-                break
             print(f'importing detections {i+1}/{len(txt_list)}')
             with open(os.path.join(txtsavedir, txt), 'r') as f:
                 detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
@@ -258,10 +255,10 @@ class Surface_Detector:
 
         for i, imgname in enumerate(imglist):
             print(f'predictions on {i+1}/{len(imglist)}')
-            # if i >= 3: # for debugging purposes
+            #if i >= 3: # for debugging purposes
             #     import code
             #     code.interact(local=dict(globals(), **locals()))
-            #     break
+            #    break
 
             # load image
             try:
@@ -270,12 +267,12 @@ class Surface_Detector:
                 # save predictions as an image
                 self.save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
                 # save predictions as a text file
-                self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+                self.save_text_predictions(predictions, imgname, txtsavedir)
             except:
                 print('unable to read image or do model prediction --> skipping')
                 print(f'skipped: imgname = {imgname}')
-                import code
-                code.interact(local=dict(globals(), **locals()))
+                #import code
+                #code.interact(local=dict(globals(), **locals()))
 
         print('done detection')
 
@@ -291,7 +288,7 @@ def main():
     #weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
-    root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+    root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     source_img_folder = os.path.join(root_dir, 'images_jpg')
 
     Coral_Detector = Surface_Detector(root_dir = root_dir, source_img_folder=source_img_folder)
