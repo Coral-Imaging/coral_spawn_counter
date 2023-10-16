@@ -15,13 +15,17 @@ class RedCircle_Detector():
     DEFAULT_DATA_DIR = '/home/java/Java/data/cslics_microsphere_data'
     
     def __init__(self,
-                 data_dir: str = DEFAULT_DATA_DIR):
-        self.img_dir = os.path.join(data_dir, 'images')
+                 data_dir: str = DEFAULT_DATA_DIR,
+                 show_circle: bool = True):
+        self.data_dir = data_dir
+        self.img_dir = os.path.join(self.data_dir, 'images')
         self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         self.save_dir = os.path.join(data_dir, 'red_circles')
         os.makedirs(self.save_dir, exist_ok=True)
         self.classes = self.get_classes("/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04")
         self.class_colours = self.set_class_colours(self.classes)
+        self.show_circles = show_circle
+        self.count = 0
 
     def find_circles(self,
                     img, 
@@ -115,45 +119,77 @@ class RedCircle_Detector():
             cv.imwrite(imgsave_path, img)
             return True
 
+    def prep_img(self, img_name):
+        img = cv.imread(img_name)
+        return img
+
+    def detect(self, image):
+        img_height, img_width, _ = image.shape
+        circles = self.find_circles(image)
+        if circles is not None:
+            _ , n_circ, _ = circles.shape
+        else:
+            n_circ = 0
+        print(f'Circles detected = {n_circ}')
+        if self.show_circles:
+            if n_circ > 0:
+                img_c = self.draw_circles(image, circles)
+            else:
+                img_c = image
+            # save image
+            img_name = self.img_list[self.count]
+            img_name_circle = img_name[:-4] + '_circ.jpeg'
+            self.count += 1
+            cv.imwrite(os.path.join(self.save_dir, img_name_circle), img_c)
+
+        # get bounding box of the circles
+        pred = []
+        for i in range(n_circ):
+            x = circles[0][i, 0]
+            y = circles[0][i, 1]
+            r = circles[0][i, 2]
+            xmin, ymin, xmax, ymax = self.convert_circle_to_box(x,y,r,img_width, img_height)
+            x1 = xmin/(img_width*2)
+            y1 = ymin/(img_height*2)
+            x2 = xmax/(img_width*2)
+            y2 = ymax/(img_height*2)
+            print(xmin, ymin, xmax, ymax)
+            pred.append([x1, y1, x2, y2, 0.5, 3, 3])
+        return torch.tensor(pred)
+
+    def save_text_predictions(self, predictions, imgname, txtsavedir):
+        """
+        save predictions/detections into text file
+        [x1 y1 x2 y2 conf class_idx class_name]
+        """
+        txtsavename = os.path.basename(imgname)
+        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
+
+        # predictions [ pix pix pix pix conf class ]
+        with open(txtsavepath, 'w') as f:
+            for p in predictions:
+                x1, y1, x2, y2 = p[0:4].tolist()
+                conf = p[4]
+                class_idx = int(p[5])
+                class_name = self.classes[class_idx]
+                f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
+        return True
+
     def run(self):   
+        txtsavedir = os.path.join(self.data_dir, 'textfiles')
+        os.makedirs(txtsavedir, exist_ok=True)
         for i, img_name in enumerate(self.img_list):
             if i > 3:
                 break
             
             print(f'{i}: img_name = {img_name}')  
             # read in image
-            img = cv.imread(img_name)
-            img_height, img_width, _ = img.shape
-            # find circles
-            circles = self.find_circles(img)
-            if circles is not None:
-                _ , n_circ, _ = circles.shape
-            else:
-                n_circ = 0
-            print(f'Image: {img_name}: circles detected = {n_circ}')
+            img = self.prep_img(img_name)
+            # detect circles
+            predictions = self.detect(img)
 
-            # draw circles
-            if n_circ > 0:
-                img_c = self.draw_circles(img, circles)
-            else:
-                img_c = img
-            # save image
-            img_name_circle = img_name[:-4] + '_circ.jpeg'
-            cv.imwrite(os.path.join(self.save_dir, img_name_circle), img_c)
-
-            # get bounding box of the circles
-            pred = []
-            for i in range(n_circ):
-                x = circles[0][i, 0]
-                y = circles[0][i, 1]
-                r = circles[0][i, 2]
-                xmin, ymin, xmax, ymax = self.convert_circle_to_box(x,y,r,img_width, img_height)
-                print(xmin, ymin, xmax, ymax)
-                pred.append([xmin, ymin, xmax, ymax, 0.5, 3, 3])
-
-            self.save_image_predictions(torch.tensor(pred), img, img_name, self.save_dir, self.class_colours, self.classes)
-            
-
+            self.save_image_predictions(predictions, img, img_name, self.save_dir, self.class_colours, self.classes)
+            self.save_text_predictions(predictions, img_name, txtsavedir)
             import code
             code.interact(local=dict(globals(), **locals()))
 
