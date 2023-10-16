@@ -16,7 +16,7 @@ from coral_spawn_counter.CoralImage import CoralImage
 import pickle
 from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
-from Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions
+from Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
 
 class Surface_Detector:
     DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
@@ -48,6 +48,7 @@ class Surface_Detector:
         self.img_size = image_size
 
         self.sourceimages = source_img_folder
+
 
     def nms(self, pred, conf_thresh, iou_thresh, classes, max_det):
         """ perform class-agnostic non-maxima suppression on predictions 
@@ -187,16 +188,16 @@ class Surface_Detector:
         for i, imgname in enumerate(imglist):
             print(f'predictions on {i+1}/{len(imglist)}')
             if i >= self.max_det: # for debugging purposes
-                import code
-                code.interact(local=dict(globals(), **locals()))
-            #    break
+            #    import code
+            #    code.interact(local=dict(globals(), **locals()))
+                break
 
             # load image
             try:
                 img_rgb = self.prep_img(imgname)
                 predictions = self.detect(img_rgb)# inference
                 # save predictions as an image
-                save_image_predictions(predictions, cv.imread(imgname), imgname, imgsave_dir, self.class_colours, self.classes)
+                save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
                 # save predictions as a text file
                 save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
@@ -207,8 +208,8 @@ class Surface_Detector:
 
         print('done detection')
 
-        pkl_file = 'detection_results2.pkl'
-        self.convert_results_2_pkl(imgsave_dir, txtsavedir, save_file_name=pkl_file)
+        pkl_file = 'detection_results1.pkl'
+        self.convert_results_2_pkl(txtsavedir, pkl_file)
         print(f'results stored in {pkl_file} file')
 
 
@@ -223,7 +224,7 @@ def main():
     source_img_folder = os.path.join(root_dir, 'images_jpg')
     yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
 
-    Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=1000)
+    Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=10000)
     Coral_Detector.run()
 
 if __name__ == "__main__":

@@ -126,10 +126,10 @@ class RedCircle_Detector():
             y = circles[0][i, 1]
             r = circles[0][i, 2]
             xmin, ymin, xmax, ymax = self.convert_circle_to_box(x,y,r,img_width, img_height)
-            x1 = xmin/(img_width*2)
-            y1 = ymin/(img_height*2)
-            x2 = xmax/(img_width*2)
-            y2 = ymax/(img_height*2)
+            x1 = xmin/img_width
+            y1 = ymin/img_height
+            x2 = xmax/img_width
+            y2 = ymax/img_height
             print(xmin, ymin, xmax, ymax)
             pred.append([x1, y1, x2, y2, 0.5, 3, 3])
         return torch.tensor(pred)
@@ -165,7 +165,7 @@ class RedCircle_Detector():
             # detect circles
             predictions = self.detect(img)
 
-            save_image_predictions(predictions, img, img_name, self.save_dir, self.class_colours, self.classes)
+            save_image_predictions(predictions, img_name, self.save_dir, self.class_colours, self.classes)
             save_text_predictions(predictions, img_name, txtsavedir, self.classes)
             import code
             code.interact(local=dict(globals(), **locals()))

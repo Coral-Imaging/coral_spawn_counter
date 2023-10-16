@@ -23,7 +23,7 @@ import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image
 
 from coral_spawn_counter.CoralImage import CoralImage
-from detector.Detector_helper import get_classes, save_text_predictions, convert_to_decimal_days
+from detector.Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions, convert_to_decimal_days
 
 class SubSurface_Detector:
     DEFAULT_IMG_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
@@ -57,6 +57,7 @@ class SubSurface_Detector:
 
         self.capture_time_list = []
         self.classes = get_classes(root_dir)
+        self.class_colours = set_class_colours(self.classes)
         #help with detection
         self.count = 0
         self.blobby = []
@@ -178,10 +179,10 @@ class SubSurface_Detector:
             if i in icont:
                 x, y, w, h = cv.boundingRect(c)
                 cv.rectangle(img, (x,y), (x+w, y+h), (0, 0, 255), 2)
-                x1 = x/(imgw*2)
-                y1 = y/(imgh*2)
-                x2 = (x+w)/(imgw*2)
-                y2 = (y+h)/(imgh*2)
+                x1 = x/imgw
+                y1 = y/imgh
+                x2 = (x+w)/imgw
+                y2 = (y+h)/imgh
                 bb.append([x1, y1, x2, y2, 0.5, 3, 3])
         #debug visualise
         # plt.imshow(cv.cvtColor(img, cv.COLOR_BGR2RGB))
@@ -202,7 +203,6 @@ class SubSurface_Detector:
         self.icont = icont
         self.count += 1
         return predictions
-    
     
     def run(self):
         print("running blob subsurface detector")
@@ -230,6 +230,7 @@ class SubSurface_Detector:
 
             predictions = self.detect(im_morph)
             save_text_predictions(predictions, img_name, txtsavedir, self.classes)
+            save_image_predictions(predictions, img_name, self.save_img_dir, self.class_colours, self.classes)
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)
         
