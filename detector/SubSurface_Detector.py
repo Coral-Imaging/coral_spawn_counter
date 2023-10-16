@@ -168,6 +168,10 @@ class SubSurface_Detector:
 
     def blob_2_box(self, img_name, icont, blobby):
         img = cv.imread(img_name)
+        if icont == []: #incase of no blobbs
+            return []
+        #import code
+        #code.interact(local=dict(globals(), **locals()))
         contours = blobby._contours
         imgw, imgh = img.shape[1], img.shape[0]
         bb = []
