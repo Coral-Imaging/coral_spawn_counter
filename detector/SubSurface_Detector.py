@@ -26,10 +26,12 @@ from coral_spawn_counter.CoralImage import CoralImage
 from detector.Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions, convert_to_decimal_days
 
 class SubSurface_Detector:
-    DEFAULT_IMG_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
+    DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     # DEFAULT_SAVE_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
-    DEFAULT_SAVE_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections'
-    DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    # DEFAULT_SAVE_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections'
+    DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
+    # DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    DEFAULT_ROOT_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager' # where the metadata is
     DEFAULT_SAVE_IMG_DIR = os.path.join(DEFAULT_SAVE_DIR, 'images')
     DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
     DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
@@ -145,7 +147,7 @@ class SubSurface_Detector:
             if self.save_prelim:
                 imblobs.write(os.path.join(self.save_img_dir, img_base_name + '_04_blob.jpg'))
                 imblobs_area.write(os.path.join(self.save_img_dir, img_base_name + '_05_blob_filter.jpg'))
-            print(f'{len(icont)} blobs passed threasholds')
+            print(f'{len(icont)} blobs passed thresholds')
             return blobby, icont
         except:
             print(f'No blob detection for {img_name}')
@@ -255,8 +257,11 @@ class SubSurface_Detector:
     
 def main():
     # img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-    root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
-    img_dir = os.path.join(root_dir, 'images_jpg')
+    # root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+    root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    # img_dir = os.path.join(root_dir, 'images_jpg')
+    img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
+    save_dir = '/home/cslics04/images/subsurface'
     # root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     MAX_IMG = 10000
     detection_file = 'subsurface_det_testing.pkl'
