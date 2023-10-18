@@ -126,7 +126,7 @@ class Surface_Detector:
             pickle.dump(results, f)
 
 
-    def show_image_predictions(self, predictions, img):
+    def show_image_predictions(self, predictions, img, SHOW=False):
         """
         show predictions/detections (assurming predeictions in yolo format) for an image
         """
@@ -136,7 +136,9 @@ class Surface_Detector:
             cls = int(p[5])        
             cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), self.class_colours[self.classes[cls]], 2)
             cv.putText(img, f"{self.classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
-        cv.show(img)
+            
+        if SHOW:
+            cv.show(img)
 
 
     def prep_img(self, img_name):
@@ -157,20 +159,33 @@ class Surface_Detector:
                                       save=False,
                                       save_txt=False,
                                       save_conf=True,
+                                      verbose=False,
                                       imgsz=self.img_size,
                                       conf=self.conf)
         boxes: Boxes = pred[0].boxes 
         pred = []
         for b in boxes:
-            cls = int(b.cls)
-            conf = float(b.conf)
-            xyxyn = b.xyxyn.numpy()[0]
-            x1n = xyxyn[0]
-            y1n = xyxyn[1]
-            x2n = xyxyn[2]
-            y2n = xyxyn[3]  
-            pred.append([x1n, y1n, x2n, y2n, conf, cls])
-        pred = torch.tensor(pred)
+            
+            # hope to keep all variables on cuda/GPU for speed
+            if torch.cuda.is_available():
+                xyxyn = b.xyxyn[0]
+                pred.append([xyxyn[0], xyxyn[1], xyxyn[2], xyxyn[3], b.conf, b.cls])
+            else:
+                cls = int(b.cls)
+                conf = float(b.conf)
+                xyxyn = b.xyxyn.cpu().numpy()[0]
+                x1n = xyxyn[0]
+                y1n = xyxyn[1]
+                x2n = xyxyn[2]
+                y2n = xyxyn[3]  
+                pred.append([x1n, y1n, x2n, y2n, conf, cls])
+        
+        # after iterating over boxes, make sure pred is on GPU if available (and a single tensor)
+        if torch.cuda.is_available():
+            pred = torch.tensor(pred, device="cuda:0")
+        else:
+            pred = torch.tensor(pred)
+                
         predictions = self.nms(pred, self.conf, self.iou, self.classes, self.max_det)
         return predictions
     
@@ -178,7 +193,7 @@ class Surface_Detector:
     def run(self):
         print('running Surface_Detector.py on:')
         print(f'source images: {self.sourceimages}')
-        imglist = glob.glob(os.path.join(self.sourceimages, '*.jpg'))
+        imglist = sorted(glob.glob(os.path.join(self.sourceimages, '*.jpg')))
         # where to save image and text detections
         imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
         os.makedirs(imgsave_dir, exist_ok=True)
@@ -195,14 +210,23 @@ class Surface_Detector:
             # load image
             try:
                 img_rgb = self.prep_img(imgname)
-                predictions = self.detect(img_rgb)# inference
-                # save predictions as an image
-                save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
-                # save predictions as a text file
-                save_text_predictions(predictions, imgname, txtsavedir, self.classes)
             except:
-                print('unable to read image or do model prediction --> skipping')
-                print(f'skipped: imgname = {imgname}')
+                print('unable to read image --> skipping')
+                predictions = []
+            
+            try: 
+                predictions = self.detect(img_rgb)# inference
+            except:
+                print('no model predictions --> skipping')
+                predictions = []
+                
+            # save predictions as an image
+            save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
+            # save predictions as a text file
+            save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+            # except:
+            #     print('unable to read image or do model prediction --> skipping')
+            #     print(f'skipped: imgname = {imgname}')
                 #import code
                 #code.interact(local=dict(globals(), **locals()))
 
@@ -220,9 +244,11 @@ def main():
     #weightsfile = "/mnt/c/20221113_amtenuis_cslics04/metadata/yolov5l6_20220223.pt"
     # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
-    root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    # root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
     source_img_folder = os.path.join(root_dir, 'images_jpg')
-    yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
+    # yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
+    yolo_weights = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/surface_detection_model/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
 
     Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=10000)
     Coral_Detector.run()

@@ -41,13 +41,19 @@ n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 
 # File locations
-img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-save_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
-manual_counts_file = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
-root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+img_dir = os.path.join(root_dir, 'images_jpg')
+save_dir = os.path.join(root_dir, 'combined_detections')
+manual_counts_file = os.path.join(root_dir, 'metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv')
+
+
+# img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
+# save_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
+# manual_counts_file = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
+# root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
 object_names_file = 'metadata/obj.names'
-subsurface_det_file = 'subsurface_det3.pkl'
-surface_pkl_file = 'detection_results2.pkl'
+subsurface_det_file = 'subsurface_det_testing.pkl'
+surface_pkl_file = 'detection_results1.pkl'
 subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
 save_plot_dir = os.path.join(save_dir, 'plots')
 save_img_dir = os.path.join(save_dir, 'images')

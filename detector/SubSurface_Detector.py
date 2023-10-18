@@ -27,7 +27,8 @@ from detector.Detector_helper import get_classes, set_class_colours, save_image_
 
 class SubSurface_Detector:
     DEFAULT_IMG_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-    DEFAULT_SAVE_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
+    # DEFAULT_SAVE_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
+    DEFAULT_SAVE_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections'
     DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     DEFAULT_SAVE_IMG_DIR = os.path.join(DEFAULT_SAVE_DIR, 'images')
     DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
@@ -253,9 +254,11 @@ class SubSurface_Detector:
 
     
 def main():
-    img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-    root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
-    MAX_IMG = 3
+    # img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
+    root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+    img_dir = os.path.join(root_dir, 'images_jpg')
+    # root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    MAX_IMG = 10000
     detection_file = 'subsurface_det_testing.pkl'
     object_names_file = 'metadata/obj.names'
 
