@@ -21,7 +21,9 @@ from coral_spawn_counter.CoralImage import CoralImage
 # read in classes
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
 # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
-root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+# root_dir = "/mnt/c/20221113_amtenuis_cslics04"
+root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+
 with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 

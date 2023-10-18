@@ -25,7 +25,7 @@ class Surface_Detector:
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
-    DEFAULT_YOLO8 = os.path.join("/home/java/Java/data/java_added_files", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
+    DEFAULT_YOLO8 = os.path.join("/home/java/Java/from_PC", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
     def __init__(self,
                 weights_file: str = DEFAULT_YOLO8,

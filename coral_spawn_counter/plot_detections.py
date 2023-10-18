@@ -12,7 +12,8 @@ import seaborn.objects as so
 
 from coral_spawn_counter.CoralImage import CoralImage
 
-root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
+root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
 basename = os.path.basename(root_dir)
 
 # TODO experimental pickle support for saving interactive matplotlib figures
