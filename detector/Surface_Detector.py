@@ -25,7 +25,7 @@ class Surface_Detector:
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
-    DEFAULT_YOLO8 = os.path.join("/home/java/Java/data/java_added_files", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
+    DEFAULT_YOLO8 = os.path.join("/home/java/Java/from_PC", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
 
     def __init__(self,
                 weights_file: str = DEFAULT_YOLO8,
@@ -222,7 +222,7 @@ def main():
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
     root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     source_img_folder = os.path.join(root_dir, 'images_jpg')
-    yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
+    yolo_weights = "/home/java/Java/from_PC/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
 
     Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=10000)
     Coral_Detector.run()
