@@ -14,8 +14,8 @@ import torch
 from detector.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
 
 class RedCircle_Detector():
-    DEFAULT_DATA_DIR = '/home/dorian/Data/cslics_2022_datasets/20231018_cslics_detector_images_sample'
-    DEFAULT_CLASS_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+    DEFAULT_DATA_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/'
+    DEFAULT_CLASS_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     DEFAULT_IMG_DIR = os.path.join(DEFAULT_DATA_DIR, 'microspheres')
     DEFAULT_SAVE_DIR = os.path.join(DEFAULT_DATA_DIR, 'output')
     DEFAULT_MAX_DECT = 1000
@@ -180,7 +180,7 @@ class RedCircle_Detector():
             # code.interact(local=dict(globals(), **locals()))
 
 def main():
-    data_dir = '/home/dorian/Data/cslics_2022_datasets/20231018_cslics_detector_images_sample'
+    data_dir = '/home/cslics04/20231018_cslics_detector_images_sample'
     max_dect = 15
     Coral_Detector = RedCircle_Detector(data_dir=data_dir, max_dect=max_dect)
     Coral_Detector.run()
