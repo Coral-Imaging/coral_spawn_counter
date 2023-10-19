@@ -19,18 +19,20 @@ from ultralytics.engine.results import Results, Boxes
 from Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
 
 class Surface_Detector:
-    DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
+    DEFAULT_ROOT_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager' # where the metadata is
+    DEFAULT_SAVE_DIR = '/home/cslics04/images/surface'
     DEFAULT_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.25
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_DET = 1000
     DEFAULT_SOURCE_IMAGES = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
-    DEFAULT_YOLO8 = os.path.join("/home/java/Java/from_PC", "cslics_20230905_yolov8m_640p_amtenuis1000.pt")
+    DEFAULT_YOLO8 = os.path.join('/home/cslics04/cslics_ws/src/ultralytics_cslics/weights', 'cslics_20230905_yolov8n_640p_amtenuis1000.pt')
 
     def __init__(self,
                 weights_file: str = DEFAULT_YOLO8,
                 root_dir: str = DEFAULT_ROOT_DIR,
                 source_img_folder: str = DEFAULT_SOURCE_IMAGES,
+                save_dir: str = DEFAULT_SAVE_DIR,
                 image_size: int = DEFAULT_IMAGE_SIZE,
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
@@ -43,6 +45,7 @@ class Surface_Detector:
         self.max_det = max_det
 
         self.root_dir = root_dir
+        self.save_dir = save_dir
         self.classes = get_classes(self.root_dir)
         self.class_colours = set_class_colours(self.classes)
         self.img_size = image_size
@@ -112,7 +115,8 @@ class Surface_Detector:
             detections = [det.rsplit() for det in detections]
             # corresponding image name:
             img_name = txt[:-8] + '.jpg' # + '.png'
-            img_name = os.path.join(self.root_dir, 'images_jpg', img_name)
+            # img_name = os.path.join(self.root_dir, 'images_jpg', img_name)
+            img_name = os.path.join(self.sourceimages, img_name)
             CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
                                 txt_name=txt,
                                 detections=detections)
@@ -195,9 +199,9 @@ class Surface_Detector:
         print(f'source images: {self.sourceimages}')
         imglist = sorted(glob.glob(os.path.join(self.sourceimages, '*.jpg')))
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.root_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.root_dir, 'detections', 'detections_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detections', 'detections_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         for i, imgname in enumerate(imglist):
@@ -245,10 +249,12 @@ def main():
     # root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
     # root_dir = '/home/dorian/Data/cslics_2022_datasets/20221214_CSLICS04_images'
     # root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
-    root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
-    source_img_folder = os.path.join(root_dir, 'images_jpg')
+    # root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+    root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    source_img_folder = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     # yolo_weights = "/home/java/Java/data/java_added_files/cslics_20230905_yolov8m_640p_amtenuis1000.pt"
-    yolo_weights = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/surface_detection_model/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
+    # yolo_weights = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/surface_detection_model/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
+    yolo_weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
     Coral_Detector = Surface_Detector(weights_file=yolo_weights, root_dir = root_dir, source_img_folder=source_img_folder, max_det=10000)
     Coral_Detector.run()
