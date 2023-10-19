@@ -14,10 +14,10 @@ import torch
 from detector.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
 
 class RedCircle_Detector():
-    DEFAULT_DATA_DIR = '/home/java/Java/data/cslics_microsphere_data'
-    DEFAULT_CLASS_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
-    DEFAULT_IMG_DIR = os.path.join(DEFAULT_DATA_DIR, 'images')
-    DEFAULT_SAVE_DIR = os.path.join(DEFAULT_DATA_DIR, 'red_circles')
+    DEFAULT_DATA_DIR = '/home/dorian/Data/cslics_2022_datasets/20231018_cslics_detector_images_sample'
+    DEFAULT_CLASS_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+    DEFAULT_IMG_DIR = os.path.join(DEFAULT_DATA_DIR, 'microspheres')
+    DEFAULT_SAVE_DIR = os.path.join(DEFAULT_DATA_DIR, 'output')
     DEFAULT_MAX_DECT = 1000
     
     def __init__(self,
@@ -29,7 +29,9 @@ class RedCircle_Detector():
                  max_dect: int = DEFAULT_MAX_DECT):
         self.data_dir = data_dir
         self.img_dir = img_dir
-        self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')) +
+                               glob.glob(os.path.join(self.img_dir, '*.png')) + 
+                               glob.glob(os.path.join(self.img_dir, '*.jpeg')))
         self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
         self.classes = get_classes(class_dir)
@@ -44,9 +46,9 @@ class RedCircle_Detector():
                     method=cv.HOUGH_GRADIENT, 
                     dp=0.9, 
                     minDist=30,
-                    param1=100,
+                    param1=120,
                     param2=30,
-                    maxRadius=125,
+                    maxRadius=200,
                     minRadius=20):
         """
         Find circles in a given image with specified parameters
@@ -67,6 +69,8 @@ class RedCircle_Detector():
                                 minRadius=minRadius)
         return circles
 
+    # TODO find RED circles
+    
 
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=8):
         """ draw circles onto image"""
@@ -115,7 +119,7 @@ class RedCircle_Detector():
                 img_c = image
             # save image
             img_name = self.img_list[self.count]
-            img_name_circle = img_name[:-4] + '_circ.jpeg'
+            img_name_circle = os.path.basename(img_name[:-4]) + '_circ.jpg'
             self.count += 1
             cv.imwrite(os.path.join(self.save_dir, img_name_circle), img_c)
 
@@ -131,32 +135,37 @@ class RedCircle_Detector():
             x2 = xmax/img_width
             y2 = ymax/img_height
             print(xmin, ymin, xmax, ymax)
-            pred.append([x1, y1, x2, y2, 0.5, 3, 3])
+            pred.append([x1, y1, x2, y2, 0.5, 0, 0]) # class definitions hard-coded here
+        
+        # print('predictions as tensors')
         return torch.tensor(pred)
 
-        """
-        save predictions/detections into text file
-        [x1 y1 x2 y2 conf class_idx class_name]
-        """
-        txtsavename = os.path.basename(imgname)
-        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
+    # import helper!
+    # def save_text_predictions(self, )
+    #     """
+    #     save predictions/detections into text file
+    #     [x1 y1 x2 y2 conf class_idx class_name]
+    #     """
+    #     txtsavename = os.path.basename(imgname)
+    #     txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
 
-        # predictions [ pix pix pix pix conf class ]
-        with open(txtsavepath, 'w') as f:
-            for p in predictions:
-                x1, y1, x2, y2 = p[0:4].tolist()
-                conf = p[4]
-                class_idx = int(p[5])
-                class_name = self.classes[class_idx]
-                f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
-        return True
+    #     # predictions [ pix pix pix pix conf class ]
+    #     with open(txtsavepath, 'w') as f:
+    #         for p in predictions:
+    #             x1, y1, x2, y2 = p[0:4].tolist()
+    #             conf = p[4]
+    #             class_idx = int(p[5])
+    #             class_name = self.classes[class_idx]
+    #             f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
+    #     return True
 
 
     def run(self):   
-        txtsavedir = os.path.join(self.data_dir, 'textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
         for i, img_name in enumerate(self.img_list):
             if i > self.max_dect:
+                print('hit max detections')
                 break
             
             print(f'{i}: img_name = {img_name}')  
@@ -167,12 +176,12 @@ class RedCircle_Detector():
 
             save_image_predictions(predictions, img_name, self.save_dir, self.class_colours, self.classes)
             save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            import code
-            code.interact(local=dict(globals(), **locals()))
+            # import code
+            # code.interact(local=dict(globals(), **locals()))
 
 def main():
-    data_dir = '/home/java/Java/data/cslics_microsphere_data'
-    max_dect = 3
+    data_dir = '/home/dorian/Data/cslics_2022_datasets/20231018_cslics_detector_images_sample'
+    max_dect = 15
     Coral_Detector = RedCircle_Detector(data_dir=data_dir, max_dect=max_dect)
     Coral_Detector.run()
     # import code
