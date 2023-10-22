@@ -30,7 +30,7 @@ class RedCircle_Detector():
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
                  max_dect: int = DEFAULT_MAX_DECT,
-                 save_prelim_img: bool = True):
+                 save_prelim_img: bool = False):
         self.root_dir = root_dir
         self.img_dir = img_dir
         self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')) +
@@ -50,18 +50,18 @@ class RedCircle_Detector():
         self.class_idx_def = 5 # eggs
         self.class_name_def = 5 # eggs
         
-
+        self.blur = 3
+        self.method = cv.HOUGH_GRADIENT
+        self.accumulator_res = 0.5
+        self.minDist = 7
+        self.maxEdgeThresh = 100
+        self.minEdgeThresh = 20
+        self.maxRadius = 40
+        self.minRadius = 10
+        
 
     def find_circles(self,
-                    img, 
-                    blur=3, 
-                    method=cv.HOUGH_GRADIENT, 
-                    dp=0.9, 
-                    minDist=5,
-                    maxEdgeThresh=80,
-                    minEdgeThresh=20,
-                    maxRadius=40,
-                    minRadius=10):
+                    img):
         """
         Find circles in a given image with specified parameters
         img - as numpy array
@@ -73,28 +73,26 @@ class RedCircle_Detector():
         minEdgeThresh - lower threshold of 2 thresholds passed to Canny edge detector
         minRadius - min radius of circle
         maxRadius - max radius of circle
-        """
-        # TODO rename parameters for more readability
-        
+        """       
         
         # convert image to grayscale
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         # blur image (Hough transforms work better on smooth images)
-        img = cv.medianBlur(img, blur)
+        img = cv.medianBlur(img, self.blur)
         # find circles using Hough Transform
         circles = cv.HoughCircles(image = img,
-                                method=method,
-                                dp=dp,
-                                minDist=minDist,
-                                param1=maxEdgeThresh,
-                                param2=minEdgeThresh,
-                                maxRadius=maxRadius,
-                                minRadius=minRadius)
+                                method=self.method,
+                                dp=self.accumulator_res,
+                                minDist=self.minDist,
+                                param1=self.maxEdgeThresh,
+                                param2=self.minEdgeThresh,
+                                maxRadius=self.maxRadius,
+                                minRadius=self.minRadius)
         
         # TODO filter based on colour RED circles
         
         return circles
-
+    
 
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=8):
         """ draw circles onto image"""
@@ -214,7 +212,7 @@ def main():
     root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
     
-    max_dect = 2 # number of images
+    max_dect = 15 # number of images
     Coral_Detector = RedCircle_Detector(root_dir=root_dir, img_dir = img_dir, max_dect=max_dect)
     Coral_Detector.run()
     # import code
