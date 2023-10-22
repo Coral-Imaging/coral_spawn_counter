@@ -167,7 +167,11 @@ class Surface_Detector(Detector):
         return True
 
 
-    def prep_img(self, img_name):
+    def prep_img(self, img_bgr):
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+        return img_rgb
+    
+    def prep_img_name(self, img_name):
         """
         from an img name, load the image into the correct format for dections (rgb)
         """
@@ -211,7 +215,8 @@ class Surface_Detector(Detector):
             pred = torch.tensor(pred, device="cuda:0")
         else:
             pred = torch.tensor(pred)
-                
+            
+        # TODO should handle empty case!
         predictions = self.nms(pred, self.conf, self.iou)
         return predictions
     
@@ -236,7 +241,7 @@ class Surface_Detector(Detector):
 
             # load image
             try:
-                img_rgb = self.prep_img(imgname)
+                img_rgb = self.prep_img_name(imgname)
             except:
                 print('unable to read image --> skipping')
                 predictions = []

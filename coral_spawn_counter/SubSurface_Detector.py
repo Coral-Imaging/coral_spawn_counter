@@ -20,7 +20,7 @@ import time
 import torch
 
 import machinevisiontoolbox as mvt
-from machinevisiontoolbox.Image import Image
+from machinevisiontoolbox.Image import Image as MvtImage
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.Detector import Detector
@@ -82,30 +82,40 @@ class SubSurface_Detector(Detector):
                           img_size=img_size)
 
 
-    def prep_img(self, img_name):
-        """
-        from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
-        """
+    def prep_img_name(self, img_name):
         # create coral image:
         # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
         coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
         self.capture_time_list.append(coral_image.metadata['capture_time'])
         
         # read in image
-        im = Image(img_name)
+        im = MvtImage(img_name)
+        return self.prep_img(im, img_name)
+        
+    def prep_img(self, im, img_name=None):
+        """
+        from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
+        """
+        # # create coral image:
+        # # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
+        # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
+        # self.capture_time_list.append(coral_image.metadata['capture_time'])
+        
+        # # read in image
+        # im = Image(img_name)
         # TODO resize image, can then reduce k_blur - should be faster!
         
         #process image
         # TODO expose these edge detection parameters to the detector level
         im_mono = im.mono()        # grayscale
         k_blur = 61
-        im_blur = Image(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
+        im_blur = MvtImage(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
         canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True) # edge detection
-        im_canny = Image(canny)
+        im_canny = MvtImage(canny)
         # morph
         k_morph = 11
         kernel = np.ones((k_morph,k_morph), np.uint8)
-        im_morph = Image(im_canny.dilate(kernel))
+        im_morph = MvtImage(im_canny.dilate(kernel))
         im_morph = im_morph.close(kernel)
         # kernel = 11
         im_morph = im_morph.open(kernel)
