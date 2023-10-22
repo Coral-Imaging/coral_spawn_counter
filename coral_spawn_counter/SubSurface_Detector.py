@@ -8,14 +8,14 @@ import os
 import cv2 as cv
 import numpy as np
 import glob
-import random as rng
-import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib as mpl
-import seaborn.objects as so
+# import random as rng
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# import matplotlib as mpl
+# import seaborn.objects as so
 import pickle
-import pandas as pd
-from datetime import datetime
+# import pandas as pd
+# from datetime import datetime
 import time
 import torch
 
@@ -23,18 +23,18 @@ import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image
 
 from coral_spawn_counter.CoralImage import CoralImage
-from coral_spawn_counter.Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions, convert_to_decimal_days
+from coral_spawn_counter.Detector import Detector
 
-class SubSurface_Detector:
-    DEFAULT_ROOT_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager' # where the metadata is
+
+class SubSurface_Detector(Detector):
+
+    DEFAULT_META_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
     
     DEFAULT_OUTPUT_FILE = 'subsurface_det.pkl'
-    DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
     DEFAULT_WINDOW_SIZE = 20
     MAX_IMG = 1000
-
 
     DEFAULT_AREA_MIN  = 5000
     DEFAULT_AREA_MAX = 40000
@@ -42,35 +42,26 @@ class SubSurface_Detector:
     DEFAULT_CIRC_MAX = 1.0
 
     def __init__(self,
+                 meta_dir: str = DEFAULT_META_DIR,
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
-                 root_dir: str = DEFAULT_ROOT_DIR,
-                 detection_file: str = DEFAULT_OUTPUT_FILE,
-                 save_prelim_img: bool = False,
-                 object_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
-                 window_size: int = DEFAULT_WINDOW_SIZE,
                  max_img: int = MAX_IMG,
+                 save_prelim_img: bool = False,
+                 img_size: int = 1280,
+                 detection_file: str = DEFAULT_OUTPUT_FILE,
+                 window_size: int = DEFAULT_WINDOW_SIZE,
                  area_min: int = DEFAULT_AREA_MIN,
                  area_max: int = DEFAULT_AREA_MAX,
                  circ_min: int = DEFAULT_CIRC_MIN,
                  circ_max: int = DEFAULT_CIRC_MAX):
-        self.img_dir = img_dir
-        self.save_dir = save_dir
-        self.root_dir = root_dir
+        
         self.detection_file = detection_file
-        self.save_prelim = save_prelim_img
-        self.object_names_file = object_names_file
         self.window_size = window_size
-        self.max_img = max_img
-
         self.capture_time_list = []
-        self.classes = get_classes(root_dir)
-        self.class_colours = set_class_colours(self.classes)
         #help with detection
         self.count = 0
         self.blobby = []
         self.icont = []
-        os.makedirs(self.save_dir, exist_ok=True)
         
         # parameters for circle/blob thresholding/filtering:
         self.area_min = area_min
@@ -78,8 +69,18 @@ class SubSurface_Detector:
         self.circ_min = circ_min
         self.circ_max = circ_max
 
+        # parameters for plotting subsurface detections
         self.contour_colour = [0, 0, 255] # red in BGR
         self.contour_thickness = 10
+        
+        Detector.__init__(self, 
+                          meta_dir = meta_dir,
+                          img_dir = img_dir,
+                          save_dir = save_dir,
+                          max_img = max_img,
+                          save_prelim_img = save_prelim_img,
+                          img_size=img_size)
+
 
     def prep_img(self, img_name):
         """
@@ -92,22 +93,25 @@ class SubSurface_Detector:
         
         # read in image
         im = Image(img_name)
+        # TODO resize image, can then reduce k_blur - should be faster!
+        
         #process image
+        # TODO expose these edge detection parameters to the detector level
         im_mono = im.mono()        # grayscale
-        ksize = 61
-        im_blur = Image(cv.GaussianBlur(im_mono.image, (ksize, ksize), 0))         # blur image
+        k_blur = 61
+        im_blur = Image(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
         canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True) # edge detection
         im_canny = Image(canny)
         # morph
-        k = 11
-        kernel = np.ones((k,k), np.uint8)
+        k_morph = 11
+        kernel = np.ones((k_morph,k_morph), np.uint8)
         im_morph = Image(im_canny.dilate(kernel))
         im_morph = im_morph.close(kernel)
-        kernel = 11
+        # kernel = 11
         im_morph = im_morph.open(kernel)
 
         # step-by-step save the image
-        if self.save_prelim:
+        if self.save_prelim_img:
             img_base_name = os.path.basename(img_name)[:-4]
             im_mono.write(os.path.join(self.save_dir, img_base_name + '_00_orig.jpg'))
             im_blur.write(os.path.join(self.save_dir, img_base_name + '_01_blur.jpg'))
@@ -127,7 +131,7 @@ class SubSurface_Detector:
             blobby = mvt.Blob(im_morph)
             print(f'{len(blobby)} blobs initially found')
             # show blobs
-            if self.save_prelim:
+            if self.save_prelim_img:
                 imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
 
             # reject too-small and too weird (non-circular) blobs
@@ -140,7 +144,7 @@ class SubSurface_Detector:
                                                             blobby[i].area in b0_area and 
                                                             blobby[i].circularity in b0_circ)] 
             
-            if self.save_prelim:
+            if self.save_prelim_img:
                 imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
 
                 # plot the contours of the blobs based on imblobs_area and icont:
@@ -246,8 +250,8 @@ class SubSurface_Detector:
             image_index.append(i)
 
             predictions = self.detect(im_morph)
-            save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
+            self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
+            self.save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)
         
@@ -273,12 +277,14 @@ def main():
     root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     save_dir = '/home/cslics04/images/subsurface'
-    MAX_IMG = 10000
+    MAX_IMG = 5
     detection_file = 'subsurface_det_testing.pkl'
-    object_names_file = 'metadata/obj.names'
 
-    Coral_Detector = SubSurface_Detector(root_dir = root_dir, img_dir = img_dir, save_dir=save_dir, detection_file=detection_file, 
-        object_names_file = object_names_file, max_img = MAX_IMG)
+    Coral_Detector = SubSurface_Detector(meta_dir = root_dir, 
+                                         img_dir = img_dir, 
+                                         save_dir=save_dir, 
+                                         detection_file=detection_file,
+                                         max_img = MAX_IMG)
     Coral_Detector.run()
     # import code
     # code.interact(local=dict(globals(), **locals()))
