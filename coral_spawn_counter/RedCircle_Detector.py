@@ -10,35 +10,42 @@ import matplotlib.pyplot as plt
 import os
 import glob
 import torch
+import time
 
-from detector.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
+
+from coral_spawn_counter.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
 
 class RedCircle_Detector():
-    DEFAULT_DATA_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/'
-    DEFAULT_CLASS_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    DEFAULT_IMG_DIR = os.path.join(DEFAULT_DATA_DIR, 'microspheres')
-    DEFAULT_SAVE_DIR = os.path.join(DEFAULT_DATA_DIR, 'output')
+   
+    DEFAULT_ROOT_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/' # where the metadata is
+    DEFAULT_IMG_DIR = os.path.join(DEFAULT_ROOT_DIR, 'microspheres')
+    DEFAULT_SAVE_DIR = '/home/cslics04/images/redcircles'
+
     DEFAULT_MAX_DECT = 1000
     
+    # TODO all the parameters for detection here as defaults
+    
     def __init__(self,
-                 data_dir: str = DEFAULT_DATA_DIR,
+                 root_dir: str = DEFAULT_ROOT_DIR,
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
-                 show_circle: bool = True,
-                 class_dir: str = DEFAULT_CLASS_DIR,
-                 max_dect: int = DEFAULT_MAX_DECT):
-        self.data_dir = data_dir
+                 max_dect: int = DEFAULT_MAX_DECT,
+                 save_prelim_img: bool = False):
+        self.root_dir = root_dir
         self.img_dir = img_dir
         self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')) +
                                glob.glob(os.path.join(self.img_dir, '*.png')) + 
                                glob.glob(os.path.join(self.img_dir, '*.jpeg')))
         self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
-        self.classes = get_classes(class_dir)
+        self.classes = get_classes(self.root_dir)
         self.class_colours = set_class_colours(self.classes)
-        self.show_circles = show_circle
         self.max_dect = max_dect
         self.count = 0
+        
+        self.save_prelim = save_prelim_img
+        
+
 
     def find_circles(self,
                     img, 
@@ -49,11 +56,13 @@ class RedCircle_Detector():
                     param1=120,
                     param2=30,
                     maxRadius=200,
-                    minRadius=20):
+                    minRadius=30):
         """
         Find circles in a given image with specified parameters
         """
         # TODO rename parameters for more readability
+        # resize image to small size!
+        
         # convert image to grayscale
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         # blur image (Hough transforms work better on smooth images)
@@ -67,10 +76,11 @@ class RedCircle_Detector():
                                 param2=param2,
                                 maxRadius=maxRadius,
                                 minRadius=minRadius)
+        
+        # TODO filter based on colour RED circles
+        
         return circles
 
-    # TODO find RED circles
-    
 
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=8):
         """ draw circles onto image"""
@@ -102,7 +112,7 @@ class RedCircle_Detector():
 
     def detect(self, image):
         """
-        return detections from a single prepared image, 
+        return detections from a single prepared image, input as a numpy array
         attempts to find circles and then converts the circles into yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
         img_height, img_width, _ = image.shape
@@ -112,7 +122,9 @@ class RedCircle_Detector():
         else:
             n_circ = 0
         print(f'Circles detected = {n_circ}')
-        if self.show_circles:
+        
+        # save image with circles drawn ontop
+        if self.save_prelim:
             if n_circ > 0:
                 img_c = self.draw_circles(image, circles)
             else:
@@ -140,29 +152,14 @@ class RedCircle_Detector():
         # print('predictions as tensors')
         return torch.tensor(pred)
 
-    # import helper!
-    # def save_text_predictions(self, )
-    #     """
-    #     save predictions/detections into text file
-    #     [x1 y1 x2 y2 conf class_idx class_name]
-    #     """
-    #     txtsavename = os.path.basename(imgname)
-    #     txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
-
-    #     # predictions [ pix pix pix pix conf class ]
-    #     with open(txtsavepath, 'w') as f:
-    #         for p in predictions:
-    #             x1, y1, x2, y2 = p[0:4].tolist()
-    #             conf = p[4]
-    #             class_idx = int(p[5])
-    #             class_name = self.classes[class_idx]
-    #             f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
-    #     return True
-
 
     def run(self):   
-        txtsavedir = os.path.join(self.save_dir, 'textfiles')
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        os.makedirs(imgsave_dir, exist_ok=True)
+        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
+        
+        start_time = time.time()
         for i, img_name in enumerate(self.img_list):
             if i > self.max_dect:
                 print('hit max detections')
@@ -174,15 +171,27 @@ class RedCircle_Detector():
             # detect circles
             predictions = self.detect(img)
 
-            save_image_predictions(predictions, img_name, self.save_dir, self.class_colours, self.classes)
+            save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
             save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            # import code
-            # code.interact(local=dict(globals(), **locals()))
+            
+        end_time = time.time()
+        duration = end_time - start_time
+        print('run time: {} sec'.format(duration))
+        print('run time: {} min'.format(duration / 60.0))
+        print('run time: {} hrs'.format(duration / 3600.0))
+        
+        print(f'time[s]/image = {duration / len(self.img_list)}')
+        
+
+        
+
 
 def main():
-    data_dir = '/home/cslics04/20231018_cslics_detector_images_sample'
-    max_dect = 15
-    Coral_Detector = RedCircle_Detector(data_dir=data_dir, max_dect=max_dect)
+    root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
+    
+    max_dect = 15 # number of images
+    Coral_Detector = RedCircle_Detector(root_dir=root_dir, img_dir = img_dir, max_dect=max_dect)
     Coral_Detector.run()
     # import code
     # code.interact(local=dict(globals(), **locals()))

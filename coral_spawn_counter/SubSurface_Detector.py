@@ -2,7 +2,7 @@
 
 """
 coral spawn counting using blobs (copied from count_coral_spawn.py)
-TODO: also calls yolov5 detector onto cslics surface embryogenesis
+TODO: also calls yolov8 detector onto cslics surface embryogenesis
 """
 import os
 import cv2 as cv
@@ -23,35 +23,40 @@ import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image
 
 from coral_spawn_counter.CoralImage import CoralImage
-from detector.Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions, convert_to_decimal_days
+from coral_spawn_counter.Detector_helper import get_classes, set_class_colours, save_image_predictions, save_text_predictions, convert_to_decimal_days
 
 class SubSurface_Detector:
-    DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
-    # DEFAULT_SAVE_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
-    # DEFAULT_SAVE_DIR = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections'
-    DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
-    # DEFAULT_ROOT_DIR = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     DEFAULT_ROOT_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager' # where the metadata is
-    DEFAULT_SAVE_IMG_DIR = os.path.join(DEFAULT_SAVE_DIR, 'images')
-    DEFAULT_DETECTION_FILE = 'subsurface_det.pkl'
+    DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
+    DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
+    
+    DEFAULT_OUTPUT_FILE = 'subsurface_det.pkl'
     DEFAULT_OBJECT_NAMES_FILE = 'metadata/obj.names'
     DEFAULT_WINDOW_SIZE = 20
-    MAX_IMG = 10000
+    MAX_IMG = 1000
+
+
+    DEFAULT_AREA_MIN  = 5000
+    DEFAULT_AREA_MAX = 40000
+    DEFAULT_CIRC_MIN = 0.5
+    DEFAULT_CIRC_MAX = 1.0
 
     def __init__(self,
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
                  root_dir: str = DEFAULT_ROOT_DIR,
-                 save_img_dir: str = DEFAULT_SAVE_IMG_DIR,
-                 detection_file: str = DEFAULT_DETECTION_FILE,
+                 detection_file: str = DEFAULT_OUTPUT_FILE,
                  save_prelim_img: bool = False,
                  object_names_file: str = DEFAULT_OBJECT_NAMES_FILE,
                  window_size: int = DEFAULT_WINDOW_SIZE,
-                 max_img: int = MAX_IMG):
+                 max_img: int = MAX_IMG,
+                 area_min: int = DEFAULT_AREA_MIN,
+                 area_max: int = DEFAULT_AREA_MAX,
+                 circ_min: int = DEFAULT_CIRC_MIN,
+                 circ_max: int = DEFAULT_CIRC_MAX):
         self.img_dir = img_dir
         self.save_dir = save_dir
         self.root_dir = root_dir
-        self.save_img_dir = save_img_dir
         self.detection_file = detection_file
         self.save_prelim = save_prelim_img
         self.object_names_file = object_names_file
@@ -65,14 +70,23 @@ class SubSurface_Detector:
         self.count = 0
         self.blobby = []
         self.icont = []
-        os.makedirs(self.save_img_dir, exist_ok=True)
+        os.makedirs(self.save_dir, exist_ok=True)
+        
+        # parameters for circle/blob thresholding/filtering:
+        self.area_min = area_min
+        self.area_max = area_max
+        self.circ_min = circ_min
+        self.circ_max = circ_max
 
+        self.contour_colour = [0, 0, 255] # red in BGR
+        self.contour_thickness = 10
 
     def prep_img(self, img_name):
         """
         from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
         """
         # create coral image:
+        # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
         coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
         self.capture_time_list.append(coral_image.metadata['capture_time'])
         
@@ -95,10 +109,10 @@ class SubSurface_Detector:
         # step-by-step save the image
         if self.save_prelim:
             img_base_name = os.path.basename(img_name)[:-4]
-            im_mono.write(os.path.join(self.save_img_dir, img_base_name + '_00_orig.jpg'))
-            im_blur.write(os.path.join(self.save_img_dir, img_base_name + '_01_blur.jpg'))
-            im_canny.write(os.path.join(self.save_img_dir, img_base_name + '_02_edge.jpg'))
-            im_morph.write(os.path.join(self.save_img_dir, img_base_name + '_03_morph.jpg'))
+            im_mono.write(os.path.join(self.save_dir, img_base_name + '_00_orig.jpg'))
+            im_blur.write(os.path.join(self.save_dir, img_base_name + '_01_blur.jpg'))
+            im_canny.write(os.path.join(self.save_dir, img_base_name + '_02_edge.jpg'))
+            im_morph.write(os.path.join(self.save_dir, img_base_name + '_03_morph.jpg'))
         
         return im_morph
 
@@ -113,40 +127,37 @@ class SubSurface_Detector:
             blobby = mvt.Blob(im_morph)
             print(f'{len(blobby)} blobs initially found')
             # show blobs
-            imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
+            if self.save_prelim:
+                imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
 
-            #  reject too-small and too weird blobs
-            area_min = 5000
-            area_max = 40000
-            circ_min = 0.5
-            circ_max = 1.0
-            b0 = [b for b in blobby if ((b.area < area_max and b.area > area_min) and (b.circularity > circ_min and b.circularity < circ_max))]
+            # reject too-small and too weird (non-circular) blobs
+            b0 = [b for b in blobby if ((b.area < self.area_max and b.area > self.area_min) and (b.circularity > self.circ_min and b.circularity < self.circ_max))]
             b0_area = [b.area for b in b0]
             b0_circ = [b.circularity for b in b0]
             b0_cent = [b.centroid for b in b0]
-            #get index of blobbs that passed thresholds
+            # get index of blobbs that passed thresholds
             icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
                                                             blobby[i].area in b0_area and 
                                                             blobby[i].circularity in b0_circ)] 
-            imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
-
-            # plot the contours of the blobs based on imblobs_area and icont:
-            image_contours = im.image
-            contour_colour = [0, 0, 255] # red in BGR
-            contour_thickness = 10
-            for i in icont:
-                cv.drawContours(image_contours,
-                                blobby._contours,
-                                i,
-                                contour_colour,
-                                thickness=contour_thickness,
-                                lineType=cv.LINE_8)
-            image3 = Image(image_contours)
-            image3.write(os.path.join(self.save_img_dir, img_base_name + '_blobs_contour.jpg'))
-
+            
             if self.save_prelim:
-                imblobs.write(os.path.join(self.save_img_dir, img_base_name + '_04_blob.jpg'))
-                imblobs_area.write(os.path.join(self.save_img_dir, img_base_name + '_05_blob_filter.jpg'))
+                imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
+
+                # plot the contours of the blobs based on imblobs_area and icont:
+                image_contours = im.image
+                
+                for i in icont:
+                    cv.drawContours(image_contours,
+                                    blobby._contours,
+                                    i,
+                                    self.contour_colour,
+                                    thickness=self.contour_thickness,
+                                    lineType=cv.LINE_8)
+                image3 = Image(image_contours)
+                image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
+
+                imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
+                imblobs_area.write(os.path.join(self.save_dir, img_base_name + '_05_blob_filter.jpg'))
             print(f'{len(icont)} blobs passed thresholds')
             return blobby, icont
         except:
@@ -210,7 +221,10 @@ class SubSurface_Detector:
     def run(self):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        txtsavedir = os.path.join(self.root_dir, 'blob', 'textfiles')
+        
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        os.makedirs(imgsave_dir, exist_ok=True)
+        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         blobs_count = []
@@ -233,7 +247,7 @@ class SubSurface_Detector:
 
             predictions = self.detect(im_morph)
             save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            save_image_predictions(predictions, img_name, self.save_img_dir, self.class_colours, self.classes)
+            save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)
         
@@ -246,28 +260,24 @@ class SubSurface_Detector:
         print('run time: {} min'.format(duration / 60.0))
         print('run time: {} hrs'.format(duration / 3600.0))
 
-        capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in self.capture_time_list]
-        decimal_days = convert_to_decimal_days(capture_time_dt)
+        print(f'time[s]/image = {duration / len(self.img_list)}')
+        
+        # capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in self.capture_time_list]
+        # decimal_days = convert_to_decimal_days(capture_time_dt)
 
-        return decimal_days
-
-        import code
-        code.interact(local=dict(globals(), **locals()))
+        # return decimal_days
 
     
 def main():
-    # img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-    # root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+
     root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    # img_dir = os.path.join(root_dir, 'images_jpg')
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     save_dir = '/home/cslics04/images/subsurface'
-    # root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
     MAX_IMG = 10000
     detection_file = 'subsurface_det_testing.pkl'
     object_names_file = 'metadata/obj.names'
 
-    Coral_Detector = SubSurface_Detector(root_dir = root_dir, img_dir = img_dir, detection_file=detection_file, 
+    Coral_Detector = SubSurface_Detector(root_dir = root_dir, img_dir = img_dir, save_dir=save_dir, detection_file=detection_file, 
         object_names_file = object_names_file, max_img = MAX_IMG)
     Coral_Detector.run()
     # import code

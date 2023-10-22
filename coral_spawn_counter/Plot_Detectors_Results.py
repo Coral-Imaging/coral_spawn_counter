@@ -23,7 +23,7 @@ import time
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
-from detector.Detector_helper import convert_to_decimal_days
+from coral_spawn_counter.Detector_helper import convert_to_decimal_days
 
 
 # Consts (more below as well)
