@@ -21,7 +21,7 @@ class RedCircle_Detector():
     DEFAULT_IMG_DIR = os.path.join(DEFAULT_ROOT_DIR, 'microspheres')
     DEFAULT_SAVE_DIR = '/home/cslics04/images/redcircles'
 
-    DEFAULT_MAX_DECT = 1000
+    DEFAULT_MAX_DECT = 2
     
     # TODO all the parameters for detection here as defaults
     
@@ -30,7 +30,7 @@ class RedCircle_Detector():
                  img_dir: str = DEFAULT_IMG_DIR,
                  save_dir: str = DEFAULT_SAVE_DIR,
                  max_dect: int = DEFAULT_MAX_DECT,
-                 save_prelim_img: bool = False):
+                 save_prelim_img: bool = True):
         self.root_dir = root_dir
         self.img_dir = img_dir
         self.img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')) +
@@ -45,23 +45,37 @@ class RedCircle_Detector():
         
         self.save_prelim = save_prelim_img
         
+        self.input_image_size = 1280 # pixels
+        self.conf_def = 0.5
+        self.class_idx_def = 5 # eggs
+        self.class_name_def = 5 # eggs
+        
 
 
     def find_circles(self,
                     img, 
-                    blur=5, 
+                    blur=3, 
                     method=cv.HOUGH_GRADIENT, 
                     dp=0.9, 
-                    minDist=30,
-                    param1=120,
-                    param2=30,
-                    maxRadius=200,
-                    minRadius=30):
+                    minDist=5,
+                    maxEdgeThresh=80,
+                    minEdgeThresh=20,
+                    maxRadius=40,
+                    minRadius=10):
         """
         Find circles in a given image with specified parameters
+        img - as numpy array
+        blur - kernel size to apply median blur to image (smoother image = better circles)
+        dp - inverse ratio  of the accumulator resolution, dp=1: the accumulator is same res as img, dp=2: accumulator is half as big width, height
+        mindist - min dist between detected circle centres
+        # NOTE names aren't exactly correct for the Canny's hysteresis threshold procedure
+        maxEdgeThresh - higher threshold of 2 thresholds, passed to Canny edge detector
+        minEdgeThresh - lower threshold of 2 thresholds passed to Canny edge detector
+        minRadius - min radius of circle
+        maxRadius - max radius of circle
         """
         # TODO rename parameters for more readability
-        # resize image to small size!
+        
         
         # convert image to grayscale
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -72,8 +86,8 @@ class RedCircle_Detector():
                                 method=method,
                                 dp=dp,
                                 minDist=minDist,
-                                param1=param1,
-                                param2=param2,
+                                param1=maxEdgeThresh,
+                                param2=minEdgeThresh,
                                 maxRadius=maxRadius,
                                 minRadius=minRadius)
         
@@ -84,10 +98,10 @@ class RedCircle_Detector():
 
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=8):
         """ draw circles onto image"""
-        for circ, i in enumerate(circles[0,:], start=1):
+        for i, circ in enumerate(circles[0,:], start=1):
             cv.circle(img, 
-                    (int(i[0]), int(i[1])), 
-                    radius=int(i[2]), 
+                    (int(circ[0]), int(circ[1])), 
+                    radius=int(circ[2]), 
                     color=outer_circle_color, 
                     thickness=thickness)
         return img
@@ -116,6 +130,14 @@ class RedCircle_Detector():
         attempts to find circles and then converts the circles into yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
         img_height, img_width, _ = image.shape
+        
+        # resize image to small size/consistency (detection parameters vs image size) and speed!
+        # img_h, img_w, n_channels = img.shape
+        img_scale_factor: float = self.input_image_size / img_width
+        print(f'img_scale_factor = {img_scale_factor}')
+        image: np.ndarray = cv.resize(image, None, fx=img_scale_factor, fy=img_scale_factor)
+        img_h_resized, img_w_resized, _ = image.shape
+        
         circles = self.find_circles(image)
         if circles is not None:
             _ , n_circ, _ = circles.shape
@@ -141,13 +163,15 @@ class RedCircle_Detector():
             x = circles[0][i, 0]
             y = circles[0][i, 1]
             r = circles[0][i, 2]
-            xmin, ymin, xmax, ymax = self.convert_circle_to_box(x,y,r,img_width, img_height)
-            x1 = xmin/img_width
-            y1 = ymin/img_height
-            x2 = xmax/img_width
-            y2 = ymax/img_height
-            print(xmin, ymin, xmax, ymax)
-            pred.append([x1, y1, x2, y2, 0.5, 0, 0]) # class definitions hard-coded here
+            xmin, ymin, xmax, ymax = self.convert_circle_to_box(x,y,r,img_w_resized, img_h_resized)
+            
+            # size-up boxes to original image sizes
+            x1 = xmin/img_w_resized
+            y1 = ymin/img_h_resized
+            x2 = xmax/img_w_resized
+            y2 = ymax/img_h_resized
+            # print(xmin, ymin, xmax, ymax)
+            pred.append([x1, y1, x2, y2, self.conf_def, self.class_idx_def, self.class_name_def]) # class definitions hard-coded here
         
         # print('predictions as tensors')
         return torch.tensor(pred)
@@ -190,7 +214,7 @@ def main():
     root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
     
-    max_dect = 15 # number of images
+    max_dect = 2 # number of images
     Coral_Detector = RedCircle_Detector(root_dir=root_dir, img_dir = img_dir, max_dect=max_dect)
     Coral_Detector.run()
     # import code
