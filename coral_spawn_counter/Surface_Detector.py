@@ -8,42 +8,45 @@ import os
 import torch
 import torchvision
 import glob
-import numpy as np
-from PIL import Image as PILImage
+# import numpy as np
+# from PIL import Image as PILImage
 import cv2 as cv
 import time
-
-from coral_spawn_counter.CoralImage import CoralImage
 import pickle
 from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
-from coral_spawn_counter.Detector_helper import get_classes, set_class_colours, save_text_predictions, save_image_predictions
+
+from coral_spawn_counter.CoralImage import CoralImage
+from coral_spawn_counter.Detector import Detector
 
 
+class Surface_Detector(Detector):
 
-class Surface_Detector:
-    DEFAULT_ROOT_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager' # where the metadata is
-    DEFAULT_IMG_DIR = os.path.join(DEFAULT_ROOT_DIR, 'images_jpg')
+    DEFAULT_META_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/surface'
     
-    DEFAULT_IMAGE_SIZE = 640
+    DEFAULT_DETECTOR_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.50
     DEFAULT_IOU = 0.45
-    DEFAULT_MAX_DET = 1000 # per image
+    DEFAULT_MAX_IMG = 1000 # per image
     
     DEFAULT_YOLO8 = os.path.join('/home/cslics04/cslics_ws/src/ultralytics_cslics/weights', 'cslics_20230905_yolov8n_640p_amtenuis1000.pt')
     DEFAULT_OUTPUT_FILE = 'surface_detections.pkl'
 
+                 
     def __init__(self,
-                weights_file: str = DEFAULT_YOLO8,
-                root_dir: str = DEFAULT_ROOT_DIR,
+                
+                meta_dir: str = DEFAULT_META_DIR,
                 img_dir: str = DEFAULT_IMG_DIR,
                 save_dir: str = DEFAULT_SAVE_DIR,
-                image_size: int = DEFAULT_IMAGE_SIZE,
+                max_img: int = DEFAULT_MAX_IMG,
+                img_size: int = DEFAULT_DETECTOR_IMAGE_SIZE,
+                weights_file: str = DEFAULT_YOLO8,
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
-                max_det: int = DEFAULT_MAX_DET,
                 output_file: str = DEFAULT_OUTPUT_FILE):
+        
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         
@@ -53,21 +56,21 @@ class Surface_Detector:
         self.model = YOLO(weights_file)
         self.conf = conf_thresh
         self.iou = iou
-        self.max_det = max_det
 
-        self.root_dir = root_dir
-        self.save_dir = save_dir
-        self.classes = get_classes(self.root_dir)
-        self.class_colours = set_class_colours(self.classes)
-        self.img_size = image_size
-
-        self.img_dir = img_dir
         self.output_file = output_file
+        
+        Detector.__init__(self, 
+                          meta_dir = meta_dir,
+                          img_dir = img_dir,
+                          save_dir = save_dir,
+                          max_img = max_img,
+                          img_size=img_size)
 
 
-    def nms(self, pred, conf_thresh, iou_thresh, classes, max_det):
+    def nms(self, pred, conf_thresh, iou_thresh):
         """ perform class-agnostic non-maxima suppression on predictions 
         pred = [x1 y1 x2 y2 conf class] tensor
+        # TODO handle the pred empty case!
         """
 
         # Checks
@@ -139,7 +142,7 @@ class Surface_Detector:
             # sort results based on metadata capture time
             results.sort(key=lambda x: x.metadata['capture_time'])
 
-            savefile = os.path.join(self.root_dir, save_file_name)
+            savefile = os.path.join(self.meta_dir, save_file_name)
             with open(savefile, 'wb') as f:
                 pickle.dump(results, f)
             return True
@@ -209,7 +212,7 @@ class Surface_Detector:
         else:
             pred = torch.tensor(pred)
                 
-        predictions = self.nms(pred, self.conf, self.iou, self.classes, self.max_det)
+        predictions = self.nms(pred, self.conf, self.iou)
         return predictions
     
 
@@ -228,7 +231,7 @@ class Surface_Detector:
         
         for i, imgname in enumerate(imglist):
             print(f'predictions on {i+1}/{len(imglist)}')
-            if i >= self.max_det: # for debugging purposes
+            if i >= self.max_img: # for debugging purposes
                 break
 
             # load image
@@ -245,9 +248,9 @@ class Surface_Detector:
                 predictions = []
                 
             # save predictions as an image
-            save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
             # save predictions as a text file
-            save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+            self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
 
         end_time = time.time()
         duration = end_time - start_time
@@ -263,11 +266,11 @@ class Surface_Detector:
 
 
 def main():
-    root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
-    Coral_Detector = Surface_Detector(weights_file=weights, root_dir = root_dir, img_dir=img_dir, max_det=10000)
+    Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
     Coral_Detector.run()
 
 if __name__ == "__main__":
