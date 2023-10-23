@@ -227,9 +227,9 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detections_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()

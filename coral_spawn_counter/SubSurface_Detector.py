@@ -129,21 +129,24 @@ class SubSurface_Detector(Detector):
             im_canny.write(os.path.join(self.save_dir, img_base_name + '_02_edge.jpg'))
             im_morph.write(os.path.join(self.save_dir, img_base_name + '_03_morph.jpg'))
         
-        return im_morph
+        # be sure to return a numpy array, just like other Detectors
+        return im_morph.image
 
 
-    def attempt_blobs(self, img_name, im_morph, im):
+    def attempt_blobs(self, image): # , original_image):
         """
         given an img_name, a morphed image and the original image,
         try to find blobs in the image and threashold these blobs
         """
         try:
-            img_base_name = os.path.basename(img_name)[:-4]
-            blobby = mvt.Blob(im_morph)
+            
+            # img_base_name = os.path.basename(img_name)[:-4]
+            image = MvtImage(image)
+            blobby = mvt.Blob(image)
             print(f'{len(blobby)} blobs initially found')
             # show blobs
             if self.save_prelim_img:
-                imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
+                imblobs = blobby.drawBlobs(image, None, None, None, contourthickness=-1)
 
             # reject too-small and too weird (non-circular) blobs
             b0 = [b for b in blobby if ((b.area < self.area_max and b.area > self.area_min) and (b.circularity > self.circ_min and b.circularity < self.circ_max))]
@@ -155,28 +158,28 @@ class SubSurface_Detector(Detector):
                                                             blobby[i].area in b0_area and 
                                                             blobby[i].circularity in b0_circ)] 
             
-            if self.save_prelim_img:
-                imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
+            # if self.save_prelim_img:
+            #     imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
 
-                # plot the contours of the blobs based on imblobs_area and icont:
-                image_contours = im.image
+            #     # plot the contours of the blobs based on imblobs_area and icont:
+            #     image_contours = original_image.image
                 
-                for i in icont:
-                    cv.drawContours(image_contours,
-                                    blobby._contours,
-                                    i,
-                                    self.contour_colour,
-                                    thickness=self.contour_thickness,
-                                    lineType=cv.LINE_8)
-                image3 = MvtImage(image_contours)
-                image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
+            #     for i in icont:
+            #         cv.drawContours(image_contours,
+            #                         blobby._contours,
+            #                         i,
+            #                         self.contour_colour,
+            #                         thickness=self.contour_thickness,
+            #                         lineType=cv.LINE_8)
+            #     image3 = MvtImage(image_contours)
+            #     image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
 
-                imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
-                imblobs_area.write(os.path.join(self.save_dir, img_base_name + '_05_blob_filter.jpg'))
+            #     imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
+            #     imblobs_area.write(os.path.join(self.save_dir, img_base_name + '_05_blob_filter.jpg'))
             print(f'{len(icont)} blobs passed thresholds')
             return blobby, icont
         except:
-            print(f'No blob detection for {img_name}')
+            print(f'No blob detection for image')
             # append empty to keep indexes consistent
             return [], []
 
@@ -193,12 +196,12 @@ class SubSurface_Detector(Detector):
             pickle.dump(save_data, f)
 
 
-    def blob_2_box(self, img_name, icont, blobby):
+    def blob_2_box(self, img, icont, blobby):
         """
         convert the blobs into bounding boxes of yolo format ([x1 y1 x2 y2 conf class_idx class_name])
         only saving the blobs that passed the threashold in attempt_blobs
         """
-        img = cv.imread(img_name)
+        # img = cv.imread(img_name)
         if icont == []: #incase of no blobs
             return []
         contours = blobby._contours
@@ -219,15 +222,16 @@ class SubSurface_Detector(Detector):
         return torch.tensor(bb)
 
 
-    def detect(self, image):
+    def detect(self, image: np.ndarray):
         """
         return detections from a single prepared image, 
         attempts to find blobs and then converts the blobs into yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
-        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        img_name = img_list[self.count]
-        blobby, icont = self.attempt_blobs(img_name, image, im = MvtImage(img_name))
-        predictions = self.blob_2_box(img_name, icont, blobby)
+        # img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        # img_name = img_list[self.count]
+        # blobby, icont = self.attempt_blobs(img_name, image, im = MvtImage(img_name))
+        blobby, icont = self.attempt_blobs(image)
+        predictions = self.blob_2_box(image, icont, blobby)
         self.blobby = blobby
         self.icont = icont
         self.count += 1
@@ -237,7 +241,7 @@ class SubSurface_Detector(Detector):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
         txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
@@ -261,7 +265,7 @@ class SubSurface_Detector(Detector):
             image_index.append(i)
 
             predictions = self.detect(im_morph)
-            self.save_image_predictions(predictions, im_morph, img_name, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, self.class_colours, self.classes)
             self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
             
             blobs_list.append(self.blobby)

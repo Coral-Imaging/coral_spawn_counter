@@ -166,7 +166,7 @@ class RedCircle_Detector(Detector):
 
 
     def run(self):   
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
         txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
