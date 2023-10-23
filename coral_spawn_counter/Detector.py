@@ -113,6 +113,8 @@ class Detector(object):
         save predictions/detections (assuming predictions in yolo format) on image
         """
         # img = cv.imread(imgname)
+        # assuming input image is rgb, need to convert back to bgr:
+        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
         imgw, imgh = img.shape[1], img.shape[0]
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()
@@ -128,6 +130,7 @@ class Detector(object):
 
         imgsavename = os.path.basename(imgname)
         imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
+        
         cv.imwrite(imgsave_path, img)
         return True
 
