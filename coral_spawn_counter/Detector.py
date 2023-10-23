@@ -20,7 +20,7 @@ class Detector(object):
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/redcircles'
     
-    DEFAULT_MAX_IMG = 2
+    DEFAULT_MAX_IMG = 15
     
     def __init__(self, 
                  meta_dir: str = DEFAULT_META_DIR,
@@ -50,7 +50,7 @@ class Detector(object):
         self.save_prelim_img = save_prelim_img
         self.img_size = img_size
         
-    def prep_img(self, img_name):
+    def prep_img_name(self, img_name):
         """
         from an img_name, load the image into the correct format for dections (cv.imread)
         """
@@ -108,11 +108,11 @@ class Detector(object):
         return True
     
     
-    def save_image_predictions(self, predictions, imgname, imgsavedir, class_colours, classes):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, class_colours, classes):
         """
         save predictions/detections (assuming predictions in yolo format) on image
         """
-        img = cv.imread(imgname)
+        # img = cv.imread(imgname)
         imgw, imgh = img.shape[1], img.shape[0]
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()

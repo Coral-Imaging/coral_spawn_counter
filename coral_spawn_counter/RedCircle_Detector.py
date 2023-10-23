@@ -21,7 +21,7 @@ class RedCircle_Detector(Detector):
     DEFAULT_IMG_DIR = os.path.join(DEFAULT_META_DIR, 'microspheres')
     DEFAULT_SAVE_DIR = '/home/cslics04/images/redcircles'
 
-    DEFAULT_MAX_DECT = 2
+    DEFAULT_MAX_DECT = 10
     
     # TODO all the parameters for detection here as defaults
     
@@ -112,7 +112,7 @@ class RedCircle_Detector(Detector):
         return xmin, ymin, xmax, ymax
 
 
-    def detect(self, image):
+    def detect(self, image: np.ndarray):
         """
         return detections from a single prepared image, input as a numpy array
         attempts to find circles and then converts the circles into yolo format [x1 y1 x2 y2 conf class_idx class_name]
@@ -122,7 +122,7 @@ class RedCircle_Detector(Detector):
         # resize image to small size/consistency (detection parameters vs image size) and speed!
         # img_h, img_w, n_channels = img.shape
         img_scale_factor: float = self.img_size / img_width
-        print(f'img_scale_factor = {img_scale_factor}')
+        # print(f'img_scale_factor = {img_scale_factor}')
         image: np.ndarray = cv.resize(image, None, fx=img_scale_factor, fy=img_scale_factor)
         img_h_resized, img_w_resized, _ = image.shape
         
@@ -183,7 +183,7 @@ class RedCircle_Detector(Detector):
             # detect circles
             predictions = self.detect(img)
 
-            self.save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, img, img_name, imgsave_dir, self.class_colours, self.classes)
             self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
             
         end_time = time.time()

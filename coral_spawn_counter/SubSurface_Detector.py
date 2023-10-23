@@ -167,7 +167,7 @@ class SubSurface_Detector(Detector):
                                     self.contour_colour,
                                     thickness=self.contour_thickness,
                                     lineType=cv.LINE_8)
-                image3 = Image(image_contours)
+                image3 = MvtImage(image_contours)
                 image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
 
                 imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
@@ -225,7 +225,7 @@ class SubSurface_Detector(Detector):
         """
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         img_name = img_list[self.count]
-        blobby, icont = self.attempt_blobs(img_name, image, im = Image(img_name))
+        blobby, icont = self.attempt_blobs(img_name, image, im = MvtImage(img_name))
         predictions = self.blob_2_box(img_name, icont, blobby)
         self.blobby = blobby
         self.icont = icont
@@ -260,8 +260,9 @@ class SubSurface_Detector(Detector):
             image_index.append(i)
 
             predictions = self.detect(im_morph)
+            self.save_image_predictions(predictions, im_morph, img_name, imgsave_dir, self.class_colours, self.classes)
             self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            self.save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
+            
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)
         
