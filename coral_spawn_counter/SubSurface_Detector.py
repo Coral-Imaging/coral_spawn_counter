@@ -85,8 +85,8 @@ class SubSurface_Detector(Detector):
     def prep_img_name(self, img_name):
         # create coral image:
         # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
-        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
-        self.capture_time_list.append(coral_image.metadata['capture_time'])
+        # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
+        # self.capture_time_list.append(coral_image.metadata['capture_time'])
         
         # read in image
         im = MvtImage(img_name)
@@ -96,6 +96,7 @@ class SubSurface_Detector(Detector):
         """
         from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
         """
+        im = MvtImage(im)
         # # create coral image:
         # # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
         # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
