@@ -217,7 +217,10 @@ class Surface_Detector(Detector):
             pred = torch.tensor(pred)
             
         # TODO should handle empty case!
-        predictions = self.nms(pred, self.conf, self.iou)
+        if len(pred) > 0:
+            predictions = self.nms(pred, self.conf, self.iou)
+        else:
+            predictions = [] # empty/0 case
         return predictions
     
 

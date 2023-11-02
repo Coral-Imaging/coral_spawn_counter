@@ -149,3 +149,26 @@ class Detector(object):
             decimal_days_list.append(decimal_days)
 
         return decimal_days_list
+
+
+if __name__ == "__main__":
+
+    print('Detector.py')
+    meta_dir = '/home/cslics/Code/cslics_ws/coral_spawn_imager'
+    img_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/microspheres'
+    save_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/detections'
+    Det = Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir)
+    # test null case for printing/saving images
+    p = []
+
+    img_name = Det.img_list[0]
+    img = Det.prep_img_name(img_name)
+
+    print('save_text_predictions')
+    Det.save_text_predictions(p,img_name, save_dir, Det.classes)
+
+    print('save_image_predictions')
+    Det.save_image_predictions(p, img, img_name, save_dir,Det.class_colours,Det.classes)
+
+
+
