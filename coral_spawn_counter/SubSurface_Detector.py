@@ -265,8 +265,8 @@ class SubSurface_Detector(Detector):
             image_index.append(i)
 
             predictions = self.detect(im_morph)
-            self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, self.class_colours, self.classes)
-            self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
+            self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir)
+            self.save_text_predictions(predictions, img_name, txtsavedir)
             
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)

@@ -256,9 +256,9 @@ class Surface_Detector(Detector):
                 predictions = []
                 
             # save predictions as an image
-            self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
             # save predictions as a text file
-            self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+            self.save_text_predictions(predictions, imgname, txtsavedir)
 
         end_time = time.time()
         duration = end_time - start_time

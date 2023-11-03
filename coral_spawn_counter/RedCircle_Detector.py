@@ -56,8 +56,57 @@ class RedCircle_Detector(Detector):
                           max_img = max_img,
                           save_prelim_img = save_prelim_img,
                           img_size=img_size)
-        
+    
+    
+    # TODO input config style for detector that sets all parameters
 
+    # TODO getters and setters for circle detection parameters
+    def get_blur(self):
+        return self.blur
+    
+    def get_method(self):
+        return self.method
+    
+    def get_accumulator_res(self):
+        return self.accumulator_res
+    
+    def get_min_dist(self):
+        return self.minDist
+    
+    def get_max_edge_thresh(self):
+        return self.maxEdgeThresh
+    
+    def get_min_edge_thresh(self):
+        return self.minEdgeThresh
+    
+    def get_max_radius(self):
+        return self.maxRadius
+    
+    def get_min_radius(self):
+        return self.minRadius
+
+    def set_blur(self, blur: float):
+        self.blur = blur
+
+    def set_accumulator_res(self, accumulator_res: float):
+        self.accumulator_res = accumulator_res
+
+    def set_min_dist(self, mindist: float):
+        self.minDist = mindist
+
+    def set_max_edge_thresh(self, thresh: float):
+        self.maxEdgeThresh = thresh
+
+    def set_min_edge_thresh(self, thresh: float):
+        self.minEdgeThresh = thresh
+
+    def set_max_radius(self, r:float):
+        self.maxRadius = r
+    
+    def set_min_radius(self, r: float):
+        self.minRadius = r
+
+    #########################3
     def find_circles(self,
                     img):
         """
@@ -183,8 +232,8 @@ class RedCircle_Detector(Detector):
             # detect circles
             predictions = self.detect(img)
 
-            self.save_image_predictions(predictions, img, img_name, imgsave_dir, self.class_colours, self.classes)
-            self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
+            self.save_image_predictions(predictions, img, img_name, imgsave_dir)
+            self.save_text_predictions(predictions, img_name, txtsavedir)
             
         end_time = time.time()
         duration = end_time - start_time
