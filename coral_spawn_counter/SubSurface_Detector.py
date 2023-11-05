@@ -109,17 +109,19 @@ class SubSurface_Detector(Detector):
         #process image
         # TODO expose these edge detection parameters to the detector level
         im_mono = im.mono()        # grayscale
-        k_blur = 61
+        k_blur = 5
         im_blur = MvtImage(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
         canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True) # edge detection
         im_canny = MvtImage(canny)
         # morph
         k_morph = 11
-        kernel = np.ones((k_morph,k_morph), np.uint8)
-        im_morph = MvtImage(im_canny.dilate(kernel))
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(k_morph,k_morph))
+        # kernel = np.ones((k_morph,k_morph), np.uint8)
+        im_morph = MvtImage(im_canny.erode(kernel, n=3))
+        im_morph = im_morph.open(kernel)
         im_morph = im_morph.close(kernel)
         # kernel = 11
-        im_morph = im_morph.open(kernel)
+        
 
         # step-by-step save the image
         if self.save_prelim_img:
@@ -133,55 +135,73 @@ class SubSurface_Detector(Detector):
         return im_morph.image
 
 
-    def attempt_blobs(self, image): # , original_image):
+    def attempt_blobs(self, image, img_name: str=None): # , original_image):
         """
         given an img_name, a morphed image and the original image,
         try to find blobs in the image and threashold these blobs
         """
-        try:
+        # try:
             
             # img_base_name = os.path.basename(img_name)[:-4]
-            image = MvtImage(image)
-            blobby = mvt.Blob(image)
-            print(f'{len(blobby)} blobs initially found')
-            # show blobs
-            if self.save_prelim_img:
-                imblobs = blobby.drawBlobs(image, None, None, None, contourthickness=-1)
+        image = MvtImage(image)
+        blobby = mvt.Blob(image)
+        print(f'{len(blobby)} blobs initially found')
+        # show blobs
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+        if self.save_prelim_img:
+            imblobs = blobby.drawBlobs(image, None, None, None, contourthickness=-1)
+        
+        # reject too-small and too weird (non-circular) blobs
+        b0 = [b for b in blobby if ((b.area < self.area_max and b.area > self.area_min) and (b.circularity > self.circ_min and b.circularity < self.circ_max))]
+        b0_area = [b.area for b in b0]
+        b0_circ = [b.circularity for b in b0]
+        b0_cent = [b.centroid for b in b0]
+        # get index of blobbs that passed thresholds
+        icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
+                                                        blobby[i].area in b0_area and 
+                                                        blobby[i].circularity in b0_circ)] 
+        
+        # print('icont')
+        if self.save_prelim_img:
+            imblobs_area = blobby.drawBlobs(image, None, icont, None, contourthickness=-1)
 
-            # reject too-small and too weird (non-circular) blobs
-            b0 = [b for b in blobby if ((b.area < self.area_max and b.area > self.area_min) and (b.circularity > self.circ_min and b.circularity < self.circ_max))]
-            b0_area = [b.area for b in b0]
-            b0_circ = [b.circularity for b in b0]
-            b0_cent = [b.centroid for b in b0]
-            # get index of blobbs that passed thresholds
-            icont = [i for i, b in enumerate(blobby) if (blobby[i].centroid in b0_cent and 
-                                                            blobby[i].area in b0_area and 
-                                                            blobby[i].circularity in b0_circ)] 
+            # import code
+            # code.interact(local=dict(globals(), **locals()))
+            # plot the contours of the blobs based on imblobs_area and icont:
+            image_contours = image.image
             
-            # if self.save_prelim_img:
-            #     imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
+            # if 2D image (no colour), make it 3D
+            if len(image_contours.shape) == 2:
+                image_contours = cv.cvtColor(image_contours, cv.COLOR_GRAY2RGB)
 
-            #     # plot the contours of the blobs based on imblobs_area and icont:
-            #     image_contours = original_image.image
+            # print('drawing contours')
+            for i in icont:
                 
-            #     for i in icont:
-            #         cv.drawContours(image_contours,
-            #                         blobby._contours,
-            #                         i,
-            #                         self.contour_colour,
-            #                         thickness=self.contour_thickness,
-            #                         lineType=cv.LINE_8)
-            #     image3 = MvtImage(image_contours)
-            #     image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
+                cv.drawContours(image_contours,
+                                blobby._contours,
+                                i,
+                                self.contour_colour,
+                                thickness=self.contour_thickness,
+                                lineType=cv.LINE_8)
+            image3 = MvtImage(image_contours)
+            if img_name is None:
+                img_base_name = 'blob_image'
+            else:
+                img_base_name = os.path.basename(img_name)
+            
 
-            #     imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
-            #     imblobs_area.write(os.path.join(self.save_dir, img_base_name + '_05_blob_filter.jpg'))
-            print(f'{len(icont)} blobs passed thresholds')
-            return blobby, icont
-        except:
-            print(f'No blob detection for image')
-            # append empty to keep indexes consistent
-            return [], []
+            # print('saving in-progress images')
+            image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
+
+            imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
+            imblobs_area.write(os.path.join(self.save_dir, img_base_name + '_05_blob_filter.jpg'))
+        print(f'{len(icont)} blobs passed thresholds')
+        return blobby, icont
+        # except:
+            # print(f'No blob detection for image')
+            # # append empty to keep indexes consistent
+            # return [], []
 
 
     def save_results_2_pkl(self, pkl_save_path, blobs_list, blobs_count, image_index, capture_time):
