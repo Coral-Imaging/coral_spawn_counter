@@ -41,6 +41,8 @@ class Detector(object):
         
         
         self.save_dir = save_dir
+        print(f'Detector.save_dir = {self.save_dir}')
+        
         os.makedirs(self.save_dir, exist_ok=True)
         
         self.classes = self.get_classes(self.meta_dir)
@@ -52,14 +54,16 @@ class Detector(object):
         self.save_prelim_img = save_prelim_img
         self.img_size = img_size
         
-    def prep_img_name(self, img_name):
-        """
-        from an img_name, load the image into the correct format for dections (cv.imread)
-        """
-        img = cv.imread(img_name)
-        return img
-    
         
+    def prep_img_name(self, img_name: str):
+        """
+        from an img name, load the image into the correct format for dections (rgb)
+        """
+        img_bgr = cv.imread(img_name) # BGR
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+        return img_rgb
+
+
     def get_classes(self, meta_dir):
         """
         get the classes from a metadata/obj.names file
@@ -110,13 +114,13 @@ class Detector(object):
         return True
     
     
-    def save_image_predictions(self, predictions, img, imgname, imgsavedir):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=True):
         """
         save predictions/detections (assuming predictions in yolo format) on image
         """
         # img = cv.imread(imgname)
         # assuming input image is rgb, need to convert back to bgr:
-        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
+        
         imgw, imgh = img.shape[1], img.shape[0]
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()
@@ -132,7 +136,8 @@ class Detector(object):
 
         imgsavename = os.path.basename(imgname)
         imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + self.SUFFIX_IMG)
-        
+        if BGR:
+            img = cv.cvtColor(img, cv.COLOR_RGB2BGR)        
         cv.imwrite(imgsave_path, img)
         return True
 

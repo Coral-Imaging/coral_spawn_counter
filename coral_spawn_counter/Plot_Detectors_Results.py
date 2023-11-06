@@ -2,6 +2,7 @@
 
 """
 use the results from SubSurface_detector and Surface detector pixkle files and plot them
+assume that you have run the Surface and SubSurface Detectors on the relevant data already...
 """
 #test
 t = 1
@@ -23,11 +24,16 @@ import time
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
-from coral_spawn_counter.Detector_helper import convert_to_decimal_days
+# from coral_spawn_counter.Detector_helper import convert_to_decimal_days
+
+from coral_spawn_counter.Surface_Detector import Surface_Detector
+from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 
 # Consts (more below as well)
 window_size = 20 # for rolling means, etc
+
+# TODO: replace this process/solve for nimage_to_tank_surface via initial counts? Should compare
 # estimated tank surface area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 

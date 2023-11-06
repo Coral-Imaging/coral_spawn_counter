@@ -170,14 +170,6 @@ class Surface_Detector(Detector):
     # def prep_img(self, img_bgr):
     #     img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
     #     return img_rgb
-    
-    def prep_img_name(self, img_name):
-        """
-        from an img name, load the image into the correct format for dections (rgb)
-        """
-        img_bgr = cv.imread(img_name) # BGR
-        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-        return img_rgb
 
 
     def detect(self, image):
