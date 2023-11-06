@@ -54,21 +54,36 @@ class RedCircle_Detector(Detector):
                           save_prelim_img = save_prelim_img,
                           img_size=img_size)
         
-        self.blur = 5
+        # circle detector parameters
+        self.blur_circles = 5
         self.method = cv.HOUGH_GRADIENT
         self.accumulator_res = 0.25 # dp, This parameter is the inverse ratio of the accumulator resolution to the image resolution (see Yuen et al. for more details). Essentially, the larger the dp gets, the smaller the accumulator array gets.
-        self.minDist = int(1.5*self.img_size/200)
+        
         self.maxEdgeThresh = 150 # Gradient value used to handle edge detection in the Yuen et al. method.
         self.minEdgeThresh = 2 # The smaller the threshold is, the more circles will be detected (including false circles). The larger the threshold is, the more circles will potentially be returned.
-        self.maxRadius = int(self.img_size/150)
+        self.maxRadius = int(self.img_size/100) 
         self.minRadius = int(self.img_size/200)
+        self.minDist = int(1.5*self.minRadius)
 
-    
+        # red threshold parameters
+        self.blur_threshold: int = 3
+        self.lab_thresh_lower: np.ndarray = np.array([50, 150, 150])
+        self.lab_thresh_upper: np.ndarray = np.array([240, 255, 255])
+
+        # circle morphology on red-thresholded image
+        self.ksize_morph1 = 5 # based on 1280 image size currently, first spherical kernel size for initial eroding, opening/closing
+        self.ksize_morph2 = 3 # based on 1280 image size currently, second spherical kernel size for finer eroding
+
+        self.blob_area_max= 4000# 1000
+        self.blob_area_min= 25
+        self.blob_circ_min = 0.75
+        self.blob_circ_max = 1.1
+                                
     # TODO input config style for detector that sets all parameters
 
     # TODO getters and setters for circle detection parameters
-    def get_blur(self):
-        return self.blur
+    def get_blur_circles(self):
+        return self.blur_circles
     
     def get_method(self):
         return self.method
@@ -91,8 +106,8 @@ class RedCircle_Detector(Detector):
     def get_min_radius(self):
         return self.minRadius
 
-    def set_blur(self, blur: float):
-        self.blur = blur
+    def set_blur(self, blur_circles: float):
+        self.blur_circles = blur_circles
 
     def set_accumulator_res(self, accumulator_res: float):
         self.accumulator_res = accumulator_res
@@ -115,27 +130,21 @@ class RedCircle_Detector(Detector):
     #########################
 
 
-    def threshold_red(self, img_rgb: np.ndarray):
+    def threshold_red(self, 
+                      img_rgb: np.ndarray): 
         """ threshold for red parts of the image """
-
-        median_blur = 3
-        red_threshold_lab_lower = [50, 150, 150]
-        red_threshold_lab_upper = [240, 255, 255]
-        # convert to BGR to prep for LAB conversion
-        # blur
         # convert to LAB colour space - for uniform colour perception in Euclidian space
-        # then we do circle detection
 
-        # assume image is input as a BGR image
+        # assume image is input as a rgb image
 
         # first blur to reduce noise prior color conversion:
-        img_rgb = cv.medianBlur(img_rgb, median_blur)
+        img_rgb = cv.medianBlur(img_rgb, self.blur_threshold)
 
-        # convert to LAB colour space, nust need a-channel for red
+        # convert to LAB colour space, just need a-channel for red
         img_lab = cv.cvtColor(img_rgb, cv.COLOR_RGB2Lab)
 
         # threshold lab image for red pixels
-        img_lab_red = cv.inRange(img_lab, np.array(red_threshold_lab_lower), np.array(red_threshold_lab_upper))
+        img_lab_red = cv.inRange(img_lab, self.lab_thresh_lower, self.lab_thresh_upper)
 
         if self.save_prelim_img:
             cv.imwrite(os.path.join(self.save_dir, 'threshold_red.jpg'), img_lab_red)
@@ -143,19 +152,19 @@ class RedCircle_Detector(Detector):
         return img_lab_red
 
 
-    def morph_to_circles(self, img: np.ndarray, ksize=5):
+    def morph_to_circles(self, img: np.ndarray, iter=2):
         """ morphological operations on binary images to make more circle-like"""
         
         # should be on resized image
         # kernel = np.ones((15,15), np.uint8)
-        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(ksize,ksize))
-        img = cv.erode(img, kernel, iterations=2)
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(self.ksize_morph1,self.ksize_morph1))
+        img = cv.erode(img, kernel, iterations=iter)
         img = cv.morphologyEx(img, cv.MORPH_OPEN, kernel)
 
-        img = cv.dilate(img, kernel, iterations=2)
+        img = cv.dilate(img, kernel, iterations=iter)
 
-        kernel2 = cv.getStructuringElement(cv.MORPH_ELLIPSE,(3,3))
-        img = cv.erode(img, kernel2, iterations=2)
+        kernel2 = cv.getStructuringElement(cv.MORPH_ELLIPSE,(self.ksize_morph2,self.ksize_morph2))
+        img = cv.erode(img, kernel2, iterations=iter)
 
         if self.save_prelim_img:
             cv.imwrite(os.path.join(self.save_dir, 'morph_circles.jpg'), img)
@@ -169,11 +178,10 @@ class RedCircle_Detector(Detector):
                                  meta_dir=self.meta_dir,
                                  save_dir=self.save_dir,
                                  save_prelim_img=True,
-                                 area_max=1000,
-                                 area_min=25,
-                                 circ_min=0.75,
-                                 circ_max=1.1)
-
+                                 area_max=self.blob_area_max,
+                                 area_min=self.blob_area_min,
+                                 circ_min=self.blob_circ_min,
+                                 circ_max=self.blob_circ_max)
         blobby, icont = SD.attempt_blobs(img)
         return blobby, icont
 
@@ -195,7 +203,7 @@ class RedCircle_Detector(Detector):
         img = cv.equalizeHist(img)
 
         # blur image (Hough transforms work better on smooth images)
-        img = cv.medianBlur(img, self.blur)
+        img = cv.medianBlur(img, self.blur_circles)
         # find circles using Hough Transform
         circles = cv.HoughCircles(image = img,
                                     method=self.method,
@@ -208,6 +216,7 @@ class RedCircle_Detector(Detector):
         
         # TODO filter circles based on overlap?
         return circles
+
 
     def draw_circles(self, img, circles, outer_circle_color=(255, 0, 0), thickness=2):
         """ draw circles onto image"""
@@ -223,43 +232,45 @@ class RedCircle_Detector(Detector):
                     thickness=thickness)
         return img
 
+
     def match_circles_to_blobs(self, circles, blobs, icont):
         """ match circles to blobs/icont, if circles and blobs match, then we have a red circle"""
 
         # do correspondence based on nearest centroid
         # if they don't match to within X threshold, then rejected
         # final list of circles is output
-        print('match_circles_to_blobs')
-        
+        # print('match_circles_to_blobs')
 
         # circles
-        
-        
-        circles = np.squeeze(circles)
-        centroids_circles = circles[:,0:2] # x,y centroids, last column is radius
+        circles_sq = np.squeeze(circles)
+        n_circ, _ = circles_sq.shape
 
-        x_b, y_b = blobs.centroid
-        x_bi = np.array([x for i, x in enumerate(x_b) if i in icont])
-        y_bi = np.array([y for i, y in enumerate(y_b) if i in icont])
-        centroids_blobs = np.vstack((x_bi, y_bi)).transpose()
+        if n_circ > 0:
+            centroids_circles = circles_sq[:,0:2] # x,y centroids, last column is radius
 
-        kdtree = KDTree(centroids_circles)
-        # blobs
+            x_b, y_b = blobs.centroid
+            x_bi = np.array([x for i, x in enumerate(x_b) if i in icont])
+            y_bi = np.array([y for i, y in enumerate(y_b) if i in icont])
+            centroids_blobs = np.vstack((x_bi, y_bi)).transpose()
 
-        # for each point in the second list, find the closest point in the first
-        # TODO set distance upperbound
-        matching_indices = kdtree.query(centroids_blobs)[1]
+            kdtree = KDTree(centroids_circles)
 
-        corresponding_centroids = centroids_circles[matching_indices]
-        corresponding_radii = circles[matching_indices, 2]
+            # blobs
+            # for each point in the second list, find the closest point in the first
+            # TODO set distance upperbound
+            matching_indices = kdtree.query(centroids_blobs)[1]
 
-        # TODO can also check similar radii if need to double double check
-        
-        matching_circles = np.vstack((corresponding_centroids.transpose(), corresponding_radii.transpose())).transpose()        
+            corresponding_centroids = centroids_circles[matching_indices]
+            corresponding_radii = circles_sq[matching_indices, 2]
 
-        
-        filtered_circles = np.expand_dims(matching_circles, axis=0)
-        
+            # TODO can also check similar radii if need to double double check
+            
+            matching_circles = np.vstack((corresponding_centroids.transpose(), corresponding_radii.transpose())).transpose()        
+
+            filtered_circles = np.expand_dims(matching_circles, axis=0)  
+        else:
+            # no circles to speak of
+            filtered_circles = circles      
         return filtered_circles
 
 
@@ -294,10 +305,13 @@ class RedCircle_Detector(Detector):
         # else:
         #     img_h_resized, img_w_resized, _ = image.shape
      
+        # threshold image based on CieLab red threshold
         imgt = self.threshold_red(image_resized)
      
+        # morphological operations to refine the thresholded red image
         imgm = self.morph_to_circles(imgt)
 
+        # find circles in binary image
         circles = self.find_circles(imgm)
         if circles is not None:
             _ , n_circ, _ = circles.shape
@@ -305,7 +319,6 @@ class RedCircle_Detector(Detector):
             n_circ = 0
         print(f'Circles detected = {n_circ}')
         
-
         if self.save_prelim_img:
             if n_circ > 0:
                 img_c = self.draw_circles(imgm, circles)
@@ -314,7 +327,6 @@ class RedCircle_Detector(Detector):
             # save image
             img_name = self.img_list[self.count]
             img_name_circle = os.path.basename(img_name[:-4]) + '_circ_prematch.jpg'
-            self.count += 1
             img_c = cv.cvtColor(img_c, cv.COLOR_RGB2BGR)
             cv.imwrite(os.path.join(self.save_dir, img_name_circle), img_c)
 
@@ -323,9 +335,12 @@ class RedCircle_Detector(Detector):
 
         # now, we need a combine/agree on blobs and circles
         # match centroids and compare?
-        filtered_circles = self.match_circles_to_blobs(circles, blobs, icont)
-        # TODO filter the zero case
-        _, n_circ, _ = filtered_circles.shape
+        if n_circ > 0:
+            filtered_circles = self.match_circles_to_blobs(circles, blobs, icont)
+            # TODO filter the zero case
+            _, n_circ, _ = filtered_circles.shape
+        else:
+            filtered_circles = circles
 
         # save image with circles drawn ontop
         if self.save_prelim_img:
@@ -336,7 +351,6 @@ class RedCircle_Detector(Detector):
             # save image
             img_name = self.img_list[self.count]
             img_name_circle = os.path.basename(img_name[:-4]) + '_circ.jpg'
-            self.count += 1
             img_c = cv.cvtColor(img_c, cv.COLOR_RGB2BGR)
             cv.imwrite(os.path.join(self.save_dir, img_name_circle), img_c)
 
@@ -374,10 +388,12 @@ class RedCircle_Detector(Detector):
             
             print(f'{i}: img_name = {img_name}')  
             # read in image
-            img = self.prep_img(img_name)
+            img = self.prep_img_name(img_name)
+            img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+
             # detect circles
             predictions = self.detect(img)
-
+            self.count += 1
             self.save_image_predictions(predictions, img, img_name, imgsave_dir)
             self.save_text_predictions(predictions, img_name, txtsavedir)
             
@@ -390,9 +406,6 @@ class RedCircle_Detector(Detector):
         print(f'time[s]/image = {duration / len(self.img_list)}')
         
 
-        
-
-
 def main():
     # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
@@ -401,22 +414,10 @@ def main():
     img_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/microspheres'
     save_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/output'
     
-    max_dect = 2 # number of images
+    max_dect = 20 # number of images
     Coral_Detector = RedCircle_Detector(meta_dir=meta_dir, img_dir = img_dir, save_dir=save_dir, max_img=max_dect)
-    # Coral_Detector.run()
+    Coral_Detector.run()
     
-    img_name = Coral_Detector.img_list[4]
-    img = Coral_Detector.prep_img_name(img_name)
-    
-
-
-    img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
-    pred = Coral_Detector.detect(img)
-
-    Coral_Detector.save_image_predictions(pred, img, img_name, save_dir)
-    Coral_Detector.save_text_predictions(pred, img_name, save_dir)
-    # TODO could do morphological operations to even-out the circles?
-
     
     import code
     code.interact(local=dict(globals(), **locals()))
