@@ -44,8 +44,7 @@ class RedCircle_Detector(Detector):
         self.class_idx_def = 5 # eggs
         self.class_name_def = 5 # eggs
         
-        
-        
+
         Detector.__init__(self, 
                           meta_dir = meta_dir,
                           img_dir = img_dir,
@@ -375,9 +374,9 @@ class RedCircle_Detector(Detector):
 
 
     def run(self):   
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
         
         start_time = time.time()

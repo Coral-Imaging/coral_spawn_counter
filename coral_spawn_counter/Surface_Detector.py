@@ -142,7 +142,7 @@ class Surface_Detector(Detector):
             # sort results based on metadata capture time
             results.sort(key=lambda x: x.metadata['capture_time'])
 
-            savefile = os.path.join(self.meta_dir, save_file_name)
+            savefile = os.path.join(self.save_dir, save_file_name)
             with open(savefile, 'wb') as f:
                 pickle.dump(results, f)
             return True
@@ -222,9 +222,9 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()

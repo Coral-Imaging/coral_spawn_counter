@@ -32,7 +32,7 @@ class SubSurface_Detector(Detector):
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
     
-    DEFAULT_OUTPUT_FILE = 'subsurface_det.pkl'
+    DEFAULT_OUTPUT_FILE = 'subsurface_detections.pkl'
     DEFAULT_WINDOW_SIZE = 20
     MAX_IMG = 1000
 
@@ -261,9 +261,9 @@ class SubSurface_Detector(Detector):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detection_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         blobs_count = []
@@ -314,7 +314,7 @@ def main():
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     save_dir = '/home/cslics04/images/subsurface'
     MAX_IMG = 5
-    detection_file = 'subsurface_det_testing.pkl'
+    detection_file = 'subsurface_detections.pkl'
 
     Coral_Detector = SubSurface_Detector(meta_dir = root_dir, 
                                          img_dir = img_dir, 
