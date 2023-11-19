@@ -15,17 +15,19 @@ import shutil
 # dataset folder name
 # data_dir = '/home/dorian/Data/acropora_maggie_tenuis_dataset_100/20221114_AMaggieTenuis'
 # data_dir = '/home/agkelpie/Data/RRAP_2022_NovSpawning/acropora_maggie_tenuis_dataset/20221114_AMaggieTenuis'
-data_dir = '/media/agkelpie/DT4TB/2022_NovSpawning/20221114_AMaggieTenuis/'
+data_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Dec_Spawning/20221214_aloripedes_cslics07'
 print(data_dir)
 
 # get all cslics within given dataset
-cslics_ids = os.listdir(data_dir)
+# cslics_ids = os.listdir(data_dir)
+cslics_ids = ['cslics07']
 print(cslics_ids)
+
 
 for cs in cslics_ids:
     
-    img_dir = 'images'
-    img_path = os.path.join(data_dir, cs, img_dir)
+    img_dir = 'images_jpg'
+    img_path = os.path.join(data_dir, img_dir)
     
     img_names = os.listdir(img_path)
     
