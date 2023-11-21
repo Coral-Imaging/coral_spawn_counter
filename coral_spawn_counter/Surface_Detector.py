@@ -15,10 +15,15 @@ import time
 import pickle
 from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
-
+import sys
+sys.path.insert(0, '')
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.Detector import Detector
 
+import numpy as np
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, ElementTree
+import zipfile
 
 class Surface_Detector(Detector):
 
@@ -217,7 +222,10 @@ class Surface_Detector(Detector):
             pred = torch.tensor(pred)
             
         # TODO should handle empty case!
-        predictions = self.nms(pred, self.conf, self.iou)
+        if len(pred) > 0:
+            predictions = self.nms(pred, self.conf, self.iou)
+        else:
+            predictions = pred
         return predictions
     
 
@@ -271,11 +279,16 @@ class Surface_Detector(Detector):
 
 
 def main():
-    meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
-    weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
+    # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
+    # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
-    Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
+    # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
+    meta_dir = '/home/java/Java/cslics'
+    img_dir = '/home/java/Java/data/202212_aloripedes_500/images'
+    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
+    save_dir = '/home/java/Java/data/202212_aloripedes_500'
+    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
     Coral_Detector.run()
 
 if __name__ == "__main__":
@@ -285,3 +298,79 @@ if __name__ == "__main__":
 # import code
 # code.interact(local=dict(globals(), **locals()))
     
+############ XML #####################
+#add in under main()
+    base_file = "/home/java/Downloads/archive/annotations.xml"
+    img_location = img_dir
+    output_filename = "/home/java/Downloads/surface.xml"
+    output_file = output_filename
+    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+
+    tree = ET.parse(base_file)
+    root = tree.getroot() 
+    new_tree = ElementTree(Element("annotations"))
+    # add version element
+    version_element = ET.Element('version')
+    version_element.text = '1.1'
+    new_tree.getroot().append(version_element)
+    # add Meta elements, (copy over from source_file)
+    meta_element = root.find('.//meta')
+    if meta_element is not None:
+        new_meta_elem = ET.SubElement(new_tree.getroot(), 'meta')
+        # copy all subelements of meta
+        for sub_element in meta_element:
+            new_meta_elem.append(sub_element)
+        
+    for i, image_element in enumerate(root.findall('.//image')):
+        print(i,'images being processed')
+        image_id = image_element.get('id')
+        image_name = image_element.get('name')
+        image_width = int(image_element.get('width'))
+        image_height = int(image_element.get('height'))
+
+        # create new image element in new XML
+        new_elem = SubElement(new_tree.getroot(), 'image')
+        new_elem.set('id', image_id)
+        new_elem.set('name', image_name)
+        new_elem.set('width', str(image_width))
+        new_elem.set('height', str(image_height))
+        
+        image_file = os.path.join(img_location, image_name)
+        img_bgr = cv.imread(image_file)
+        
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB)
+        predictions = Coral_Detector.detect(img_rgb)
+
+        for j, p in enumerate(predictions):
+            try: 
+                xyxy = p[0:4].tolist()
+                label = classes[int(p[5].item())]
+                xtl = min(xyxy[0],xyxy[2])*image_width
+                xbr = max(xyxy[0],xyxy[2])*image_width
+                ytl = min(xyxy[1],xyxy[3])*image_height
+                ybr = max(xyxy[1],xyxy[3])*image_height
+                box_elem = SubElement(new_elem, 'box')
+                box_elem.set('label', label)
+                box_elem.set('source', 'semi-auto')
+                box_elem.set('occluded', '0')
+                box_elem.set('xtl', str(xtl))
+                box_elem.set('ytl', str(ytl))
+                box_elem.set('xbr', str(xbr))
+                box_elem.set('ybr', str(ybr))
+                box_elem.set('z_order', '0')
+            except:
+                print(f'prediction {j} encountered problem p = {p}')
+                import code
+                code.interact(local=dict(globals(), **locals()))
+            #import code
+            #code.interact(local=dict(globals(), **locals()))
+
+    new_tree.write(output_file, encoding='utf-8', xml_declaration=True)
+
+    zip_filename = output_file.split('.')[0] + '.zip'
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(output_file, arcname='output_xml_file.xml')
+    print('XML file zipped')
+
+    import code
+    code.interact(local=dict(globals(), **locals()))

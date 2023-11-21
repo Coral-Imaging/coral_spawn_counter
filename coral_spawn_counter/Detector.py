@@ -63,7 +63,6 @@ class Detector(object):
         get the classes from a metadata/obj.names file
         classes = [class1, class2, class3 etc.]
         """
-        #TODO: make a function of something else, used in both detectors
         with open(os.path.join(meta_dir, 'metadata','obj.names'), 'r') as f:
             classes = [line.strip() for line in f.readlines()]
         return classes
