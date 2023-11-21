@@ -20,7 +20,9 @@ class Detector(object):
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/microspheres'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/redcircles'
     
-    DEFAULT_MAX_IMG = 2
+    DEFAULT_MAX_IMG = 15
+    SUFFIX_TXT = '_det.txt'
+    SUFFIX_IMG = '_det.jpg'
     
     def __init__(self, 
                  meta_dir: str = DEFAULT_META_DIR,
@@ -39,6 +41,8 @@ class Detector(object):
         
         
         self.save_dir = save_dir
+        print(f'Detector.save_dir = {self.save_dir}')
+        
         os.makedirs(self.save_dir, exist_ok=True)
         
         self.classes = self.get_classes(self.meta_dir)
@@ -50,14 +54,16 @@ class Detector(object):
         self.save_prelim_img = save_prelim_img
         self.img_size = img_size
         
-    def prep_img(self, img_name):
-        """
-        from an img_name, load the image into the correct format for dections (cv.imread)
-        """
-        img = cv.imread(img_name)
-        return img
-    
         
+    def prep_img_name(self, img_name: str):
+        """
+        from an img name, load the image into the correct format for dections (rgb)
+        """
+        img_bgr = cv.imread(img_name) # BGR
+        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+        return img_rgb
+
+
     def get_classes(self, meta_dir):
         """
         get the classes from a metadata/obj.names file
@@ -88,13 +94,13 @@ class Detector(object):
         return class_colours
 
 
-    def save_text_predictions(self, predictions, imgname, txtsavedir, classes):
+    def save_text_predictions(self, predictions, imgname, txtsavedir):
         """
         save predictions/detections into text file
         [x1 y1 x2 y2 conf class_idx class_name]
         """
         txtsavename = os.path.basename(imgname)
-        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + '_det.txt')
+        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + self.SUFFIX_TXT)
 
         # predictions [ pix pix pix pix conf class ]
         with open(txtsavepath, 'w') as f:
@@ -102,16 +108,18 @@ class Detector(object):
                 x1, y1, x2, y2 = p[0:4].tolist()
                 conf = p[4]
                 class_idx = int(p[5])
-                class_name = classes[class_idx]
+                class_name = self.classes[class_idx]
                 f.write(f'{x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f} {conf:.4f} {class_idx:g} {class_name}\n')
         return True
     
     
-    def save_image_predictions(self, predictions, imgname, imgsavedir, class_colours, classes):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=True):
         """
         save predictions/detections (assuming predictions in yolo format) on image
         """
-        img = cv.imread(imgname)
+        # img = cv.imread(imgname)
+        # assuming input image is rgb, need to convert back to bgr:
+        
         imgw, imgh = img.shape[1], img.shape[0]
         for p in predictions:
             x1, y1, x2, y2 = p[0:4].tolist()
@@ -122,11 +130,13 @@ class Detector(object):
             x2 = x2*imgw
             y1 = y1*imgh
             y2 = y2*imgh        
-            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colours[classes[cls]], 2)
-            cv.putText(img, f"{classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, class_colours[classes[cls]], 2)
+            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), self.class_colours[self.classes[cls]], 2)
+            cv.putText(img, f"{self.classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
 
         imgsavename = os.path.basename(imgname)
-        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_det.jpg')
+        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + self.SUFFIX_IMG)
+        if BGR:
+            img = cv.cvtColor(img, cv.COLOR_RGB2BGR)        
         cv.imwrite(imgsave_path, img)
         return True
 
@@ -145,3 +155,26 @@ class Detector(object):
             decimal_days_list.append(decimal_days)
 
         return decimal_days_list
+
+
+if __name__ == "__main__":
+
+    print('Detector.py')
+    meta_dir = '/home/cslics/Code/cslics_ws/coral_spawn_imager'
+    img_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/microspheres'
+    save_dir = '/home/cslics/Data/20231018_cslics_detector_images_sample/detections'
+    Det = Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir)
+    # test null case for printing/saving images
+    p = []
+
+    img_name = Det.img_list[0]
+    img = Det.prep_img_name(img_name)
+
+    print('save_text_predictions')
+    Det.save_text_predictions(p,img_name, save_dir, Det.classes)
+
+    print('save_image_predictions')
+    Det.save_image_predictions(p, img, img_name, save_dir,Det.class_colours,Det.classes)
+
+
+

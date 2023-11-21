@@ -147,7 +147,7 @@ class Surface_Detector(Detector):
             # sort results based on metadata capture time
             results.sort(key=lambda x: x.metadata['capture_time'])
 
-            savefile = os.path.join(self.meta_dir, save_file_name)
+            savefile = os.path.join(self.save_dir, save_file_name)
             with open(savefile, 'wb') as f:
                 pickle.dump(results, f)
             return True
@@ -172,17 +172,9 @@ class Surface_Detector(Detector):
         return True
 
 
-    def prep_img(self, img_bgr):
-        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-        return img_rgb
-    
-    def prep_img_name(self, img_name):
-        """
-        from an img name, load the image into the correct format for dections (rgb)
-        """
-        img_bgr = cv.imread(img_name) # BGR
-        img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-        return img_rgb
+    # def prep_img(self, img_bgr):
+    #     img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
+    #     return img_rgb
 
 
     def detect(self, image):
@@ -225,7 +217,7 @@ class Surface_Detector(Detector):
         if len(pred) > 0:
             predictions = self.nms(pred, self.conf, self.iou)
         else:
-            predictions = pred
+            predictions = [] # empty/0 case
         return predictions
     
 
@@ -235,9 +227,9 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detections_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()
@@ -261,9 +253,9 @@ class Surface_Detector(Detector):
                 predictions = []
                 
             # save predictions as an image
-            self.save_image_predictions(predictions, imgname, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
             # save predictions as a text file
-            self.save_text_predictions(predictions, imgname, txtsavedir, self.classes)
+            self.save_text_predictions(predictions, imgname, txtsavedir)
 
         end_time = time.time()
         duration = end_time - start_time

@@ -32,7 +32,7 @@ class SubSurface_Detector(Detector):
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/subsurface'
     
-    DEFAULT_OUTPUT_FILE = 'subsurface_det.pkl'
+    DEFAULT_OUTPUT_FILE = 'subsurface_detections.pkl'
     DEFAULT_WINDOW_SIZE = 20
     MAX_IMG = 1000
 
@@ -85,8 +85,8 @@ class SubSurface_Detector(Detector):
     def prep_img_name(self, img_name):
         # create coral image:
         # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
-        coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
-        self.capture_time_list.append(coral_image.metadata['capture_time'])
+        # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
+        # self.capture_time_list.append(coral_image.metadata['capture_time'])
         
         # read in image
         im = MvtImage(img_name)
@@ -96,6 +96,7 @@ class SubSurface_Detector(Detector):
         """
         from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
         """
+        im = MvtImage(im)
         # # create coral image:
         # # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
         # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
@@ -108,17 +109,19 @@ class SubSurface_Detector(Detector):
         #process image
         # TODO expose these edge detection parameters to the detector level
         im_mono = im.mono()        # grayscale
-        k_blur = 61
+        k_blur = 5
         im_blur = MvtImage(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
         canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True) # edge detection
         im_canny = MvtImage(canny)
         # morph
         k_morph = 11
-        kernel = np.ones((k_morph,k_morph), np.uint8)
-        im_morph = MvtImage(im_canny.dilate(kernel))
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(k_morph,k_morph))
+        # kernel = np.ones((k_morph,k_morph), np.uint8)
+        im_morph = MvtImage(im_canny.erode(kernel, n=3))
+        im_morph = im_morph.open(kernel)
         im_morph = im_morph.close(kernel)
         # kernel = 11
-        im_morph = im_morph.open(kernel)
+        
 
         # step-by-step save the image
         if self.save_prelim_img:
@@ -128,22 +131,27 @@ class SubSurface_Detector(Detector):
             im_canny.write(os.path.join(self.save_dir, img_base_name + '_02_edge.jpg'))
             im_morph.write(os.path.join(self.save_dir, img_base_name + '_03_morph.jpg'))
         
-        return im_morph
+        # be sure to return a numpy array, just like other Detectors
+        return im_morph.image
 
 
-    def attempt_blobs(self, img_name, im_morph, im):
+    def attempt_blobs(self, image, img_name: str=None): # , original_image):
         """
         given an img_name, a morphed image and the original image,
         try to find blobs in the image and threashold these blobs
         """
         try:
-            img_base_name = os.path.basename(img_name)[:-4]
-            blobby = mvt.Blob(im_morph)
+            
+            # img_base_name = os.path.basename(img_name)[:-4]
+            image = MvtImage(image)
+            blobby = mvt.Blob(image)
             print(f'{len(blobby)} blobs initially found')
             # show blobs
+            # import code
+            # code.interact(local=dict(globals(), **locals()))
             if self.save_prelim_img:
-                imblobs = blobby.drawBlobs(im_morph, None, None, None, contourthickness=-1)
-
+                imblobs = blobby.drawBlobs(image, None, None, None, contourthickness=-1)
+            
             # reject too-small and too weird (non-circular) blobs
             b0 = [b for b in blobby if ((b.area < self.area_max and b.area > self.area_min) and (b.circularity > self.circ_min and b.circularity < self.circ_max))]
             b0_area = [b.area for b in b0]
@@ -154,20 +162,36 @@ class SubSurface_Detector(Detector):
                                                             blobby[i].area in b0_area and 
                                                             blobby[i].circularity in b0_circ)] 
             
+            # print('icont')
             if self.save_prelim_img:
-                imblobs_area = blobby.drawBlobs(im_morph, None, icont, None, contourthickness=-1)
+                imblobs_area = blobby.drawBlobs(image, None, icont, None, contourthickness=-1)
 
+                # import code
+                # code.interact(local=dict(globals(), **locals()))
                 # plot the contours of the blobs based on imblobs_area and icont:
-                image_contours = im.image
+                image_contours = image.image
                 
+                # if 2D image (no colour), make it 3D
+                if len(image_contours.shape) == 2:
+                    image_contours = cv.cvtColor(image_contours, cv.COLOR_GRAY2RGB)
+
+                # print('drawing contours')
                 for i in icont:
+                    
                     cv.drawContours(image_contours,
                                     blobby._contours,
                                     i,
                                     self.contour_colour,
                                     thickness=self.contour_thickness,
                                     lineType=cv.LINE_8)
-                image3 = Image(image_contours)
+                image3 = MvtImage(image_contours)
+                if img_name is None:
+                    img_base_name = 'blob_image'
+                else:
+                    img_base_name = os.path.basename(img_name)
+                
+
+                # print('saving in-progress images')
                 image3.write(os.path.join(self.save_dir, img_base_name + '_blobs_contour.jpg'))
 
                 imblobs.write(os.path.join(self.save_dir, img_base_name + '_04_blob.jpg'))
@@ -175,8 +199,8 @@ class SubSurface_Detector(Detector):
             print(f'{len(icont)} blobs passed thresholds')
             return blobby, icont
         except:
-            print(f'No blob detection for {img_name}')
-            # append empty to keep indexes consistent
+            print(f'Try/Except: No blob detection for image')
+            # # append empty to keep indexes consistent
             return [], []
 
 
@@ -192,12 +216,12 @@ class SubSurface_Detector(Detector):
             pickle.dump(save_data, f)
 
 
-    def blob_2_box(self, img_name, icont, blobby):
+    def blob_2_box(self, img, icont, blobby):
         """
         convert the blobs into bounding boxes of yolo format ([x1 y1 x2 y2 conf class_idx class_name])
         only saving the blobs that passed the threashold in attempt_blobs
         """
-        img = cv.imread(img_name)
+        # img = cv.imread(img_name)
         if icont == []: #incase of no blobs
             return []
         contours = blobby._contours
@@ -218,15 +242,16 @@ class SubSurface_Detector(Detector):
         return torch.tensor(bb)
 
 
-    def detect(self, image):
+    def detect(self, image: np.ndarray):
         """
         return detections from a single prepared image, 
         attempts to find blobs and then converts the blobs into yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
-        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
-        img_name = img_list[self.count]
-        blobby, icont = self.attempt_blobs(img_name, image, im = Image(img_name))
-        predictions = self.blob_2_box(img_name, icont, blobby)
+        # img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        # img_name = img_list[self.count]
+        # blobby, icont = self.attempt_blobs(img_name, image, im = MvtImage(img_name))
+        blobby, icont = self.attempt_blobs(image)
+        predictions = self.blob_2_box(image, icont, blobby)
         self.blobby = blobby
         self.icont = icont
         self.count += 1
@@ -236,9 +261,9 @@ class SubSurface_Detector(Detector):
         print("running blob subsurface detector")
         img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
-        imgsave_dir = os.path.join(self.save_dir, 'detections', 'detections_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detections', 'detection_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
         os.makedirs(txtsavedir, exist_ok=True)
 
         blobs_count = []
@@ -260,8 +285,9 @@ class SubSurface_Detector(Detector):
             image_index.append(i)
 
             predictions = self.detect(im_morph)
-            self.save_text_predictions(predictions, img_name, txtsavedir, self.classes)
-            self.save_image_predictions(predictions, img_name, imgsave_dir, self.class_colours, self.classes)
+            self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, BGR=False)
+            self.save_text_predictions(predictions, img_name, txtsavedir)
+            
             blobs_list.append(self.blobby)
             blobs_count.append(self.icont)
         
@@ -288,7 +314,7 @@ def main():
     img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
     save_dir = '/home/cslics04/images/subsurface'
     MAX_IMG = 5
-    detection_file = 'subsurface_det_testing.pkl'
+    detection_file = 'subsurface_detections.pkl'
 
     Coral_Detector = SubSurface_Detector(meta_dir = root_dir, 
                                          img_dir = img_dir, 
