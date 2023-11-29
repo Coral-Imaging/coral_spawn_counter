@@ -39,10 +39,15 @@ print()
 
 ## Surface Count given manual count
 manual_count = 500000 # 500k
+manual_count_lb = manual_count * 0.9
+manual_count_ub = manual_count * 1.1
+
+
 cslics_fov_est = image_count * area_tank / manual_count
 
 
 print(f'Provided manual count = {manual_count}')
+print(f'Manual count lower/upper bound = [{manual_count_lb}, {manual_count_ub}]')
 print(f'Calibrated cslics_fov from manual count = {cslics_fov_est} [cm^2]')
 
 # given constant cslics_fov, we can calculate the image_count
