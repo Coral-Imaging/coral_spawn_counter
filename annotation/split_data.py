@@ -62,7 +62,34 @@ def allocate_dataset_files(filenames, img_dir, target_img_dir, target_meta_dir, 
     with open(target_ann_file, 'w') as f:
         for fname in filenames:
             f.write(fname + '\n')
-        
+
+def split_files(input_dir, output_dir, train_ratio, val_ratio):
+    """Split_files
+    This function splits the files in the input directory into train, validation, and test sets.
+    
+    Parameters:
+    input_dir (str): The directory where the input files are located.
+    output_dir (str): The directory where the split files will be stored.
+    train_ratio (float): The ratio of files to be used for training.
+    val_ratio (float): The ratio of files to be used for validation.
+
+    """
+    # Get the total number of files in the input directory
+    length = len(os.listdir(input_dir))
+    print(f'length = {length}')
+    
+    # Calculate the number of training and validation files based on the ratios provided
+    train_length = int(length * train_ratio)
+    val_length = int(length * val_ratio)
+    
+    # Copy the files into the appropriate directories
+    for fname in sorted(os.listdir(input_dir))[:train_length]:
+        shutil.copyfile(os.path.join(input_dir, fname), os.path.join(output_dir, 'train', fname))
+    for fname in sorted(os.listdir(input_dir))[train_length:train_length+val_length]:
+        shutil.copyfile(os.path.join(input_dir, fname), os.path.join(output_dir, 'val', fname))
+    for fname in sorted(os.listdir(input_dir))[train_length+val_length:]:
+        shutil.copyfile(os.path.join(input_dir, fname), os.path.join(output_dir, 'test', fname))
+   
 # Inputs
 # ==================================================================================================
 
@@ -82,107 +109,129 @@ if not ((train_ratio + val_ratio + test_ratio) == 1):
     ValueError(train_ratio, 'sum of train/val/test ratios must equal 1')
 
 # image folder with all images
-img_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images_jpg'
+img_dir = '/home/java/Java/data/202212_aloripedes_500/images'
 
-# image metadata folder
-meta_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/obj_train_data'
+# text folder with all annotations
+ann_dir = '/home/java/Java/data/202212_aloripedes_500/labels'
 
-# annotation file with all the filenames:
-ann_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/annotations.txt'
-
-
-# Declaring output file names/locations
+# output folder
+output_dir_images = '/home/java/Java/data/202212_aloripedes_500/test/images'
+output_dir_txt = '/home/java/Java/data/202212_aloripedes_500/test/labels'
 # ==================================================================================================
+os.makedirs(output_dir_images, exist_ok=True)
+os.makedirs(os.path.join(output_dir_images, 'train'), exist_ok=True)
+os.makedirs(os.path.join(output_dir_images, 'val'), exist_ok=True)
+os.makedirs(os.path.join(output_dir_images, 'test'), exist_ok=True)
 
-# training:
-# TODO does not delete existing sets, so would simply just add more files into the mix - should delete existing sets, if not empty - with user input
-img_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/train'
-meta_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train'
-ann_train_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train.txt'
-clean_dirs(img_train_dir, meta_train_dir, ann_train_file)
+split_files(img_dir, output_dir_images, train_ratio, val_ratio)
 
-# validation
-if val_ratio > 0:
-    img_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/val'
-    meta_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val'
-    ann_val_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val.txt'
-    clean_dirs(img_val_dir, meta_val_dir, ann_val_file)
-
-# testing
-if test_ratio > 0:
-    img_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
-    meta_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test'
-    ann_test_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test.txt'
-    clean_dirs(img_test_dir, meta_test_dir, ann_test_file)
-
-
-# ==================================================================================================
-
-# find out how many images in original folder
-# using ratios, divy up images, favouring training images and whole numbers, ensure all images are used up
-# TODO check input images/folders are consistent?
-
-img_list = sorted(os.listdir(img_dir))
-
-n_img = len(img_list)
-n_train = round(n_img * train_ratio)
-
-if val_ratio == 0:
-    n_val = 0
-elif test_ratio == 0:
-    n_val = n_img - n_train
-else:
-    n_val = round(n_img * val_ratio)
-
-if test_ratio == 0:
-    n_test = 0
-else:
-    n_test = n_img - n_train - n_val
-
-print(f'total images: {n_img}')
-print(f'n_train = {n_train}')
-print(f'n_val = {n_val}')
-print(f'n_test = {n_test}')
-
-# randomly split the images (might use pytorch random split of images?)
-train_val_filenames, test_filenames = train_test_split(img_list, test_size=int(n_test), random_state=42) # hopefully works with 0 as test_ratio?
-train_filenames, val_filenames = train_test_split(train_val_filenames, test_size=int(n_val), random_state=42)
-
-# sanity check:
-print(f'length of train_filenames = {len(train_filenames)}')
-print(f'length of val_filenames = {len(val_filenames)}')
-print(f'length of test_filenames = {len(test_filenames)}')
-
-# for each list of images
-# generate relevant folders, copy images into folders
-# generate list of images .txt file
-# generate/copy all annotation .txt files into relevant folders
-allocate_dataset_files(train_filenames, img_dir, img_train_dir, meta_train_dir, ann_train_file)
-allocate_dataset_files(val_filenames, img_dir, img_val_dir, meta_val_dir, ann_val_file)
-allocate_dataset_files(test_filenames, img_dir, img_test_dir, meta_test_dir, ann_test_file)
-
-# check:
-print(f'num img files in img_train_dir = {len(os.listdir(img_train_dir))}')
-print(f'num img files in img_val_dir = {len(os.listdir(img_val_dir))}')
-print(f'num img files in img_test_dir = {len(os.listdir(img_test_dir))}')
-
-print(f'num txt files in meta_train_dir = {len(os.listdir(meta_train_dir))}')
-print(f'num txt files in meta_val_dir = {len(os.listdir(meta_val_dir))}')
-print(f'num txt files in meta_test_dir = {len(os.listdir(meta_test_dir))}')
-
-with open(ann_train_file, 'r') as f:
-    ann_train_lines = f.readlines()
-with open(ann_val_file, 'r') as f:
-    ann_val_lines = f.readlines()
-with open(ann_test_file, 'r') as f:
-    ann_test_lines = f.readlines()
-    
-print(f'num lines in ann_train_file = {len(ann_train_lines)}')
-print(f'num lines in ann_val_file = {len(ann_val_lines)}')
-print(f'num lines in ann_test_file = {len(ann_test_lines)}')
-
+os.makedirs(output_dir_txt, exist_ok=True)
+os.makedirs(os.path.join(output_dir_txt, 'train'), exist_ok=True)
+os.makedirs(os.path.join(output_dir_txt, 'val'), exist_ok=True)
+os.makedirs(os.path.join(output_dir_txt, 'test'), exist_ok=True)
+split_files(ann_dir, output_dir_txt, train_ratio, val_ratio)
 
 print('done')
 
-import code
-code.interact(local=dict(globals(), **locals()))
+# image metadata folder
+#meta_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/obj_train_data'
+
+# annotation file with all the filenames:
+#ann_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/annotations.txt'
+
+
+# # Declaring output file names/locations
+# # ==================================================================================================
+
+# # training:
+# # TODO does not delete existing sets, so would simply just add more files into the mix - should delete existing sets, if not empty - with user input
+# img_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/train'
+# meta_train_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train'
+# ann_train_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/train.txt'
+# clean_dirs(img_train_dir, meta_train_dir, ann_train_file)
+
+# # validation
+# if val_ratio > 0:
+#     img_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/val'
+#     meta_val_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val'
+#     ann_val_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/val.txt'
+#     clean_dirs(img_val_dir, meta_val_dir, ann_val_file)
+
+# # testing
+# if test_ratio > 0:
+#     img_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/images/test'
+#     meta_test_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test'
+#     ann_test_file = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000/metadata/test.txt'
+#     clean_dirs(img_test_dir, meta_test_dir, ann_test_file)
+
+
+# # ==================================================================================================
+
+# # find out how many images in original folder
+# # using ratios, divy up images, favouring training images and whole numbers, ensure all images are used up
+# # TODO check input images/folders are consistent?
+
+# img_list = sorted(os.listdir(img_dir))
+
+# n_img = len(img_list)
+# n_train = round(n_img * train_ratio)
+
+# if val_ratio == 0:
+#     n_val = 0
+# elif test_ratio == 0:
+#     n_val = n_img - n_train
+# else:
+#     n_val = round(n_img * val_ratio)
+
+# if test_ratio == 0:
+#     n_test = 0
+# else:
+#     n_test = n_img - n_train - n_val
+
+# print(f'total images: {n_img}')
+# print(f'n_train = {n_train}')
+# print(f'n_val = {n_val}')
+# print(f'n_test = {n_test}')
+
+# # randomly split the images (might use pytorch random split of images?)
+# train_val_filenames, test_filenames = train_test_split(img_list, test_size=int(n_test), random_state=42) # hopefully works with 0 as test_ratio?
+# train_filenames, val_filenames = train_test_split(train_val_filenames, test_size=int(n_val), random_state=42)
+
+# # sanity check:
+# print(f'length of train_filenames = {len(train_filenames)}')
+# print(f'length of val_filenames = {len(val_filenames)}')
+# print(f'length of test_filenames = {len(test_filenames)}')
+
+# # for each list of images
+# # generate relevant folders, copy images into folders
+# # generate list of images .txt file
+# # generate/copy all annotation .txt files into relevant folders
+# allocate_dataset_files(train_filenames, img_dir, img_train_dir, meta_train_dir, ann_train_file)
+# allocate_dataset_files(val_filenames, img_dir, img_val_dir, meta_val_dir, ann_val_file)
+# allocate_dataset_files(test_filenames, img_dir, img_test_dir, meta_test_dir, ann_test_file)
+
+# # check:
+# print(f'num img files in img_train_dir = {len(os.listdir(img_train_dir))}')
+# print(f'num img files in img_val_dir = {len(os.listdir(img_val_dir))}')
+# print(f'num img files in img_test_dir = {len(os.listdir(img_test_dir))}')
+
+# print(f'num txt files in meta_train_dir = {len(os.listdir(meta_train_dir))}')
+# print(f'num txt files in meta_val_dir = {len(os.listdir(meta_val_dir))}')
+# print(f'num txt files in meta_test_dir = {len(os.listdir(meta_test_dir))}')
+
+# with open(ann_train_file, 'r') as f:
+#     ann_train_lines = f.readlines()
+# with open(ann_val_file, 'r') as f:
+#     ann_val_lines = f.readlines()
+# with open(ann_test_file, 'r') as f:
+#     ann_test_lines = f.readlines()
+    
+# print(f'num lines in ann_train_file = {len(ann_train_lines)}')
+# print(f'num lines in ann_val_file = {len(ann_val_lines)}')
+# print(f'num lines in ann_test_file = {len(ann_test_lines)}')
+
+
+# print('done')
+
+# import code
+# code.interact(local=dict(globals(), **locals()))

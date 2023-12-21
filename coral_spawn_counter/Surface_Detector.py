@@ -251,6 +251,8 @@ class Surface_Detector(Detector):
             except:
                 print('no model predictions --> skipping')
                 predictions = []
+                import code
+                code.interact(local=dict(globals(), **locals()))
                 
             # save predictions as an image
             self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
@@ -266,37 +268,10 @@ class Surface_Detector(Detector):
         print(f'time[s]/image = {duration / len(self.img_list)}')
         
         print('done detection')
-        self.convert_results_2_pkl(txtsavedir, self.output_file)
-        print(f'results stored in {self.output_file} file')
+        # self.convert_results_2_pkl(txtsavedir, self.output_file)
+        # print(f'results stored in {self.output_file} file')
 
-
-def main():
-    # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
-    # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
-
-    # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
-    meta_dir = '/home/java/Java/cslics'
-    img_dir = '/home/java/Java/data/202212_aloripedes_500/images'
-    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
-    save_dir = '/home/java/Java/data/202212_aloripedes_500'
-    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
-    Coral_Detector.run()
-
-if __name__ == "__main__":
-    main()
-
-
-# import code
-# code.interact(local=dict(globals(), **locals()))
-    
-############ XML #####################
-#add in under main()
-    base_file = "/home/java/Downloads/archive/annotations.xml"
-    img_location = img_dir
-    output_filename = "/home/java/Downloads/surface.xml"
-    output_file = output_filename
-    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+def to_XML(base_file, img_location, output_file, classes, Coral_Detector):
 
     tree = ET.parse(base_file)
     root = tree.getroot() 
@@ -364,5 +339,35 @@ if __name__ == "__main__":
         zipf.write(output_file, arcname='output_xml_file.xml')
     print('XML file zipped')
 
-    import code
-    code.interact(local=dict(globals(), **locals()))
+    # import code
+    # code.interact(local=dict(globals(), **locals()))
+
+def main():
+    # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
+    # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
+
+    # Do detection
+    # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
+    meta_dir = '/home/java/Java/cslics' #has obj.names
+    img_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500/images'
+    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
+    save_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500'
+    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
+    #Coral_Detector.run()
+
+    # Human in the loop, convert to cvat xml
+    base_file = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_no_ann/annotations.xml"
+    img_location = img_dir
+    output_filename = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_ann.xml"
+    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+    to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
+
+if __name__ == "__main__":
+    main()
+
+
+# import code
+# code.interact(local=dict(globals(), **locals()))
+
+
