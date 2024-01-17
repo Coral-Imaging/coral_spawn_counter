@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # load pretrained model
-model = YOLO('weights/yolov8m.pt')
+model = YOLO('weights/yolov8x.pt')
 
 # train the model
 model.train(data='data/cslics_surface.yaml', 
@@ -13,4 +13,4 @@ model.train(data='data/cslics_surface.yaml',
             batch=-1
             )
 
-print('done')
+print('done')c

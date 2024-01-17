@@ -3,9 +3,9 @@
 # the relative paths to train/val/test image directories (or text files with image paths)
 # a class "names" dictionary
 
-path: /home/java/Java/data/aloripedes_n_amtenuis
-train: images/train # training images relative to 'path', 100 images
-val: images/val # validation images relative to 'path', 100 images - set to same as train to verify overfitting
+path: /home/java/Java/data/cslics_aloripedes_n_amtenuis_jan
+train: images/train # training images relative to 'path'
+val: images/val # validation images relative to 'path'
 test: images/test # test images (optional)
 
 # Classes
