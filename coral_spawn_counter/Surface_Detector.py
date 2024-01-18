@@ -30,6 +30,7 @@ class Surface_Detector(Detector):
     DEFAULT_META_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     DEFAULT_SAVE_DIR = '/home/cslics04/images/surface'
+    DEFAULT_TXT_DIR = '/home/cslics04/images/surface_txt'
     
     DEFAULT_DETECTOR_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.50
@@ -50,7 +51,8 @@ class Surface_Detector(Detector):
                 weights_file: str = DEFAULT_YOLO8,
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
-                output_file: str = DEFAULT_OUTPUT_FILE):
+                output_file: str = DEFAULT_OUTPUT_FILE,
+                txt_dir: str = DEFAULT_TXT_DIR):
         
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -63,6 +65,7 @@ class Surface_Detector(Detector):
         self.iou = iou
 
         self.output_file = output_file
+        self.txt_dir = txt_dir
         
         Detector.__init__(self, 
                           meta_dir = meta_dir,
@@ -172,10 +175,32 @@ class Surface_Detector(Detector):
         return True
 
 
-    # def prep_img(self, img_bgr):
-    #     img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB) # RGB
-    #     return img_rgb
-
+    def show_ground_truth(self, img_rgb, imgname, imgsavedir, BGR=True):
+        """Shows ground truth annotations on image if they exsit"""
+        imgw, imgh = img_rgb.shape[1], img_rgb.shape[0]
+        basename = os.path.basename(imgname)
+        ground_truth_txt = os.path.join(self.txt_dir, basename[:-4] + '.txt')
+        if os.path.exists(ground_truth_txt):
+            with open(ground_truth_txt, 'r') as f:
+                lines = f.readlines() # <object-class> <x> <y> <width> <height>
+            for part in lines:
+                parts = part.rsplit()
+                class_idx = int(parts[0])
+                x = float(parts[1])
+                y = float(parts[2])
+                ow = float(parts[3])
+                oh = float(parts[4])
+                x1 = (x - ow/2)*imgw
+                x2 = (x + ow/2)*imgw
+                y1 = (y - oh/2)*imgh
+                y2 = (y + oh/2)*imgh
+                cv.rectangle(img_rgb, (int(x1), int(y1)), (int(x2), int(y2)), self.class_colours[self.classes[class_idx]], 5)
+            imgsave_path = os.path.join(imgsavedir, basename[:-4] + '_tru.jpg')
+            if BGR:
+                img = cv.cvtColor(img_rgb, cv.COLOR_RGB2BGR)        
+            cv.imwrite(imgsave_path, img)
+        else:
+            print(f'no ground truth annotations for {ground_truth_txt}')
 
     def detect(self, image):
         """
@@ -227,9 +252,9 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detection_images')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images_yolov8m_1280p')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles_yolov8m_1280p')
         os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()
@@ -253,11 +278,14 @@ class Surface_Detector(Detector):
                 predictions = []
                 import code
                 code.interact(local=dict(globals(), **locals()))
-                
+
             # save predictions as an image
             self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
             # save predictions as a text file
             self.save_text_predictions(predictions, imgname, txtsavedir)
+
+            self.show_ground_truth(img_rgb, imgname, imgsave_dir)
+            
 
         end_time = time.time()
         duration = end_time - start_time
@@ -347,21 +375,31 @@ def main():
     # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
-    # Do detection
-    # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
-    meta_dir = '/home/java/Java/cslics' #has obj.names
-    img_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500/images'
-    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
-    save_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500'
-    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
-    #Coral_Detector.run()
+    # #    For just detection
+    # # Do detection
+    # # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
+    # meta_dir = '/home/java/Java/cslics' #has obj.names
+    # img_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500/images'
+    # weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
+    # save_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500'
+    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
+    # #Coral_Detector.run()
 
-    # Human in the loop, convert to cvat xml
-    base_file = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_no_ann/annotations.xml"
-    img_location = img_dir
-    output_filename = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_ann.xml"
-    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
-    to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
+    # # Human in the loop, convert to cvat xml
+    # base_file = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_no_ann/annotations.xml"
+    # img_location = img_dir
+    # output_filename = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_ann.xml"
+    # classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+    # to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
+
+    # For comparing prediction with ground truth
+    meta_dir = '/home/java/Java/cslics' #has obj.names
+    img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/images/test'
+    txt_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/labels/test'
+    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240116_yolov8m_1280p_amt_alor2000.pt'
+    save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan'
+    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights, txt_dir=txt_dir)
+    Coral_Detector.run()
 
 if __name__ == "__main__":
     main()
