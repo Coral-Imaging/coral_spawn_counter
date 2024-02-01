@@ -252,9 +252,9 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detection_images_yolov8m_1280p')
+        imgsave_dir = os.path.join(self.save_dir, 'detection_images_yolov8x_680p_1000')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles_yolov8m_1280p')
+        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles_yolov8x_680p_1000')
         os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()
@@ -284,7 +284,7 @@ class Surface_Detector(Detector):
             # save predictions as a text file
             self.save_text_predictions(predictions, imgname, txtsavedir)
 
-            self.show_ground_truth(img_rgb, imgname, imgsave_dir)
+            #self.show_ground_truth(img_rgb, imgname, imgsave_dir)
             
 
         end_time = time.time()
@@ -375,31 +375,31 @@ def main():
     # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
-    # #    For just detection
-    # # Do detection
-    # # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
-    # meta_dir = '/home/java/Java/cslics' #has obj.names
-    # img_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500/images'
-    # weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
-    # save_dir = '/home/java/Java/data/cslics_2023_dec_spawning_alor_500'
-    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
-    # #Coral_Detector.run()
+    #    For just detection
+    # Do detection
+    # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
+    meta_dir = '/home/java/Java/cslics' #has obj.names
+    img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/images/all'
+    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240117_yolov8x_640p_amt_alor2000.pt'
+    save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/all_dect'
+    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
+    #Coral_Detector.run()
 
-    # # Human in the loop, convert to cvat xml
-    # base_file = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_no_ann/annotations.xml"
-    # img_location = img_dir
-    # output_filename = "/home/java/Downloads/cslics_2023_dec_spawning_alor_500_ann.xml"
-    # classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
-    # to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
+    # Human in the loop, convert to cvat xml
+    base_file = "/home/java/Downloads/cslics_alor_n_aten_2000_no_ann/annotations.xml"
+    img_location = img_dir
+    output_filename = "/home/java/Downloads/cslics_aloripedes_n_amtenuis_jan.xml"
+    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+    to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
 
     # For comparing prediction with ground truth
-    meta_dir = '/home/java/Java/cslics' #has obj.names
-    img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/images/test'
-    txt_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/labels/test'
-    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240116_yolov8m_1280p_amt_alor2000.pt'
-    save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan'
-    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights, txt_dir=txt_dir)
-    Coral_Detector.run()
+    # meta_dir = '/home/java/Java/cslics' #has obj.names
+    # img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/images/test'
+    # txt_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/labels/test'
+    # weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
+    # save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan'
+    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights, txt_dir=txt_dir)
+    # Coral_Detector.run()
 
 if __name__ == "__main__":
     main()

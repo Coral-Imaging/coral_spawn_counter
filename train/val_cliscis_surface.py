@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # Load a model
-model = YOLO('/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240117_yolov8x_640p_amt_alor2000.pt')  # load a custom model
+model = YOLO('/home/java/Java/ultralytics/runs/detect/train - aten_1000/weights/best.pt')  # load a custom model
 
 # Validate the model
 metrics = model.val(data='data/cslics_surface.yaml',
@@ -12,5 +12,5 @@ metrics.box.map75  # map75
 metrics.box.maps   # a list contains map50-95 of each category
 
 print("Done")
-import code
-code.interact(local=dict(globals(), **locals()))
+# import code
+# code.interact(local=dict(globals(), **locals()))
