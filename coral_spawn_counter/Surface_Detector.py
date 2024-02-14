@@ -2,6 +2,7 @@
 
 """
 use the trained yolov5 model, and run it on a given folder/sequence of images
+runs standard detection of cslics surface, but can also compare groundtruth with predictions
 """
 
 import os
@@ -174,7 +175,6 @@ class Surface_Detector(Detector):
             cv.show(img)
         return True
 
-
     def show_ground_truth(self, img_rgb, imgname, imgsavedir, BGR=True):
         """Shows ground truth annotations on image if they exsit"""
         imgw, imgh = img_rgb.shape[1], img_rgb.shape[0]
@@ -201,6 +201,70 @@ class Surface_Detector(Detector):
             cv.imwrite(imgsave_path, img)
         else:
             print(f'no ground truth annotations for {ground_truth_txt}')
+
+    def draw_dotted_rect(self, img, x1, y1, x2, y2, color, thicknes, gap=30):
+        # print(f'x1 = {x1}')
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+        pts = [(x1,y1),(x2,y1),(x2,y2),(x1,y2)]
+        start=pts[0]
+        end=pts[0]
+        pts.append(pts.pop(0))
+        for p in pts:
+            start=end
+            end=p
+            # draw dashed line
+            dist = ((start[0]-end[0])**2 + (start[1]-end[1])**2)**.5
+            parts = []
+            for i in np.arange(0,dist,gap):
+                r = i/dist
+                x = int((start[0]*(1-r)+end[0]*r)+.5)
+                y = int((start[1]*(1-r)+end[1]*r)+.5)
+                p = (x,y)
+                parts.append(p)
+            for p in parts:
+                cv.circle(img,p,thicknes,color,-1)
+
+    def ground_truth_compare_predict(self, img_rgb, imgname, predictions, imgsavedir, BGR=True):
+        """Shows an image with ground truth annotations and predictions to help compare the differences"""
+        # ground truth section
+        imgw, imgh = img_rgb.shape[1], img_rgb.shape[0]
+        basename = os.path.basename(imgname)
+        ground_truth_txt = os.path.join(self.txt_dir, basename[:-4] + '.txt')
+        if os.path.exists(ground_truth_txt):
+            with open(ground_truth_txt, 'r') as f:
+                lines = f.readlines() # <object-class> <x> <y> <width> <height>
+            for part in lines:
+                parts = part.rsplit()
+                class_idx = int(parts[0])
+                x = float(parts[1])
+                y = float(parts[2])
+                ow = float(parts[3])
+                oh = float(parts[4])
+                x1 = (x - ow/2)*imgw
+                x2 = (x + ow/2)*imgw
+                y1 = (y - oh/2)*imgh
+                y2 = (y + oh/2)*imgh
+                cv.rectangle(img_rgb, (int(x1), int(y1)), (int(x2), int(y2)), self.class_colours[self.classes[class_idx]], 4)
+        # predictions section
+        for p in predictions:
+            x1, y1, x2, y2 = p[0:4].tolist()
+            conf = p[4]
+            cls = int(p[5])
+            #extract back into cv lengths
+            x1 = x1*imgw
+            x2 = x2*imgw
+            y1 = y1*imgh
+            y2 = y2*imgh  
+            #self.draw_dashed_rect(img_rgb, int(x1), int(y1), int(x2), int(y2), self.class_colours[self.classes[class_idx]], 7)      
+            self.draw_dotted_rect(img_rgb, int(x1), int(y1), int(x2), int(y2), self.class_colours[self.classes[cls]], 7)
+            #cv.rectangle(img_rgb, (int(x1), int(y1)), (int(x2), int(y2)), self.class_colours[self.classes[cls]], 2)
+            cv.putText(img_rgb, f"{self.classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
+        # save image
+        imgsavename = os.path.basename(imgname)
+        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + '_cmp.jpg')    
+        img_bgr = cv.cvtColor(img_rgb, cv.COLOR_RGB2BGR) # RGB
+        cv.imwrite(imgsave_path, img_bgr)
 
     def detect(self, image):
         """
@@ -252,10 +316,10 @@ class Surface_Detector(Detector):
         imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
         
         # where to save image and text detections
-        imgsave_dir = os.path.join(self.save_dir, 'detection_images_yolov8x_680p_1000')
+        imgsave_dir = os.path.join(self.save_dir, 'alor_n_aten_on_val')
         os.makedirs(imgsave_dir, exist_ok=True)
-        txtsavedir = os.path.join(self.save_dir, 'detection_textfiles_yolov8x_680p_1000')
-        os.makedirs(txtsavedir, exist_ok=True)
+        #txtsavedir = os.path.join(self.save_dir, 'detection_textfiles')
+        #os.makedirs(txtsavedir, exist_ok=True)
 
         start_time = time.time()
         
@@ -267,6 +331,7 @@ class Surface_Detector(Detector):
             # load image
             try:
                 img_rgb = self.prep_img_name(imgname)
+                imageCopy = img_rgb.copy()
             except:
                 print('unable to read image --> skipping')
                 predictions = []
@@ -280,11 +345,11 @@ class Surface_Detector(Detector):
                 code.interact(local=dict(globals(), **locals()))
 
             # save predictions as an image
-            self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
+            #self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
             # save predictions as a text file
-            self.save_text_predictions(predictions, imgname, txtsavedir)
-
-            #self.show_ground_truth(img_rgb, imgname, imgsave_dir)
+            #self.save_text_predictions(predictions, imgname, txtsavedir)
+            self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
+            #self.show_ground_truth(imageCopy, imgname, imgsave_dir)
             
 
         end_time = time.time()
@@ -375,31 +440,31 @@ def main():
     # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
 
-    #    For just detection
+    #######    For just detection
     # Do detection
     # Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, max_img=5)
-    meta_dir = '/home/java/Java/cslics' #has obj.names
-    img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/images/all'
-    weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240117_yolov8x_640p_amt_alor2000.pt'
-    save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/all_dect'
-    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
+    # meta_dir = '/home/java/Java/cslics' #has obj.names
+    # img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/images/all'
+    # weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20240117_yolov8x_640p_amt_alor2000.pt'
+    # save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan_2000/all_dect'
+    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
     #Coral_Detector.run()
 
-    # Human in the loop, convert to cvat xml
-    base_file = "/home/java/Downloads/cslics_alor_n_aten_2000_no_ann/annotations.xml"
-    img_location = img_dir
-    output_filename = "/home/java/Downloads/cslics_aloripedes_n_amtenuis_jan.xml"
-    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
-    to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
+    ######### Human in the loop, convert to cvat xml
+    # base_file = "/home/java/Downloads/cslics_alor_n_aten_2000_no_ann/annotations.xml"
+    # img_location = img_dir
+    # output_filename = "/home/java/Downloads/cslics_aloripedes_n_amtenuis_jan.xml"
+    # classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+    # to_XML(base_file, img_location, output_filename, classes, Coral_Detector)
 
-    # For comparing prediction with ground truth
-    # meta_dir = '/home/java/Java/cslics' #has obj.names
-    # img_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/images/test'
-    # txt_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan/labels/test'
-    # weights = '/home/java/Java/cslics/cslics_surface_detectors_models/cslics_20230905_yolov8x_640p_amtenuis1000.pt'
-    # save_dir = '/home/java/Java/data/cslics_aloripedes_n_amtenuis_jan'
-    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights, txt_dir=txt_dir)
-    # Coral_Detector.run()
+    ########### For comparing prediction with ground truth
+    meta_dir = '/home/java/Java/cslics' #has obj.names
+    img_dir = '/home/java/Java/data/cslics_2924_alor_1000_(2022n23_combined)/images/val'
+    txt_dir = '/home/java/Java/data/cslics_2924_alor_1000_(2022n23_combined)/labels/val'
+    weights = '/home/java/Java/ultralytics/runs/detect/train - alor_atem_1000/weights/best.pt'
+    save_dir = '/home/java/Java/data/cslics_2924_alor_1000_(2022n23_combined)/detect'
+    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights, txt_dir=txt_dir)
+    Coral_Detector.run()
 
 if __name__ == "__main__":
     main()
