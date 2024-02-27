@@ -30,20 +30,18 @@ noleft = imgno
 
 validimg, validtext, testimg, testtext = [], [], [], []
 
-# function to seperate files into different lists randomly while retaining the same .txt and .jpg name in the specific type of list
-def seperate_files(number,imglist,textlist,noleft):
+# function to seperate files into different lists randomly while retaining the same .txt and .jpg name in the specific type of list      
+def seperate_files(number,newimglist,newtxtlist,oldimglist,oldtxtlist):
     for i in range(int(number)):
-        r = random.randint(0, noleft)
-        imglist.append(imagelist[r])
-        textlist.append(txtlist[r])
-        txtlist.remove(txtlist[r])
-        imagelist.remove(imagelist[r])
-        noleft -= 1
-    return noleft
+        r = random.randint(0, len(oldtxtlist) - 1)
+        newimglist.append(oldimglist[r])
+        newtxtlist.append(oldtxtlist[r])
+        oldimglist.remove(oldimglist[r])
+        oldtxtlist.remove(oldtxtlist[r])
+    return oldimglist, oldtxtlist
 
-#pick some random files
-noleft = seperate_files(imgno*valid_ratio,validimg,validtext,noleft)
-seperate_files(imgno*test_ratio,testimg,testtext,noleft)
+imagelist, txtlist = seperate_files(imgno*valid_ratio,validimg,validtext,imagelist,txtlist)
+imagelist, txtlist = seperate_files(imgno*test_ratio,testimg,testtext,imagelist,txtlist)
 
 # function to preserve symlinks of src file, otherwise default to copy
 def copy_link(src, dst):
@@ -73,3 +71,6 @@ move_file(testtext,dir,'labels/test')
 move_file(testimg,dir,'images/test')
 
 print("split complete")
+
+import code
+code.interact(local=dict(globals(), **locals()))
