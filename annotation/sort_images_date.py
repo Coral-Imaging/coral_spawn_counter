@@ -14,10 +14,27 @@ import glob
 # dir = '/media/dorian/cslics_ssd/images/detections_surface/detection_images'
 # file_list = sorted(glob.glob(os.path.join(dir, '*.j*'))) # .jpg, .json
 
+# copied over to ssd
+# img_dir = '/home/dorian/Data/cslics_2023_datasets/unsorted/cslics06/images'
+# save_dir = '/home/dorian/Data/cslics_2023_datasets/sorted/cslics06/images/'
 
-img_dir = '/media/dorian/cslics_ssd/images/detections_surface/detection_images'
-save_dir = '/media/dorian/cslics_ssd/images/detections_surface/detection_images'
-file_list = sorted(glob.glob(os.path.join(img_dir, '*.j*'))) # .jpg, .json
+# on T2D hard drive, could be slow... but still faster than copying everything back and forth
+# img_dir = '/media/dorian/T2D/cslics_2023_datasets/unsorted/cslics09/images'
+# save_dir = '/media/dorian/T2D/cslics_2023_datasets/sorted/cslics09/images/'
+
+
+
+# img_dir = '/media/dorian/T2D/cslics_2023_datasets/unsorted/cslics09/images/detections_surface/detection_images'
+# save_dir = '/media/dorian/T2D/cslics_2023_datasets/sorted/cslics09/images/detections_surface/detection_images'
+
+
+# file_list = sorted(glob.glob(os.path.join(img_dir, '*.j*'))) # .jpg, .json
+
+img_dir = '/media/dorian/T2D/cslics_2023_datasets/unsorted/cslics09/images/detections_surface/detection_textfiles'
+save_dir = '/media/dorian/T2D/cslics_2023_datasets/sorted/cslics09/images/detections_surface/detection_textfiles'
+
+file_list = sorted(glob.glob(os.path.join(img_dir, '*.t*'))) # .txt
+
 
 print(f'img_dir: {img_dir}')
 print(f'num files: {len(file_list)}')

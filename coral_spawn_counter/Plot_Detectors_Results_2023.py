@@ -48,10 +48,12 @@ n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 
 # File locations
-root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+root_dir = '/home/dorian/Data/cslics_2023_datasets/2022_Nov_Spawning/20221113_amtenuis_cslics04'
 img_dir = os.path.join(root_dir, 'images_jpg')
 save_dir = os.path.join(root_dir, 'combined_detections')
-manual_counts_file = os.path.join(root_dir, 'metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv')
+manual_counts_file = os.path.join(root_dir, 'metadata/cslics_20231103_aten_tank4_manualcounts.csv')
+
+
 
 # img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
 # save_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"

@@ -34,12 +34,27 @@ class SubSurface_Detector(Detector):
     
     DEFAULT_OUTPUT_FILE = 'subsurface_detections.pkl'
     DEFAULT_WINDOW_SIZE = 20
-    MAX_IMG = 1000
+    MAX_IMG = 100000
 
-    DEFAULT_AREA_MIN  = 5000
-    DEFAULT_AREA_MAX = 40000
+    # as percentages of the image width
+    DEFAULT_P_K_BLUR = 0.0086 # 11
+    DEFAULT_EDGE_THRESH1 = 2
+    DEFAULT_EDGE_THRESH2 = 5
+    DEFAULT_P_K_FOCUS = 0.0039
+    DEFAULT_P_K_MORPH = 0.0055 # 21 - for hi-res
+    
+    # as percentage of total area
+    DEFAULT_AREA_MIN  = 0.000244
+    DEFAULT_AREA_MAX = 0.00325
     DEFAULT_CIRC_MIN = 0.5
-    DEFAULT_CIRC_MAX = 1.0
+    DEFAULT_CIRC_MAX = 1.1
+    
+    # assuming 1/5 seconds img capture rate
+    # 1 img/10 seconds = 2
+    # 1 img/15 seconds = 3
+    # 1 img/20 seconds = 4
+    # 1 img/30 seconds = 6
+    DEFAULT_SKIP_IMG = 6
 
     def __init__(self,
                  meta_dir: str = DEFAULT_META_DIR,
@@ -50,10 +65,16 @@ class SubSurface_Detector(Detector):
                  img_size: int = 1280,
                  detection_file: str = DEFAULT_OUTPUT_FILE,
                  window_size: int = DEFAULT_WINDOW_SIZE,
-                 area_min: int = DEFAULT_AREA_MIN,
-                 area_max: int = DEFAULT_AREA_MAX,
-                 circ_min: int = DEFAULT_CIRC_MIN,
-                 circ_max: int = DEFAULT_CIRC_MAX):
+                 p_area_min: float = DEFAULT_AREA_MIN,
+                 p_area_max: float = DEFAULT_AREA_MAX,
+                 circ_min: float = DEFAULT_CIRC_MIN,
+                 circ_max: float = DEFAULT_CIRC_MAX,
+                 skip_img: int = DEFAULT_SKIP_IMG,
+                 k_blur: float = DEFAULT_P_K_BLUR,
+                 edge_thresh1: int = DEFAULT_EDGE_THRESH1,
+                 edge_thresh2: int = DEFAULT_EDGE_THRESH2,
+                 k_morph: float = DEFAULT_P_K_MORPH,
+                 k_focus: float = DEFAULT_P_K_FOCUS):
         
         self.detection_file = detection_file
         self.window_size = window_size
@@ -63,15 +84,25 @@ class SubSurface_Detector(Detector):
         self.blobby = []
         self.icont = []
         
+        # detection parameters for finding edges/creating blobs
+        self.p_k_blur = k_blur
+        self.edge_thresh1 = edge_thresh1
+        self.edge_thresh2 = edge_thresh2
+        self.p_k_morph = k_morph
+        self.p_k_focus = k_focus
+        self.p_k_focus_blur = k_focus
+        
         # parameters for circle/blob thresholding/filtering:
-        self.area_min = area_min
-        self.area_max = area_max
+        self.p_area_min = p_area_min
+        self.p_area_max = p_area_max
         self.circ_min = circ_min
         self.circ_max = circ_max
 
         # parameters for plotting subsurface detections
         self.contour_colour = [0, 0, 255] # red in BGR
-        self.contour_thickness = 10
+        self.contour_thickness = 2
+        
+        self.skip_img = skip_img
         
         Detector.__init__(self, 
                           meta_dir = meta_dir,
@@ -81,7 +112,40 @@ class SubSurface_Detector(Detector):
                           save_prelim_img = save_prelim_img,
                           img_size=img_size)
 
-
+    def make_odd(self, num):
+        if num %2 == 0:
+            return num + 1
+        else:
+            return num
+    
+    
+    def resize_image(self, image, desired_width):
+        aspect_ratio = desired_width / image.shape[1]
+        height = int(image.shape[0] * aspect_ratio)
+        resized_image = cv.resize(image, (desired_width, height), interpolation=cv.INTER_AREA)
+        return resized_image
+    
+        
+    def adjust_kernels_to_image_size(self, img):
+        # adjust kernels to image size, given as a percentage
+        # ensure they are odd and int
+        # image size may change over the course of the operation
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+        [h, w, c] = img.shape
+        self.k_blur = self.make_odd(int(self.p_k_blur * w))
+        self.k_morph = self.make_odd(int(self.p_k_morph * w))
+        # self.k_focus = self.make_odd(int(self.p_k_focus * w))
+        self.k_focus = 5
+        self.k_focus_blur = self.make_odd(int(self.p_k_focus_blur * w))
+        
+        a = w * h
+        self.area_min = int(self.p_area_min * a)
+        self.area_max = int(self.p_area_max * a)
+        
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+            
     def prep_img_name(self, img_name):
         # create coral image:
         # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
@@ -90,6 +154,7 @@ class SubSurface_Detector(Detector):
         
         # read in image
         im = MvtImage(img_name)
+        
         return self.prep_img(im, img_name)
         
     def prep_img(self, im, img_name=None):
@@ -97,27 +162,55 @@ class SubSurface_Detector(Detector):
         from an img_name, load the image into the correct format for dections (greyscaled, blured and morphed)
         """
         im = MvtImage(im)
+        filename = im.filename
+        # set image size to 1280:
+        im = MvtImage(self.resize_image(im.image, self.img_size))
+        
+        
         # # create coral image:
         # # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
         # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
         # self.capture_time_list.append(coral_image.metadata['capture_time'])
         
+        self.adjust_kernels_to_image_size(im)
         # # read in image
         # im = Image(img_name)
         # TODO resize image, can then reduce k_blur - should be faster!
         
         #process image
-        # TODO expose these edge detection parameters to the detector level
         im_mono = im.mono()        # grayscale
-        k_blur = 5
-        im_blur = MvtImage(cv.GaussianBlur(im_mono.image, (k_blur, k_blur), 0))         # blur image
-        canny = cv.Canny(im_blur.image, 3, 5, L2gradient=True) # edge detection
-        im_canny = MvtImage(canny)
+        im_blur = MvtImage(cv.GaussianBlur(im_mono.image, (self.k_blur, self.k_blur), 0))         # blur image
+        
+        # try applying non-local means noising to smooth out flat sections, but preserve edges
+        im_blur = MvtImage(cv.fastNlMeansDenoising(im_blur.image, None, 10, 7 ,21))
+        # depracated method: canny edge detection
+        # canny = cv.Canny(im_blur.image, self.edge_thresh1, self.edge_thresh2, L2gradient=True) # edge detection
+        # im_canny = MvtImage(canny)
+        
+        # updated method: Laplacian, which shows edges without as much sensitivity to initial thresholds
+        # although the method calls the sobel operator under the hood, it produces a much more consistent grayscale image
+        # that can then be more reliably thresholded wrt edges (ie, "in-focus corals")
+        
+        focus_measure = cv.Laplacian(im_blur.image, cv.CV_16S, ksize=self.k_focus)
+        im_focus = cv.convertScaleAbs(focus_measure)
+        # im_focus = MvtImage(im_focus)
+        # smooth focus image
+        im_focus = MvtImage(cv.GaussianBlur(im_focus, (self.k_focus_blur, self.k_focus_blur), 0))
+        
+        # threshold image
+        # otsu's
+        thresh, im_thresh = cv.threshold(im_focus.image, 0, 150, cv.THRESH_BINARY+cv.THRESH_OTSU)
+        # adaptive thresholding
+        # im_thresh = cv.adaptiveThreshold(im_focus.image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY,61, 2)
+        # save_thresh_img_name = os.path.join(save_dir, img_base_name + '_02_thresh.jpg') 
+            
         # morph
-        k_morph = 11
-        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(k_morph,k_morph))
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(self.k_morph,self.k_morph))
         # kernel = np.ones((k_morph,k_morph), np.uint8)
-        im_morph = MvtImage(im_canny.erode(kernel, n=3))
+        
+        im_thresh = MvtImage(im_thresh)
+        im_morph = MvtImage(im_thresh.dilate(kernel, n=1)) # was erode...?
+        # im_morph = MvtImage(im_morph.erode(kernel, n=1))
         im_morph = im_morph.open(kernel)
         im_morph = im_morph.close(kernel)
         # kernel = 11
@@ -125,11 +218,15 @@ class SubSurface_Detector(Detector):
 
         # step-by-step save the image
         if self.save_prelim_img:
-            img_base_name = os.path.basename(img_name)[:-4]
+            
+            # img_base_name = os.path.basename(img_name)[:-4]
+            img_base_name = os.path.basename(filename)[:-4]
             im_mono.write(os.path.join(self.save_dir, img_base_name + '_00_orig.jpg'))
             im_blur.write(os.path.join(self.save_dir, img_base_name + '_01_blur.jpg'))
-            im_canny.write(os.path.join(self.save_dir, img_base_name + '_02_edge.jpg'))
-            im_morph.write(os.path.join(self.save_dir, img_base_name + '_03_morph.jpg'))
+            # im_canny.write(os.path.join(self.save_dir, img_base_name + '_02_edge.jpg'))
+            im_focus.write(os.path.join(self.save_dir, img_base_name + '_02_focus.jpg'))
+            im_thresh.write(os.path.join(self.save_dir, img_base_name + '_03_thresh.jpg'))
+            im_morph.write(os.path.join(self.save_dir, img_base_name + '_04_morph.jpg'))
         
         # be sure to return a numpy array, just like other Detectors
         return im_morph.image
@@ -244,7 +341,7 @@ class SubSurface_Detector(Detector):
 
     def detect(self, image: np.ndarray):
         """
-        return detections from a single prepared image, 
+        return detections from a single prepared, binary image, 
         attempts to find blobs and then converts the blobs into yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
         # img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
@@ -256,6 +353,7 @@ class SubSurface_Detector(Detector):
         self.icont = icont
         self.count += 1
         return predictions
+    
     
     def run(self):
         print("running blob subsurface detector")
@@ -279,17 +377,21 @@ class SubSurface_Detector(Detector):
                 #code.interact(local=dict(globals(), **locals()))
                 break
     
-            print(f'{i}: img_name = {img_name}')  
-            im_morph = self.prep_img(img_name) 
-            print('image prepared')
-            image_index.append(i)
-
-            predictions = self.detect(im_morph)
-            self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, BGR=False)
-            self.save_text_predictions(predictions, img_name, txtsavedir)
+            # skip_interval = 2
+            if i % self.skip_img == 0: # if even
+                    
             
-            blobs_list.append(self.blobby)
-            blobs_count.append(self.icont)
+                print(f'predictions on {i+1}/{len(img_list)}')
+                im_morph = self.prep_img(img_name) 
+                print('image prepared')
+                image_index.append(i)
+
+                predictions = self.detect(im_morph)
+                self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, BGR=False)
+                self.save_text_predictions(predictions, img_name, txtsavedir)
+                
+                blobs_list.append(self.blobby)
+                blobs_count.append(self.icont)
         
         pkl_save_path = os.path.join(self.save_dir, self.detection_file)
         self.save_results_2_pkl(pkl_save_path, blobs_list, blobs_count, image_index, self.capture_time_list) 
@@ -300,7 +402,7 @@ class SubSurface_Detector(Detector):
         print('run time: {} min'.format(duration / 60.0))
         print('run time: {} hrs'.format(duration / 3600.0))
 
-        print(f'time[s]/image = {duration / len(self.img_list)}')
+        print(f'time[s]/image = {duration / len(img_list)}')
         
         # capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in self.capture_time_list]
         # decimal_days = convert_to_decimal_days(capture_time_dt)
@@ -310,11 +412,14 @@ class SubSurface_Detector(Detector):
     
 def main():
 
-    root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
-    save_dir = '/home/cslics04/images/subsurface'
-    MAX_IMG = 5
-    detection_file = 'subsurface_detections.pkl'
+    # root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
+    # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
+    # save_dir = '/home/cslics04/images/subsurface'
+    root_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01'
+    img_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/subsurface_test'
+    save_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/test_output'
+    MAX_IMG = 20
+    detection_file = 'test_subsurface_detections.pkl'
 
     Coral_Detector = SubSurface_Detector(meta_dir = root_dir, 
                                          img_dir = img_dir, 

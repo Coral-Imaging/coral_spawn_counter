@@ -28,17 +28,23 @@ import zipfile
 
 class Surface_Detector(Detector):
 
-    DEFAULT_META_DIR = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    DEFAULT_IMG_DIR = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
-    DEFAULT_SAVE_DIR = '/home/cslics04/images/surface'
-    DEFAULT_TXT_DIR = '/home/cslics04/images/surface_txt'
+    ROOT_DIR = '/home/dorian' # '/home/cslics04
+    DEFAULT_META_DIR = os.path.join(ROOT_DIR, '/cslics_ws/src/coral_spawn_imager')
+    # DEFAULT_IMG_DIR = os.path.join(ROOT_DIR,'/Data/20231018_cslics_detector_images_sample/surface')
+    DEFAULT_IMG_DIR = os.path.join('/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/images')
+    DEFAULT_SAVE_DIR = os.path.join(ROOT_DIR,'/images/surface')
+    DEFAULT_TXT_DIR = os.path.join(ROOT_DIR,'/images/surface_txt')
+    
     
     DEFAULT_DETECTOR_IMAGE_SIZE = 640
     DEFAULT_CONFIDENCE_THREASHOLD = 0.50
     DEFAULT_IOU = 0.45
-    DEFAULT_MAX_IMG = 1000 # per image
+    DEFAULT_MAX_IMG = 100000 # per image
     
+    # yolo path on cslics unit
     DEFAULT_YOLO8 = os.path.join('/home/cslics04/cslics_ws/src/ultralytics_cslics/weights', 'cslics_20230905_yolov8n_640p_amtenuis1000.pt')
+    # yolo path on dorian's computer
+    # DEFAULT_YOLO8 = os.path.join( '/home/dorian/Code/cslics_ws/src/ultralytics_cslics/weights','cslics_20240117_yolov8x_640p_amt_alor2000.pt')
     DEFAULT_OUTPUT_FILE = 'surface_detections.pkl'
 
                  
@@ -313,7 +319,7 @@ class Surface_Detector(Detector):
     def run(self):
         print('running Surface_Detector.py on:')
         print(f'source images: {self.img_dir}')
-        imglist = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        imglist = sorted(glob.glob(os.path.join(self.img_dir, '*/*.jpg'))) # NOTE added for images/DATE/*.jpg
         
         # where to save image and text detections
         imgsave_dir = os.path.join(self.save_dir, 'detection_images')
@@ -324,32 +330,38 @@ class Surface_Detector(Detector):
         start_time = time.time()
         
         for i, imgname in enumerate(imglist):
-            print(f'predictions on {i+1}/{len(imglist)}')
-            if i >= self.max_img: # for debugging purposes
-                break
+            # SKIP every 2 images to save time:
+            skip_interval = 1
+            # print(f'skipping every {skip_interval} images')
+            if i % skip_interval == 0: # if even
+                    
+                print(f'predictions on {i+1}/{len(imglist)}')
+                if i >= self.max_img: # for debugging purposes
+                    print(f'hit max_img: {self.max_img}')
+                    break
 
-            # load image
-            try:
-                img_rgb = self.prep_img_name(imgname)
-                imageCopy = img_rgb.copy()
-            except:
-                print('unable to read image --> skipping')
-                predictions = []
-            
-            try: 
-                predictions = self.detect(img_rgb)# inference
-            except:
-                print('no model predictions --> skipping')
-                predictions = []
-                import code
-                code.interact(local=dict(globals(), **locals()))
+                # load image
+                try:
+                    img_rgb = self.prep_img_name(imgname)
+                    imageCopy = img_rgb.copy()
+                except:
+                    print('unable to read image --> skipping')
+                    predictions = []
+                
+                try: 
+                    predictions = self.detect(img_rgb)# inference
+                except:
+                    print('no model predictions --> skipping')
+                    predictions = [] # this shouldn't happen, so enter debug mode if it does
+                    import code
+                    code.interact(local=dict(globals(), **locals()))
 
-            # save predictions as an image
-            self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
-            # save predictions as a text file
-            self.save_text_predictions(predictions, imgname, txtsavedir)
-            #self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
-            #self.show_ground_truth(imageCopy, imgname, imgsave_dir)
+                # save predictions as an image
+                self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
+                # save predictions as a text file
+                self.save_text_predictions(predictions, imgname, txtsavedir)
+                #self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
+                #self.show_ground_truth(imageCopy, imgname, imgsave_dir)
             
 
         end_time = time.time()
@@ -358,7 +370,7 @@ class Surface_Detector(Detector):
         print('run time: {} min'.format(duration / 60.0))
         print('run time: {} hrs'.format(duration / 3600.0))
         
-        print(f'time[s]/image = {duration / len(self.img_list)}')
+        print(f'time[s]/image = {duration / len(imglist)}')
         
         print('done detection')
         # self.convert_results_2_pkl(txtsavedir, self.output_file)
