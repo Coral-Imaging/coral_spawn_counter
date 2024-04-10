@@ -20,11 +20,11 @@ import pickle
 import pandas as pd
 from datetime import datetime
 import time
-
+import sys
+sys.path.insert(0, '')
 
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.read_manual_counts import read_manual_counts
-# from coral_spawn_counter.Detector_helper import convert_to_decimal_days
 
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
@@ -48,37 +48,83 @@ n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 
 # File locations
-root_dir = '/home/dorian/Data/cslics_2023_datasets/2022_Nov_Spawning/20221113_amtenuis_cslics04'
-img_dir = os.path.join(root_dir, 'images_jpg')
-save_dir = os.path.join(root_dir, 'combined_detections')
-manual_counts_file = os.path.join(root_dir, 'metadata/cslics_20231103_aten_tank4_manualcounts.csv')
+# root_dir = '/home/dorian/Data/cslics_2023_datasets/2022_Nov_Spawning/20221113_amtenuis_cslics04'
+# img_dir = os.path.join(root_dir, 'images_jpg')
+# save_dir = os.path.join(root_dir, 'combined_detections')
+# manual_counts_file = os.path.join(root_dir, 'metadata/cslics_20231103_aten_tank4_manualcounts.csv')
+save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
+manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
+img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
+subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/test_subsurface_detections.pkl'
+surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model/surface_detections.pkl'
 
-
-
-# img_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/images_jpg"
-# save_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/combined_detections"
-# manual_counts_file = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04/metadata/20221113_ManualCounts_AMaggieTenuis_Tank4-Sheet1.csv"
-# root_dir = "/home/java/Java/data/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04"
-object_names_file = 'metadata/obj.names'
-subsurface_det_file = 'subsurface_det_testing.pkl'
-surface_pkl_file = 'detection_results1.pkl'
-subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
-save_plot_dir = os.path.join(save_dir, 'plots')
-save_img_dir = os.path.join(save_dir, 'images')
+#object_names_file = 'metadata/obj.names'
+object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+#subsurface_det_file = 'subsurface_det_testing.pkl'
+#surface_pkl_file = 'detection_results1.pkl'
+#subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
+#save_plot_dir = os.path.join(save_dir, 'plots')
+#save_img_dir = os.path.join(save_dir, 'images')
 
 # File setup
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
-os.makedirs(save_dir, exist_ok=True)
+#os.makedirs(save_dir, exist_ok=True)
 os.makedirs(save_plot_dir, exist_ok=True)
-os.makedirs(save_img_dir, exist_ok=True)
+#os.makedirs(save_img_dir, exist_ok=True)
 
 # load classes
-with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
+#with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
+with open(object_names_file, 'r') as f:
     classes = [line.strip() for line in f.readlines()]
+
+def convert_to_decimal_days(dates_list, time_zero=None):
+    if time_zero is None:
+        time_zero = dates_list[0]  # Time zero is the first element date in the list
+    else:
+        time_zero = time_zero
         
+    decimal_days_list = []
+
+    for date in dates_list:
+        time_difference = date - time_zero
+        decimal_days = time_difference.total_seconds() / (60 * 60 * 24)
+        decimal_days_list.append(decimal_days)
+
+    return decimal_days_list
+
+def new_read_manual_counts(file):
+    df = pd.read_excel(os.path.join(file), sheet_name='Dec-A.lor Tank 3', engine='openpyxl', header=2) 
+    count_coloum = df['Calcs'].iloc[:]
+    date_column = df['Date'].iloc[:]
+    time_column = df['Time Collected'].iloc[:]
+
+    # get all the dates and times
+    date_objects = []
+    time_objects = []
+    combined_datetime_objects = []
+    ###NOTE just this time, want to ignore the frist count
+    for i, value in enumerate(time_column):
+        if i >= 1 and i % 6 == 0: #would normally just be i>0
+                time_objects.append(value)
+    for i, value in enumerate(date_column):
+        if i >= 1 and i % 6 == 0:  #would normally be i>0
+            date_objects.append(value)
+    for date_obj, time_obj in zip(date_objects, time_objects):
+        combined_datetime_obj = datetime.combine(date_obj, time_obj)
+        combined_datetime_objects.append(combined_datetime_obj)
+   
+    # get all the manual counts
+    man_counts = []
+    for i, value in enumerate(count_coloum):
+        if i>6 and (i - 4) % 6 == 0: #would normally be i>4
+            man_counts.append(value)
+    import code
+    code.interact(local=dict(globals(), **locals()))
+    return combined_datetime_objects, man_counts
 ##################################### surface counts
 # load results
-with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
+#with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
+with open(surface_det_path, 'rb') as f:
     results = pickle.load(f)
 # get counts as arrays:
 print('getting counts from Surface')
@@ -171,13 +217,15 @@ capture_time = save_data['capture_time']
 image_count = [len(blobs_index) for blobs_index in blobs_count]
 image_count = np.array(image_count)
 
-capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+#capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S') for d in capture_time]
 decimal_days = convert_to_decimal_days(capture_time_dt)
 
 ########################################################
 # read manual counts file
 
-dt, mc, tw = read_manual_counts(manual_counts_file)
+#dt, mc, tw = read_manual_counts(manual_counts_file)
+dt, mc = new_read_manual_counts(manual_counts_file)
 zero_time = capture_time_dt[0]
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
 
@@ -273,11 +321,18 @@ def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to
 
     # manual counts
     plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o')
+    mc_under = [mc - mpercent * mc for mc in mc]
+    mc_over = [mc + mpercent * mc for mc in mc]
     plt.fill_between(manual_decimal_days, 
-                    mc - mpercent * mc,
-                    mc + mpercent * mc,
+                    mc_under,
+                    mc_over,
                     alpha=0.1,
                     color='green')
+    # plt.fill_between(manual_decimal_days, 
+    #                 mc - mpercent * mc,
+    #                 mc + mpercent * mc,
+    #                 alpha=0.1,
+    #                 color='green')
     
     #labeling
     plt.xlabel('days since stocking')
