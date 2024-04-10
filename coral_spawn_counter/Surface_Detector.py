@@ -138,17 +138,21 @@ class Surface_Detector(Detector):
         # read in each .txt file
         # txt_list = sorted(os.listdir(txtsavedir))
         txt_list = sorted(glob.glob(os.path.join(txtsavedir, '*.txt')))
-        
         if len(txt_list) > 0:
             results = []
             for i, txt in enumerate(txt_list):
                 print(f'importing detections {i+1}/{len(txt_list)}')
-                with open(os.path.join(txtsavedir, txt), 'r') as f:
+                txt_basename = os.path.basename(txt)
+                with open(os.path.join(txtsavedir, txt_basename), 'r') as f:
                     detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
                 detections = [det.rsplit() for det in detections]
+
                 # corresponding image name:
-                img_name = os.path.basename(txt[:-8]) + '.jpg' # + '.png'
-                img_name = os.path.join(self.img_dir, img_name)
+                folder_name = txt_basename.split('_')[1]
+                img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + '.jpg')
+                # import code
+                # code.interact(local=dict(globals(), **locals()))
+                
                 CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
                                     txt_name=txt,
                                     detections=detections)
@@ -331,7 +335,7 @@ class Surface_Detector(Detector):
         
         for i, imgname in enumerate(imglist):
             # SKIP every 2 images to save time:
-            skip_interval = 1
+            skip_interval = 100
             # print(f'skipping every {skip_interval} images')
             if i % skip_interval == 0: # if even
                     
@@ -357,7 +361,7 @@ class Surface_Detector(Detector):
                     code.interact(local=dict(globals(), **locals()))
 
                 # save predictions as an image
-                self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
+                #self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
                 # save predictions as a text file
                 self.save_text_predictions(predictions, imgname, txtsavedir)
                 #self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
@@ -373,8 +377,8 @@ class Surface_Detector(Detector):
         print(f'time[s]/image = {duration / len(imglist)}')
         
         print('done detection')
-        # self.convert_results_2_pkl(txtsavedir, self.output_file)
-        # print(f'results stored in {self.output_file} file')
+        self.convert_results_2_pkl(txtsavedir, self.output_file)
+        print(f'results stored in {self.output_file} file')
 
 def to_XML(base_file, img_location, output_file, classes, Coral_Detector):
 
@@ -448,6 +452,13 @@ def to_XML(base_file, img_location, output_file, classes, Coral_Detector):
     # code.interact(local=dict(globals(), **locals()))
 
 def main():
+    ######### For testing
+    weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
+    meta_dir = '/home/java/Java/cslics' #has obj.names
+    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+    save_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model'
+    Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir, max_img=99999999999999999999999999)
+    Coral_Detector.run()
     # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
     # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/surface'
     # weights = '/home/cslics04/cslics_ws/src/ultralytics_cslics/weights/cslics_20230905_yolov8n_640p_amtenuis1000.pt'
@@ -479,15 +490,15 @@ def main():
     # Coral_Detector.run()
 
     ################# Cslics desktop
-    meta_dir = '/home/java/Java/cslics' #has obj.names
-    img_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/images'
-    weights = '/home/java/Java/ultralytics/runs/detect/train - alor_atem_1000/weights/best.pt'
-    save_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/detect'
-    base_file = "/home/java/Downloads/cslics_desktop_nov_empty.xml"
-    output_filename = "/home/java/Downloads/cslics_desktop_nov.xml"
-    classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
-    Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
-    to_XML(base_file, img_dir, output_filename, classes, Coral_Detector)
+    # meta_dir = '/home/java/Java/cslics' #has obj.names
+    # img_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/images'
+    # weights = '/home/java/Java/ultralytics/runs/detect/train - alor_atem_1000/weights/best.pt'
+    # save_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/detect'
+    # base_file = "/home/java/Downloads/cslics_desktop_nov_empty.xml"
+    # output_filename = "/home/java/Downloads/cslics_desktop_nov.xml"
+    # classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg"]
+    # Coral_Detector = Surface_Detector(meta_dir=meta_dir, img_dir=img_dir, save_dir=save_dir, weights_file=weights)
+    # to_XML(base_file, img_dir, output_filename, classes, Coral_Detector)
     #Coral_Detector.run()
 
 if __name__ == "__main__":

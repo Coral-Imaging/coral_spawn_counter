@@ -16,12 +16,12 @@ import glob
 import pickle
 # import pandas as pd
 # from datetime import datetime
+import sys
+sys.path.insert(0, '')
 import time
 import torch
-
 import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image as MvtImage
-
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.Detector import Detector
 
@@ -169,8 +169,9 @@ class SubSurface_Detector(Detector):
         
         # # create coral image:
         # # TODO might need to change txt_name to actual img_name? or it's just a method of getting the capture_time metadata
-        # coral_image = CoralImage(img_name=img_name, txt_name = 'placeholder.txt')
-        # self.capture_time_list.append(coral_image.metadata['capture_time'])
+        capture_date = os.path.basename(filename).split('_')[1]
+        capture_time = os.path.basename(filename).split('_')[2]
+        self.capture_time_list.append(capture_date + '_' + capture_time)
         
         self.adjust_kernels_to_image_size(im)
         # # read in image
@@ -357,7 +358,7 @@ class SubSurface_Detector(Detector):
     
     def run(self):
         print("running blob subsurface detector")
-        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*.jpg')))
+        img_list = sorted(glob.glob(os.path.join(self.img_dir, '*/*.jpg')))
         
         imgsave_dir = os.path.join(self.save_dir, 'detection_images')
         os.makedirs(imgsave_dir, exist_ok=True)
@@ -387,14 +388,17 @@ class SubSurface_Detector(Detector):
                 image_index.append(i)
 
                 predictions = self.detect(im_morph)
-                self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, BGR=False)
-                self.save_text_predictions(predictions, img_name, txtsavedir)
+                #self.save_image_predictions(predictions, MvtImage(img_name).image, img_name, imgsave_dir, BGR=False)
+                #self.save_text_predictions(predictions, img_name, txtsavedir)
                 
                 blobs_list.append(self.blobby)
                 blobs_count.append(self.icont)
         
         pkl_save_path = os.path.join(self.save_dir, self.detection_file)
         self.save_results_2_pkl(pkl_save_path, blobs_list, blobs_count, image_index, self.capture_time_list) 
+
+        import code
+        code.interact(local=dict(globals(), **locals()))
 
         end_time = time.time()
         duration = end_time - start_time
@@ -412,20 +416,20 @@ class SubSurface_Detector(Detector):
     
 def main():
 
-    # root_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
-    # img_dir = '/home/cslics04/20231018_cslics_detector_images_sample/subsurface'
-    # save_dir = '/home/cslics04/images/subsurface'
-    root_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01'
-    img_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/subsurface_test'
-    save_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/test_output'
-    MAX_IMG = 20
+    # root_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01'
+    # img_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/subsurface_test'
+    # save_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/test_output'
+    MAX_IMG = 999999999999999999999
     detection_file = 'test_subsurface_detections.pkl'
-
-    Coral_Detector = SubSurface_Detector(meta_dir = root_dir, 
+    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+    save_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface'
+    meta_dir = '/home/java/Java/cslics' 
+    Coral_Detector = SubSurface_Detector(meta_dir = meta_dir, 
                                          img_dir = img_dir, 
                                          save_dir=save_dir, 
                                          detection_file=detection_file,
-                                         max_img = MAX_IMG)
+                                         max_img = MAX_IMG, 
+                                        skip_img=100)
     Coral_Detector.run()
     # import code
     # code.interact(local=dict(globals(), **locals()))
