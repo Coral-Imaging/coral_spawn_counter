@@ -46,10 +46,9 @@ class Surface_Detector(Detector):
     # yolo path on dorian's computer
     # DEFAULT_YOLO8 = os.path.join( '/home/dorian/Code/cslics_ws/src/ultralytics_cslics/weights','cslics_20240117_yolov8x_640p_amt_alor2000.pt')
     DEFAULT_OUTPUT_FILE = 'surface_detections.pkl'
-
+    DEFAULT_SKIP_INTERVAL = 1
                  
     def __init__(self,
-                
                 meta_dir: str = DEFAULT_META_DIR,
                 img_dir: str = DEFAULT_IMG_DIR,
                 save_dir: str = DEFAULT_SAVE_DIR,
@@ -59,7 +58,8 @@ class Surface_Detector(Detector):
                 conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
                 iou: float = DEFAULT_IOU,
                 output_file: str = DEFAULT_OUTPUT_FILE,
-                txt_dir: str = DEFAULT_TXT_DIR):
+                txt_dir: str = DEFAULT_TXT_DIR,
+                skip_img: int = DEFAULT_SKIP_INTERVAL):
         
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -73,7 +73,7 @@ class Surface_Detector(Detector):
 
         self.output_file = output_file
         self.txt_dir = txt_dir
-        
+        self.skip_interval = skip_img
         Detector.__init__(self, 
                           meta_dir = meta_dir,
                           img_dir = img_dir,
@@ -335,7 +335,7 @@ class Surface_Detector(Detector):
         
         for i, imgname in enumerate(imglist):
             # SKIP every 2 images to save time:
-            skip_interval = 100
+            skip_interval = self.skip_interval
             # print(f'skipping every {skip_interval} images')
             if i % skip_interval == 0: # if even
                     
