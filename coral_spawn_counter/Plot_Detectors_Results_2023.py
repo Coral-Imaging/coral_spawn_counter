@@ -29,37 +29,58 @@ from coral_spawn_counter.read_manual_counts import read_manual_counts
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
-
 # Consts (more below as well)
 window_size = 20 # for rolling means, etc
 
+Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 # TODO: replace this process/solve for nimage_to_tank_surface via initial counts? Should compare
 
 # estimated tank surface area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
-# NOTE: cslics surface area counts differ for different cslics!!
-# area_cslics = 2.3**2*(3/4) # cm^2 for cslics03 @ 15cm distance - had micro1 lens
-# area_cslics = 2.35**2*(3/4) # cm2 for cslics01 @ 15.5 cm distance with micro2 lens
 area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
-nimage_to_tank_surface = area_tank / area_cslics
+nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
 capture_time = []
 n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 
 # File locations
+if Counts_avalible==True:
+    save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
+    manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
+    sheet_name = 'Dec-A.lor Tank 3'
+    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
+    subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/test_subsurface_detections.pkl'
+    surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model/surface_detections.pkl'
+    object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+else:
+    MAX_IMG = 99999999999999999999999999999999999999999
+    skip_img = 100
+    subsurface_pkl_name = 'subsurface_detections.pkl'
+    surface_pkl_name = 'surface_detections.pkl'
+    img_dir = '/home/java/Java/data/20231204_alor_tank4_cslics04/images'
+    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank4_cslics04/detections_subsurface'
+    save_dir_surface = '/home/java/Java/data/20231204_alor_tank4_cslics04/detect_surface'
+    meta_dir = '/home/java/Java/cslics' 
+    weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
+    object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+    save_plot_dir = '/home/java/Java/data/20231204_alor_tank4_cslics04'
+    manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
+    sheet_name = 'Dec-A.lor Tank 4'
+    Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
+                                      output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
+    Coral_Detector.run()
+    Coral_Detector = SubSurface_Detector(meta_dir = meta_dir, img_dir = img_dir, save_dir=save_dir_subsurface, 
+                                         detection_file=subsurface_pkl_name, max_img = MAX_IMG, skip_img=skip_img)
+    Coral_Detector.run() 
+    subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
+    surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
+
 # root_dir = '/home/dorian/Data/cslics_2023_datasets/2022_Nov_Spawning/20221113_amtenuis_cslics04'
 # img_dir = os.path.join(root_dir, 'images_jpg')
 # save_dir = os.path.join(root_dir, 'combined_detections')
 # manual_counts_file = os.path.join(root_dir, 'metadata/cslics_20231103_aten_tank4_manualcounts.csv')
-save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
-manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
-subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/test_subsurface_detections.pkl'
-surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model/surface_detections.pkl'
-
 #object_names_file = 'metadata/obj.names'
-object_names_file = '/home/java/Java/cslics/metadata/obj.names'
 #subsurface_det_file = 'subsurface_det_testing.pkl'
 #surface_pkl_file = 'detection_results1.pkl'
 #subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
@@ -92,8 +113,8 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
 
-def new_read_manual_counts(file):
-    df = pd.read_excel(os.path.join(file), sheet_name='Dec-A.lor Tank 3', engine='openpyxl', header=2) 
+def new_read_manual_counts(file, sheet_name):
+    df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
     count_coloum = df['Calcs'].iloc[:]
     date_column = df['Date'].iloc[:]
     time_column = df['Time Collected'].iloc[:]
@@ -118,45 +139,82 @@ def new_read_manual_counts(file):
     for i, value in enumerate(count_coloum):
         if i>6 and (i - 4) % 6 == 0: #would normally be i>4
             man_counts.append(value)
-    import code
-    code.interact(local=dict(globals(), **locals()))
+    
     return combined_datetime_objects, man_counts
+#######################################################################
+
+# Subsurface load pixle data
+# load pickle file for blobs_list and blobs_count
+
+with open(subsurface_det_path, 'rb') as f:
+    save_data = pickle.load(f)
+    
+blobs_list = save_data['blobs_list']
+blobs_count = save_data['blobs_count']
+image_index = save_data['image_index']
+capture_time = save_data['capture_time']
+
+# convert blobs_count into actual count, not interior list of indices
+image_count = [len(blobs_index) for blobs_index in blobs_count]
+image_count = np.array(image_count)
+
+#capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
+capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S') for d in capture_time]
+decimal_days = convert_to_decimal_days(capture_time_dt)
+
+########################################################
+# read manual counts file
+
+#dt, mc, tw = read_manual_counts(manual_counts_file)
+dt, mc = new_read_manual_counts(manual_counts_file, sheet_name)
+zero_time = capture_time_dt[0]
+manual_decimal_days = convert_to_decimal_days(dt, zero_time)
+
+
+####################### Surface Count given manual count
+manual_count = mc[0]
+cslics_fov_est = area_tank / manual_count
+cslics_surface_count = area_tank / cslics_fov_est
+print(f'CSLICS surface count using FOV from manual count = {cslics_surface_count}')
+nimage_to_tank_surface = cslics_surface_count
+
 ##################################### surface counts
-# load results
-#with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
-with open(surface_det_path, 'rb') as f:
-    results = pickle.load(f)
-# get counts as arrays:
-print('getting counts from Surface')
-count_eggs = []
-count_first = []
-count_two = []
-count_four = []
-count_adv = []
-count_dmg = []
-capture_time_str = []
+def load_surface_counts(surface_det_path):
+    #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
+    with open(surface_det_path, 'rb') as f:
+        results = pickle.load(f)
+    # get counts as arrays:
+    print('getting counts from Surface')
+    count_eggs = []
+    count_first = []
+    count_two = []
+    count_four = []
+    count_adv = []
+    count_dmg = []
+    capture_time_str = []
 
-for res in results:
-    # create a list of strings of all the detections for the given image
-    counted_classes = [det[6] for det in res.detections]
+    for res in results:
+        # create a list of strings of all the detections for the given image
+        counted_classes = [det[6] for det in res.detections]
 
-    # do list comprehensions on counted_classes  # TODO consider putting this as a function into CoralImage/detections
-    # could I replace this with iterating over the classes dictionary?
-    count_eggs.append(float(counted_classes.count('Egg')))
-    count_first.append(counted_classes.count('FirstCleavage')) # TODO fix class names to be all one continuous string (no spaces)
-    count_two.append(counted_classes.count('TwoCell'))
-    count_four.append(counted_classes.count('FourEightCell'))
-    count_adv.append(counted_classes.count('Advanced'))
-    count_dmg.append(counted_classes.count('Damaged'))
-    capture_time_str.append(res.metadata['capture_time'])
+        # do list comprehensions on counted_classes  # TODO consider putting this as a function into CoralImage/detections
+        # could I replace this with iterating over the classes dictionary?
+        count_eggs.append(float(counted_classes.count('Egg')))
+        count_first.append(counted_classes.count('FirstCleavage')) # TODO fix class names to be all one continuous string (no spaces)
+        count_two.append(counted_classes.count('TwoCell'))
+        count_four.append(counted_classes.count('FourEightCell'))
+        count_adv.append(counted_classes.count('Advanced'))
+        count_dmg.append(counted_classes.count('Damaged'))
+        capture_time_str.append(res.metadata['capture_time'])
 
-# parse capture_time into datetime objects so we can sort them
-surface_capture_times = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time_str]
+    # parse capture_time into datetime objects so we can sort them
+    surface_capture_times = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time_str]
 
-surface_counts = [count_eggs[i] + count_first[i] + count_two[i] + count_four[i] + count_adv[i] for i in range(len(count_eggs))]
-# apply rolling means
+    surface_counts = [count_eggs[i] + count_first[i] + count_two[i] + count_four[i] + count_adv[i] for i in range(len(count_eggs))]
+    # apply rolling means
+    return surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg
 
-def plot_surface_counts(surface_capture_times, count_eggs, count_first, count_two, count_four,
+def get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts):
     plotdatadict = {'capture times': surface_capture_times,
                     'eggs': count_eggs,
@@ -192,7 +250,9 @@ def plot_surface_counts(surface_capture_times, count_eggs, count_first, count_tw
 
     return count_total_mean, count_total_std
 
-count_total_mean, count_total_std = plot_surface_counts(surface_capture_times, count_eggs, count_first, count_two, count_four,
+surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(surface_det_path)
+
+count_total_mean, count_total_std = get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts)
 
 # sum everything
@@ -200,38 +260,7 @@ count_total_mean, count_total_std = plot_surface_counts(surface_capture_times, c
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
 counttank_total = count_total_mean * nimage_to_tank_surface
 
-#######################################################################
-
-# Subsurface load pixle data
-# load pickle file for blobs_list and blobs_count
-
-with open(subsurface_det_path, 'rb') as f:
-    save_data = pickle.load(f)
-    
-blobs_list = save_data['blobs_list']
-blobs_count = save_data['blobs_count']
-image_index = save_data['image_index']
-capture_time = save_data['capture_time']
-
-# convert blobs_count into actual count, not interior list of indices
-image_count = [len(blobs_index) for blobs_index in blobs_count]
-image_count = np.array(image_count)
-
-#capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
-capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S') for d in capture_time]
-decimal_days = convert_to_decimal_days(capture_time_dt)
-
-########################################################
-# read manual counts file
-
-#dt, mc, tw = read_manual_counts(manual_counts_file)
-dt, mc = new_read_manual_counts(manual_counts_file)
-zero_time = capture_time_dt[0]
-manual_decimal_days = convert_to_decimal_days(dt, zero_time)
-
-########################################################
-
-# Consts
+################################################### Consts
 
 # counts per image to density counts: need volume:
 # calculated by hand to be approximately 0.1 mL 
