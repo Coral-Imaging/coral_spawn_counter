@@ -31,18 +31,24 @@ from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 # Consts (more below as well)
 window_size = 20 # for rolling means, etc
+n = 1 # how many std deviations to show
+mpercent = 0.1 # range for manual counts
+image_volume = 0.10 # mL
+tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
-# TODO: replace this process/solve for nimage_to_tank_surface via initial counts? Should compare
+scale_detection_results = True #if True, scale the detection results to the tank size
 
-# estimated tank surface area
+# estimated tank specs area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
 area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
-nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
+volume_image = 35 # Ml # VERY MUCH AN APPROXIMATION - TODO FIGURE OUT THE MORE PRECISE METHOD
+volume_tank = 500 * 1000 # 500 L = 500000 ml
+if scale_detection_results==False:
+    nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
+    nimage_to_tank_volume = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
 capture_time = []
-n = 1 # how many std deviations to show
-mpercent = 0.1 # range for manual counts
 
 # File locations
 if Counts_avalible==True:
@@ -76,22 +82,9 @@ else:
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
 
-# root_dir = '/home/dorian/Data/cslics_2023_datasets/2022_Nov_Spawning/20221113_amtenuis_cslics04'
-# img_dir = os.path.join(root_dir, 'images_jpg')
-# save_dir = os.path.join(root_dir, 'combined_detections')
-# manual_counts_file = os.path.join(root_dir, 'metadata/cslics_20231103_aten_tank4_manualcounts.csv')
-#object_names_file = 'metadata/obj.names'
-#subsurface_det_file = 'subsurface_det_testing.pkl'
-#surface_pkl_file = 'detection_results1.pkl'
-#subsurface_det_path = os.path.join(save_dir, subsurface_det_file)
-#save_plot_dir = os.path.join(save_dir, 'plots')
-#save_img_dir = os.path.join(save_dir, 'images')
-
 # File setup
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
-#os.makedirs(save_dir, exist_ok=True)
 os.makedirs(save_plot_dir, exist_ok=True)
-#os.makedirs(save_img_dir, exist_ok=True)
 
 # load classes
 #with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
@@ -141,11 +134,18 @@ def new_read_manual_counts(file, sheet_name):
             man_counts.append(value)
     
     return combined_datetime_objects, man_counts
+
+########################################################
+# read manual counts file
+########################################################
+
+#dt, mc, tw = read_manual_counts(manual_counts_file)
+dt, mc = new_read_manual_counts(manual_counts_file, sheet_name)
+zero_time = dt[0]
+manual_decimal_days = convert_to_decimal_days(dt, zero_time)
+
 #######################################################################
-
 # Subsurface load pixle data
-# load pickle file for blobs_list and blobs_count
-
 with open(subsurface_det_path, 'rb') as f:
     save_data = pickle.load(f)
     
@@ -155,29 +155,22 @@ image_index = save_data['image_index']
 capture_time = save_data['capture_time']
 
 # convert blobs_count into actual count, not interior list of indices
-image_count = [len(blobs_index) for blobs_index in blobs_count]
-image_count = np.array(image_count)
+subsurface_imge_count = [len(blobs_index) for blobs_index in blobs_count]
+subsurface_imge_count = np.array(subsurface_imge_count)
 
 #capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S_%f') for d in capture_time]
 capture_time_dt = [datetime.strptime(d, '%Y%m%d_%H%M%S') for d in capture_time]
 decimal_days = convert_to_decimal_days(capture_time_dt)
 
-########################################################
-# read manual counts file
-
-#dt, mc, tw = read_manual_counts(manual_counts_file)
-dt, mc = new_read_manual_counts(manual_counts_file, sheet_name)
-zero_time = capture_time_dt[0]
-manual_decimal_days = convert_to_decimal_days(dt, zero_time)
-
-
-####################### Surface Count given manual count
-manual_count = mc[0]
-cslics_fov_est = area_tank / manual_count
-cslics_surface_count = area_tank / cslics_fov_est
-print(f'CSLICS surface count using FOV from manual count = {cslics_surface_count}')
-nimage_to_tank_surface = cslics_surface_count
-
+#subsurface counts given manual count
+if scale_detection_results==True:
+    manual_count = mc[0]
+    manual_scale_factor = manual_count / np.mean(subsurface_imge_count)
+    volume_image = volume_tank / manual_scale_factor
+    nimage_to_tank_volume = volume_tank / volume_image
+    print(f'cslics spawn count density for entire tank volume: {nimage_to_tank_volume}')
+subsurface_image_count_total = subsurface_imge_count * nimage_to_tank_volume ##NOTE this is NOT done when plotting the wholistic tank count
+density_count = subsurface_imge_count * image_volume
 ##################################### surface counts
 def load_surface_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
@@ -252,38 +245,31 @@ def get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count
 
 surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(surface_det_path)
 
-count_total_mean, count_total_std = get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
+surface_count_total_mean, surface_count_total_std = get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts)
 
-# sum everything
+#Surface Count given manual count
+if scale_detection_results==True:
+    manual_count = mc[0]
+    cslics_fov_est = area_tank / manual_count
+    nimage_to_tank_surface = area_tank / cslics_fov_est
+    print(f'CSLICS surface count using FOV from manual count = {nimage_to_tank_surface}')
+
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
-counttank_total = count_total_mean * nimage_to_tank_surface
+surface_counttank_total = surface_count_total_mean * nimage_to_tank_surface ##NOTE this is also done when plotting the wholistic tank count
 
-################################################### Consts
-
-# counts per image to density counts: need volume:
-# calculated by hand to be approximately 0.1 mL 
-# 2.23 cm x 1.675 cm x 0.267 cm
-image_volume = 0.10 # mL
-# density_count = [c / image_volume for c in count]
-density_count = image_count * image_volume
-# overall tank count: 
-tank_volume = 500 * 1000 # 500 L * 1000 mL/L
-tank_count = density_count * tank_volume
-
-mpl.use('Agg')
-print("Above line just for Java while testing")
-
+##############################################################################
+## Plots
 ##############################################################################
 
 # show averages to apply rolling means
 plotdatadict = {
     'index': image_index,
     'capture_time_days': decimal_days,
-    'image_count': image_count,
+    'image_count': subsurface_imge_count,
     'density_count': density_count,
-    'tank_count': tank_count
+    'tank_count': subsurface_image_count_total
 }
 df = pd.DataFrame(plotdatadict)
 
@@ -357,11 +343,6 @@ def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to
                     mc_over,
                     alpha=0.1,
                     color='green')
-    # plt.fill_between(manual_decimal_days, 
-    #                 mc - mpercent * mc,
-    #                 mc + mpercent * mc,
-    #                 alpha=0.1,
-    #                 color='green')
     
     #labeling
     plt.xlabel('days since stocking')
@@ -370,7 +351,7 @@ def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, 'subsubface_tankcounts.png'))
 
-wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to_tank_surface, count_total_std, n,
+wholistic_tank_count_n_plot(surface_decimal_days, surface_counttank_total, nimage_to_tank_surface, surface_count_total_std, n,
                             decimal_days, tank_count_mean, tank_count_std,
                             manual_decimal_days, mc, mpercent,
                             save_plot_dir)
