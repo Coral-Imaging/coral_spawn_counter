@@ -38,6 +38,7 @@ tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
+idx_subsuface_manual_count = 5
 
 # estimated tank specs area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
@@ -52,27 +53,29 @@ capture_time = []
 
 # File locations
 if Counts_avalible==True:
-    save_plot_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01'
+    save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
     manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
     sheet_name = 'Dec-A.lor Tank 3'
-    img_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
-    subsurface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detections_subsurface/subsurface_detections.pkl'
-    surface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detect_surface/surface_detections.pkl'
+    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
+    subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/subsurface_detections.pkl'
+    surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface/surface_detections.pkl'
     object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+    result_plot_name = 'subsubface_tankcounts_with_scaling.png'
 else:
-    MAX_IMG = 99999999999999999999999999999999999999999
-    skip_img = 100
+    MAX_IMG = 10e10
+    skip_img = 50
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
-    img_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01/images'
-    save_dir_subsurface = '/home/java/Java/data/20231205_alor_tank4_cslics01/detections_subsurface'
-    save_dir_surface = '/home/java/Java/data/20231205_alor_tank4_cslics01/detect_surface'
+    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface'
+    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface'
     meta_dir = '/home/java/Java/cslics' 
     weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
     object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-    save_plot_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01'
+    save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
     manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-    sheet_name = 'Dec-A.lor Tank 4'
+    sheet_name = 'Dec-A.lor Tank 3'
+    result_plot_name = 'subsubface_tankcounts_without_scaling.png'
     Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
                                       output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
     Coral_Detector.run()
@@ -164,7 +167,7 @@ decimal_days = convert_to_decimal_days(capture_time_dt)
 
 #subsurface counts given manual count
 if scale_detection_results==True:
-    manual_count = mc[0]
+    manual_count = mc[idx_subsuface_manual_count]
     manual_scale_factor = manual_count / np.mean(subsurface_imge_count)
     volume_image = volume_tank / manual_scale_factor
     nimage_to_tank_volume = volume_tank / volume_image
@@ -177,7 +180,6 @@ def load_surface_counts(surface_det_path):
     with open(surface_det_path, 'rb') as f:
         results = pickle.load(f)
     # get counts as arrays:
-    print('getting counts from Surface')
     count_eggs = []
     count_first = []
     count_two = []
@@ -254,7 +256,7 @@ if scale_detection_results==True:
     first_non_nan_index = surface_count_total_mean.first_valid_index()
     cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index]
     nimage_to_tank_surface = area_tank / cslics_fov_est
-    print(f'CSLICS surface count using FOV from manual count = {nimage_to_tank_surface}')
+    print(f'cslics surface count using FOV from manual count = {nimage_to_tank_surface}')
 
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
@@ -350,7 +352,7 @@ def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to
     plt.ylabel('tank count')
     plt.title('Overall tank count vs Time')
     plt.legend()
-    plt.savefig(os.path.join(save_plot_dir, 'subsubface_tankcounts.png'))
+    plt.savefig(os.path.join(save_plot_dir, result_plot_name))
 
 wholistic_tank_count_n_plot(surface_decimal_days, surface_counttank_total, nimage_to_tank_surface, surface_count_total_std, n,
                             decimal_days, tank_count_mean, tank_count_std,
