@@ -21,6 +21,9 @@ import pandas as pd
 from datetime import datetime
 import time
 import sys
+import bisect
+from sklearn.metrics import mean_squared_error
+import math
 sys.path.insert(0, '')
 
 from coral_spawn_counter.CoralImage import CoralImage
@@ -38,7 +41,8 @@ tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
-idx_subsuface_manual_count = 5
+idx_subsuface_manual_count = 4
+idx_surface_manual_count = 1
 
 # estimated tank specs area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
@@ -52,30 +56,27 @@ if scale_detection_results==False:
 capture_time = []
 
 # File locations
+save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
+manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
+sheet_name = 'Dec-A.lor Tank 3'
+img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+result_plot_name = 'Tankcouts_with_scalingS.png'
+plot_title = 'Cslics06 '+sheet_name+' alor_aten_2000'
 if Counts_avalible==True:
-    save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
-    manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-    sheet_name = 'Dec-A.lor Tank 3'
-    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images' #then bunch of subfolders with date, each img cslics06_20231204_224512_193017_img
     subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/subsurface_detections.pkl'
     surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface/surface_detections.pkl'
-    object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-    result_plot_name = 'subsubface_tankcounts_with_scaling.png'
 else:
     MAX_IMG = 10e10
     skip_img = 50
-    subsurface_pkl_name = 'subsurface_detections.pkl'
-    surface_pkl_name = 'surface_detections.pkl'
-    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
-    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface'
-    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface'
+    subsurface_pkl_name = 'subsurface_detections2.pkl'
+    surface_pkl_name = 'surface_detections2.pkl'
+    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface_2'
+    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2'
     meta_dir = '/home/java/Java/cslics' 
-    weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
+    weights = '/home/java/Java/ultralytics/runs/detect/train - alor_1000/weights/best.pt'
     object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-    save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
-    manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-    sheet_name = 'Dec-A.lor Tank 3'
-    result_plot_name = 'subsubface_tankcounts_without_scaling.png'
+    result_plot_name = 'subsubface_tankcounts_without_scaling_2.png'
     Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
                                       output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
     Coral_Detector.run()
@@ -84,6 +85,7 @@ else:
     Coral_Detector.run() 
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
+
 
 # File setup
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
@@ -119,22 +121,15 @@ def new_read_manual_counts(file, sheet_name):
     date_objects = []
     time_objects = []
     combined_datetime_objects = []
-    ###NOTE just this time, want to ignore the frist count
-    for i, value in enumerate(time_column):
-        if i >= 1 and i % 6 == 0: #would normally just be i>0
-                time_objects.append(value)
-    for i, value in enumerate(date_column):
-        if i >= 1 and i % 6 == 0:  #would normally be i>0
-            date_objects.append(value)
-    for date_obj, time_obj in zip(date_objects, time_objects):
-        combined_datetime_obj = datetime.combine(date_obj, time_obj)
-        combined_datetime_objects.append(combined_datetime_obj)
    
     # get all the manual counts
     man_counts = []
     for i, value in enumerate(count_coloum):
-        if i>6 and (i - 4) % 6 == 0: #would normally be i>4
+        if i >= 1 and i % 6 == 0: #would normally just be i>0
+            combined_datetime_obj = datetime.combine(date_column[i], time_column[i])
+        if i>6 and (i - 4) % 6 == 0 and not np.isnan(value): #would normally be i>4
             man_counts.append(value)
+            combined_datetime_objects.append(combined_datetime_obj)
     
     return combined_datetime_objects, man_counts
 
@@ -145,6 +140,7 @@ def new_read_manual_counts(file, sheet_name):
 #dt, mc, tw = read_manual_counts(manual_counts_file)
 dt, mc = new_read_manual_counts(manual_counts_file, sheet_name)
 zero_time = dt[0]
+plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
 
 #######################################################################
@@ -174,7 +170,15 @@ if scale_detection_results==True:
     print(f'cslics spawn count density for entire tank volume: {nimage_to_tank_volume}')
 subsurface_image_count_total = subsurface_imge_count * nimage_to_tank_volume 
 density_count = subsurface_imge_count * image_volume
-##################################### surface counts
+############################################
+# interpolate manual counts to frequency of subsurface counts, calcualte RMSE and correlation coefficient
+idx_subsurface_manual_count_time = bisect.bisect_right(capture_time_dt, dt[-1]) - 1
+mc_interpolated = np.interp(decimal_days[:idx_subsurface_manual_count_time], manual_decimal_days, mc)
+rmse = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time]))
+correlation_coefficient = np.corrcoef(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time])[0, 1]
+print(f'Before scaling: RMSE {rmse}, correlation coefficient {correlation_coefficient}')
+
+##################################### surface counts ########################################
 def load_surface_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
     with open(surface_det_path, 'rb') as f:
@@ -208,6 +212,31 @@ def load_surface_counts(surface_det_path):
     surface_counts = [count_eggs[i] + count_first[i] + count_two[i] + count_four[i] + count_adv[i] for i in range(len(count_eggs))]
     # apply rolling means
     return surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg
+
+#Get the surface idx_surface_manual_count
+def read_scale_times(dt, file, sheet_name):
+    df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
+    date_column = df['Date'].iloc[:]
+    notes_column = df['Notes'].iloc[:]
+    time_column = df['Time Collected'].iloc[:]
+
+    combined_datetime = np.nan
+    closest_index = None
+    min_difference = None
+
+    for index, note in enumerate(notes_column):
+        if note == 'Time placed into water' and not pd.isnull(combined_datetime):
+            break
+        elif not pd.isnull(date_column[index]):
+            combined_datetime = datetime.combine(date_column[index], time_column[index])
+
+    for index, dt_item in enumerate(dt):
+        difference = abs(combined_datetime - dt_item)
+        if min_difference is None or difference < min_difference:
+            min_difference = difference
+            closest_index = index
+
+    return closest_index
 
 def get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts):
@@ -252,10 +281,11 @@ surface_count_total_mean, surface_count_total_std = get_surface_mean_n_std(surfa
 
 #Surface Count given manual count
 if scale_detection_results==True:
-    manual_count = mc[0]
-    first_non_nan_index = surface_count_total_mean.first_valid_index()
-    cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index]
-    nimage_to_tank_surface = area_tank / cslics_fov_est
+    idx_surface_manual_count = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name)
+    manual_count = mc[idx_surface_manual_count]
+    first_non_nan_index = surface_count_total_mean.index[surface_count_total_mean.notna() & (surface_count_total_mean != 0)][0]
+    cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index] 
+    nimage_to_tank_surface = area_tank / (cslics_fov_est * 50)
     print(f'cslics surface count using FOV from manual count = {nimage_to_tank_surface}')
 
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
@@ -346,11 +376,16 @@ def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to
                     mc_over,
                     alpha=0.1,
                     color='green')
-    
+    highlight_indices = [idx_surface_manual_count, idx_subsuface_manual_count]  #idx for scale factor
+    highlight_colors = ['orange', 'blue']  # colour of surface and subsurface manual counts
+    for idx, color in zip(highlight_indices, highlight_colors): # Plot the highlighted points
+        plt.scatter(manual_decimal_days[idx], mc[idx], color=color, s=100)  # Change s for point size if needed
+
     #labeling
     plt.xlabel('days since stocking')
     plt.ylabel('tank count')
     plt.title('Overall tank count vs Time')
+    plt.suptitle(plot_title)
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, result_plot_name))
 
