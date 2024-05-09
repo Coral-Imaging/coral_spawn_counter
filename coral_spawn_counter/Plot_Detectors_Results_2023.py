@@ -33,7 +33,7 @@ from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 # Consts (more below as well)
-window_size = 60 # for rolling means, etc
+window_size = 100 # for rolling means, etc
 n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 image_volume = 0.10 # mL
@@ -41,7 +41,8 @@ tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
-idx_subsuface_manual_count = 4
+image_span = 100 # how many images to averge out for the time history comparison
+idx_subsuface_manual_count = 6
 idx_surface_manual_count = 1
 
 # estimated tank specs area
@@ -61,22 +62,22 @@ manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC cu
 sheet_name = 'Dec-A.lor Tank 3'
 img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
 object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-result_plot_name = 'Tankcouts_with_scalingS.png'
+result_plot_name = 'tankcounts_with_scaling_10.png'
 plot_title = 'Cslics06 '+sheet_name+' alor_aten_2000'
 if Counts_avalible==True:
-    subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface/subsurface_detections.pkl'
-    surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface/surface_detections.pkl'
+    subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_subsurface_detections/subsurface_detections.pkl'
+    surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_surface_detections/surface_detections.pkl'
 else:
     MAX_IMG = 10e10
-    skip_img = 50
-    subsurface_pkl_name = 'subsurface_detections2.pkl'
-    surface_pkl_name = 'surface_detections2.pkl'
-    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detections_subsurface_2'
-    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2'
+    skip_img = 10
+    subsurface_pkl_name = 'subsurface_detections.pkl'
+    surface_pkl_name = 'surface_detections.pkl'
+    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_subsurface_detections'
+    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_surface_detections'
     meta_dir = '/home/java/Java/cslics' 
-    weights = '/home/java/Java/ultralytics/runs/detect/train - alor_1000/weights/best.pt'
+    weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
     object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-    result_plot_name = 'subsubface_tankcounts_without_scaling_2.png'
+    result_plot_name = 'tankcounts_with_scaling_10.png'
     Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
                                       output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
     Coral_Detector.run()
@@ -85,7 +86,6 @@ else:
     Coral_Detector.run() 
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
-
 
 # File setup
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
@@ -97,6 +97,7 @@ with open(object_names_file, 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
 def convert_to_decimal_days(dates_list, time_zero=None):
+    """from a list of datetime objects, convert to decimal days since time_zero"""
     if time_zero is None:
         time_zero = dates_list[0]  # Time zero is the first element date in the list
     else:
@@ -112,33 +113,51 @@ def convert_to_decimal_days(dates_list, time_zero=None):
     return decimal_days_list
 
 def new_read_manual_counts(file, sheet_name):
+    """read the manual counts from the excel file and return the datetime objects and counts"""
     df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
-    count_coloum = df['Calcs'].iloc[:]
+    count_coloum = df['Mean, last 2 digits rounded\nSD, last 2 digits rounded'].iloc[:]
     date_column = df['Date'].iloc[:]
     time_column = df['Time Collected'].iloc[:]
 
-    # get all the dates and times
-    date_objects = []
-    time_objects = []
     combined_datetime_objects = []
-   
-    # get all the manual counts
     man_counts = []
+    std = []
     for i, value in enumerate(count_coloum):
         if i >= 1 and i % 6 == 0: #would normally just be i>0
             combined_datetime_obj = datetime.combine(date_column[i], time_column[i])
         if i>6 and (i - 4) % 6 == 0 and not np.isnan(value): #would normally be i>4
             man_counts.append(value)
             combined_datetime_objects.append(combined_datetime_obj)
+        if i>6 and (i - 5) % 6 == 0 and not np.isnan(value):
+            std.append(value)
     
-    return combined_datetime_objects, man_counts
+    return combined_datetime_objects, man_counts, std
 
+def time_history_comp(scaled_coral_counts, coral_counts_decimal, image_span, manual_counts, manual_decimal_days):
+    """create a time history got coral counts"""
+    averaged_counts = []
+    ts_of_averaged_counts = []
+    stds_of_averaged_counts = []
+    for i, manual_count in enumerate(manual_counts):
+        time_of_man = manual_decimal_days[i]
+        idx = bisect.bisect_right(coral_counts_decimal, time_of_man)
+        lower_bound = int(max(0, idx - 0.5*image_span))
+        upper_bound = int(min(len(scaled_coral_counts), idx + 0.5*image_span))
+        range_of_cont = scaled_coral_counts[lower_bound:upper_bound]
+        valid_values = range_of_cont[~np.isnan(range_of_cont)]
+        
+        if len(valid_values) > 0:
+            averge_count = np.mean(valid_values)
+            averaged_counts.append(averge_count)
+            ts_of_averaged_counts.append(coral_counts_decimal[idx])
+    stds_of_averaged_counts = np.std(averaged_counts)
+    return averaged_counts, ts_of_averaged_counts, stds_of_averaged_counts
 ########################################################
 # read manual counts file
 ########################################################
 
 #dt, mc, tw = read_manual_counts(manual_counts_file)
-dt, mc = new_read_manual_counts(manual_counts_file, sheet_name)
+dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
@@ -169,17 +188,24 @@ if scale_detection_results==True:
     nimage_to_tank_volume = volume_tank / volume_image
     print(f'cslics spawn subsurface scale factor: {nimage_to_tank_volume}')
 subsurface_image_count_total = subsurface_imge_count * nimage_to_tank_volume 
-density_count = subsurface_imge_count * image_volume
+subsurface_density_count = subsurface_imge_count * image_volume
+
+averaged_subsurface_count, averaged_subsurface_time, averaged_subsurface_std = time_history_comp(subsurface_image_count_total, decimal_days, image_span, mc, manual_decimal_days)
+
 ############################################
 # interpolate manual counts to frequency of subsurface counts, calcualte RMSE and correlation coefficient
-idx_subsurface_manual_count_time = bisect.bisect_right(capture_time_dt, dt[-1]) - 1
-mc_interpolated = np.interp(decimal_days[:idx_subsurface_manual_count_time], manual_decimal_days, mc)
-rmse_not_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time]))
-correlation_coefficient_not_scaled = np.corrcoef(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time])[0, 1]
-print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficient {correlation_coefficient_not_scaled}')
-rmse_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time]))
-correlation_coefficient_scaled = np.corrcoef(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time])[0, 1]
+idx_subsurface_manual_count_stop_time = bisect.bisect_right(capture_time_dt, dt[-1]) - 1
+mc_interpolated = np.interp(decimal_days[:idx_subsurface_manual_count_stop_time], manual_decimal_days, mc)
+
+rmse_not_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_stop_time]))
+correlation_coefficient_not_scaled = np.corrcoef(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_stop_time])[0, 1]
+rmse_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_stop_time]))
+correlation_coefficient_scaled = np.corrcoef(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_stop_time])[0, 1]
+
 print(f'After scaling subsurface: RMSE {rmse_scaled}, correlation coefficient {correlation_coefficient_scaled}')
+print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficient {correlation_coefficient_not_scaled}')
+
+
 ##################################### surface counts ########################################
 def load_surface_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
@@ -287,7 +313,7 @@ if scale_detection_results==True:
     manual_count = mc[idx_surface_manual_count]
     first_non_nan_index = surface_count_total_mean.index[surface_count_total_mean.notna() & (surface_count_total_mean != 0)][0]
     cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index] 
-    nimage_to_tank_surface = area_tank / (cslics_fov_est * 50)
+    nimage_to_tank_surface = area_tank / (cslics_fov_est)
     print(f'cslics surface count using FOV from manual count = {nimage_to_tank_surface}')
 
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
@@ -303,7 +329,7 @@ plotdatadict = {
     'index': image_index,
     'capture_time_days': decimal_days,
     'image_count': subsurface_imge_count,
-    'density_count': density_count,
+    'density_count': subsurface_density_count,
     'tank_count': subsurface_image_count_total
 }
 df = pd.DataFrame(plotdatadict)
@@ -315,92 +341,100 @@ image_count_std = df['image_count'].rolling(window_size).std()
 density_count_mean = df['density_count'].rolling(window_size).mean()
 density_count_std = df['density_count'].rolling(window_size).std()
 
-tank_count_mean = df['tank_count'].rolling(window_size).mean()
-tank_count_std = df['tank_count'].rolling(window_size).std()
+tank_count_mean = df['tank_count'].rolling(window_size, center=True).mean()
+tank_count_std = df['tank_count'].rolling(window_size, center=True).std()
 
-
-# TODO showcase counts over time?
-sns.set_theme(style='whitegrid')
-
-
-fig1, ax1 = plt.subplots()
-plt.plot(decimal_days, image_count_mean, label='count')
-plt.fill_between(decimal_days, 
-                 image_count_mean - n*image_count_std,
-                 image_count_mean + n*image_count_std,
-                 alpha=0.2)
-plt.xlabel('days since stocking')
-plt.ylabel('image count')
-plt.title('Subsurface Counts vs Image Index - Prelim')
-plt.savefig(os.path.join(save_plot_dir, 'subsubfacecounts.png'))
-
-
-fig2, ax2 = plt.subplots()
-plt.plot(decimal_days, density_count_mean, label='density [count/mL]')
-plt.fill_between(decimal_days, 
-                 density_count_mean - n*density_count_std,
-                 density_count_mean + n*density_count_std,
-                 alpha=0.2)
-plt.xlabel('days since stocking')
-plt.ylabel('density')
-plt.title('Subsurface Density count/mL vs Image Index - Prelim')
-plt.savefig(os.path.join(save_plot_dir, 'subsubface_densitycounts.png'))
-
-
-def wholistic_tank_count_n_plot(surface_decimal_days, counttank_total, nimage_to_tank_surface, count_total_std, n,
-                            decimal_days, tank_count_mean, tank_count_std,
-                            manual_decimal_days, mc, mpercent,
-                            save_plot_dir):
-    # wholistic tank count
-    fig3, ax3 = plt.subplots()
-
-    # surface counts
-    plt.plot(surface_decimal_days, counttank_total, label='surface count', color='orange')
-    plt.fill_between(surface_decimal_days,
-                    counttank_total - n * nimage_to_tank_surface * count_total_std,
-                    counttank_total + n * nimage_to_tank_surface * count_total_std,
-                    alpha=0.2,
-                    color='orange')
-
+#### subsurface plot
+def subsurface_plot(decimal_days, subsurface_count_mean, subsurface_count_std,
+                    manual_decimal_days, mc, plot_manual_std,
+                    idx_subsuface_manual, dt_idx_subsurface_manual):
+    fig1, ax1 = plt.subplots()
     # subsurface counts
-    plt.plot(decimal_days, tank_count_mean, label='subsurface count')
-    plt.fill_between(decimal_days, 
-                    tank_count_mean - n * tank_count_std,
-                    tank_count_mean + n * tank_count_std,
-                    alpha=0.2)
+    plt.plot(decimal_days, subsurface_count_mean, label='subsurface count')
+    plt.errorbar(dt_idx_subsurface_manual, subsurface_count_mean[idx_subsuface_manual], 
+                 yerr=subsurface_count_std[idx_subsuface_manual], fmt='o', color='blue', alpha=0.5)
 
     # manual counts
-    plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o')
-    mc_under = [mc - mpercent * mc for mc in mc]
-    mc_over = [mc + mpercent * mc for mc in mc]
-    plt.fill_between(manual_decimal_days, 
-                    mc_under,
-                    mc_over,
-                    alpha=0.1,
-                    color='green')
-    highlight_indices = [idx_surface_manual_count, idx_subsuface_manual_count]  #idx for scale factor
-    highlight_colors = ['orange', 'blue']  # colour of surface and subsurface manual counts
-    for idx, color in zip(highlight_indices, highlight_colors): # Plot the highlighted points
-        plt.scatter(manual_decimal_days[idx], mc[idx], color=color, s=100)  # Change s for point size if needed
-
+    plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
+    plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
+    
+    
     #labeling
     plt.xlabel('days since stocking')
     plt.ylabel('tank count')
-    plt.title('Overall tank count vs Time')
+    plt.title('Subsurface counts')
     plt.suptitle(plot_title)
     plt.legend()
-    plt.savefig(os.path.join(save_plot_dir, result_plot_name))
+    plt.savefig(os.path.join(save_plot_dir, "subsurface_counts.png"))
 
-wholistic_tank_count_n_plot(surface_decimal_days, surface_counttank_total, nimage_to_tank_surface, surface_count_total_std, n,
-                            decimal_days, tank_count_mean, tank_count_std,
-                            manual_decimal_days, mc, mpercent,
-                            save_plot_dir)
+idx1 = bisect.bisect_right(decimal_days,  manual_decimal_days[idx_subsuface_manual_count]) - 1
+idx2 = bisect.bisect_right(decimal_days, manual_decimal_days[-1]) - 1
+
+plot_subsurface_days = decimal_days[idx1:idx2]
+plot_subsurface_mean = tank_count_mean[idx1:idx2]
+plot_subsurface_std = tank_count_std[idx1:idx2]
+
+idx_subsuface_manual = []
+dt_idx_subsurface_manual = []
+for i in manual_decimal_days[idx_subsuface_manual_count:]:
+    idx = bisect.bisect_right(plot_subsurface_days, i)
+    idx_subsuface_manual.append(idx+idx1-1)
+    dt_idx_subsurface_manual.append(plot_subsurface_days[idx-1])
+
+subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
+                manual_decimal_days[idx_subsuface_manual_count:], 
+                mc[idx_subsuface_manual_count:], 
+                manual_std[idx_subsuface_manual_count:],
+                idx_subsuface_manual, dt_idx_subsurface_manual)
+
+
+#### surface plot
+def surface_plot(surface_decimal_days, surface_count_mean, surface_count_std,
+                 manual_decimal_days, mc, plot_manual_std,
+                 idx_suface_manual, dt_idx_surface_manual):
+    fig2, ax2 = plt.subplots()
+    # surface counts
+    plt.plot(surface_decimal_days, surface_count_mean, label='surface count')
+    import code
+    code.interact(local=dict(globals(), **locals()))
+    plt.errorbar(dt_idx_surface_manual, surface_count_mean[idx_suface_manual], 
+                 yerr=surface_count_std[idx_suface_manual]*1000, fmt='o', color='blue', alpha=0.5)
+
+    # manual counts
+    plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
+    plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
+    
+    
+    #labeling
+    plt.xlabel('days since stocking')
+    plt.ylabel('tank count')
+    plt.title('Surface counts')
+    plt.suptitle(plot_title)
+    plt.legend()
+    plt.savefig(os.path.join(save_plot_dir, "surface_counts.png"))
+
+idx3 = bisect.bisect_right(surface_decimal_days,  manual_decimal_days[0]) - 1
+idx4 = bisect.bisect_right(surface_decimal_days, manual_decimal_days[idx_subsuface_manual_count])+1
+
+plot_surface_days = surface_decimal_days[idx3:idx4]
+plot_surface_mean = surface_counttank_total[idx3:idx4]
+plot_surface_std = surface_count_total_std[idx3:idx4]
+
+idx_suface_manual = []
+dt_idx_surface_manual = []
+for i in manual_decimal_days[:idx_subsuface_manual_count+1]:
+    idx = bisect.bisect_right(plot_surface_days, i)
+    idx_suface_manual.append(idx)
+    dt_idx_surface_manual.append(plot_surface_days[idx-1])
+    print(f'idx: {idx}, i:{i} dt: {plot_surface_days[idx-1]}')
+
+surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
+             manual_decimal_days[:idx_subsuface_manual_count+1], 
+             mc[:idx_subsuface_manual_count+1], 
+             manual_std[:idx_subsuface_manual_count+1],
+             idx_suface_manual, dt_idx_surface_manual)
 
 print('results ploted')
-
-
-# TODO need to ascertain the validity of the blobs - not all edges are ideal - chat with Andrew
-# TODO save blob counts to txt file for reading/later usage?
-# TODO write to xml file for uploading blob annotations    
+ 
 import code
 code.interact(local=dict(globals(), **locals()))
