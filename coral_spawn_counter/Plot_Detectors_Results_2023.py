@@ -33,7 +33,7 @@ from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 # Consts (more below as well)
-window_size = 20 # for rolling means, etc
+window_size = 60 # for rolling means, etc
 n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 image_volume = 0.10 # mL
@@ -167,17 +167,19 @@ if scale_detection_results==True:
     manual_scale_factor = manual_count / np.mean(subsurface_imge_count)
     volume_image = volume_tank / manual_scale_factor
     nimage_to_tank_volume = volume_tank / volume_image
-    print(f'cslics spawn count density for entire tank volume: {nimage_to_tank_volume}')
+    print(f'cslics spawn subsurface scale factor: {nimage_to_tank_volume}')
 subsurface_image_count_total = subsurface_imge_count * nimage_to_tank_volume 
 density_count = subsurface_imge_count * image_volume
 ############################################
 # interpolate manual counts to frequency of subsurface counts, calcualte RMSE and correlation coefficient
 idx_subsurface_manual_count_time = bisect.bisect_right(capture_time_dt, dt[-1]) - 1
 mc_interpolated = np.interp(decimal_days[:idx_subsurface_manual_count_time], manual_decimal_days, mc)
-rmse = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time]))
-correlation_coefficient = np.corrcoef(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time])[0, 1]
-print(f'Before scaling: RMSE {rmse}, correlation coefficient {correlation_coefficient}')
-
+rmse_not_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time]))
+correlation_coefficient_not_scaled = np.corrcoef(mc_interpolated, subsurface_imge_count[:idx_subsurface_manual_count_time])[0, 1]
+print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficient {correlation_coefficient_not_scaled}')
+rmse_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time]))
+correlation_coefficient_scaled = np.corrcoef(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_time])[0, 1]
+print(f'After scaling subsurface: RMSE {rmse_scaled}, correlation coefficient {correlation_coefficient_scaled}')
 ##################################### surface counts ########################################
 def load_surface_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
