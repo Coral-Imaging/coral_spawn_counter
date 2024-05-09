@@ -42,7 +42,6 @@ tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
 image_span = 100 # how many images to averge out for the time history comparison
-idx_subsuface_manual_count = 6
 idx_surface_manual_count = 1
 
 # estimated tank specs area
@@ -112,6 +111,31 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
 
+#Get the surface idx_surface_manual_count
+def read_scale_times(dt, file, sheet_name):
+    df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
+    date_column = df['Date'].iloc[:]
+    notes_column = df['Notes'].iloc[:]
+    time_column = df['Time Collected'].iloc[:]
+
+    combined_datetime = np.nan
+    closest_index = None
+    min_difference = None
+
+    for index, note in enumerate(notes_column):
+        if note == 'Time placed into water' and not pd.isnull(combined_datetime):
+            break
+        elif not pd.isnull(date_column[index]):
+            combined_datetime = datetime.combine(date_column[index], time_column[index])
+
+    for index, dt_item in enumerate(dt):
+        difference = abs(combined_datetime - dt_item)
+        if min_difference is None or difference < min_difference:
+            min_difference = difference
+            closest_index = index
+
+    return closest_index, combined_datetime
+
 def new_read_manual_counts(file, sheet_name):
     """read the manual counts from the excel file and return the datetime objects and counts"""
     df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
@@ -130,10 +154,8 @@ def new_read_manual_counts(file, sheet_name):
             combined_datetime_objects.append(combined_datetime_obj)
         if i>6 and (i - 5) % 6 == 0 and not np.isnan(value):
             std.append(value)
-    
     return combined_datetime_objects, man_counts, std
 
-def time_history_comp(scaled_coral_counts, coral_counts_decimal, image_span, manual_counts, manual_decimal_days):
     """create a time history got coral counts"""
     averaged_counts = []
     ts_of_averaged_counts = []
@@ -158,12 +180,15 @@ def time_history_comp(scaled_coral_counts, coral_counts_decimal, image_span, man
 
 #dt, mc, tw = read_manual_counts(manual_counts_file)
 dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
+submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name)
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
+submersion_time = convert_to_decimal_days([submersion_time], zero_time)[0]
 
 #######################################################################
 # Subsurface load pixle data
+#######################################################################
 with open(subsurface_det_path, 'rb') as f:
     save_data = pickle.load(f)
     
@@ -182,17 +207,18 @@ decimal_days = convert_to_decimal_days(capture_time_dt)
 
 #subsurface counts given manual count
 if scale_detection_results==True:
-    manual_count = mc[idx_subsuface_manual_count]
+    manual_count = mc[submersion_idx+1]
     manual_scale_factor = manual_count / np.mean(subsurface_imge_count)
     volume_image = volume_tank / manual_scale_factor
     nimage_to_tank_volume = volume_tank / volume_image
     print(f'cslics spawn subsurface scale factor: {nimage_to_tank_volume}')
+
 subsurface_image_count_total = subsurface_imge_count * nimage_to_tank_volume 
-subsurface_density_count = subsurface_imge_count * image_volume
 
-averaged_subsurface_count, averaged_subsurface_time, averaged_subsurface_std = time_history_comp(subsurface_image_count_total, decimal_days, image_span, mc, manual_decimal_days)
+subsurface_mean = pd.Series(subsurface_image_count_total).rolling(window_size, center=True, min_periods=1).mean()
+subsurface_std = pd.Series(subsurface_image_count_total).rolling(window_size, center=True, min_periods=1).std()
 
-############################################
+#######################################################################
 # interpolate manual counts to frequency of subsurface counts, calcualte RMSE and correlation coefficient
 idx_subsurface_manual_count_stop_time = bisect.bisect_right(capture_time_dt, dt[-1]) - 1
 mc_interpolated = np.interp(decimal_days[:idx_subsurface_manual_count_stop_time], manual_decimal_days, mc)
@@ -204,7 +230,6 @@ correlation_coefficient_scaled = np.corrcoef(mc_interpolated, subsurface_image_c
 
 print(f'After scaling subsurface: RMSE {rmse_scaled}, correlation coefficient {correlation_coefficient_scaled}')
 print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficient {correlation_coefficient_not_scaled}')
-
 
 ##################################### surface counts ########################################
 def load_surface_counts(surface_det_path):
@@ -241,31 +266,6 @@ def load_surface_counts(surface_det_path):
     # apply rolling means
     return surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg
 
-#Get the surface idx_surface_manual_count
-def read_scale_times(dt, file, sheet_name):
-    df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
-    date_column = df['Date'].iloc[:]
-    notes_column = df['Notes'].iloc[:]
-    time_column = df['Time Collected'].iloc[:]
-
-    combined_datetime = np.nan
-    closest_index = None
-    min_difference = None
-
-    for index, note in enumerate(notes_column):
-        if note == 'Time placed into water' and not pd.isnull(combined_datetime):
-            break
-        elif not pd.isnull(date_column[index]):
-            combined_datetime = datetime.combine(date_column[index], time_column[index])
-
-    for index, dt_item in enumerate(dt):
-        difference = abs(combined_datetime - dt_item)
-        if min_difference is None or difference < min_difference:
-            min_difference = difference
-            closest_index = index
-
-    return closest_index
-
 def get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts):
     plotdatadict = {'capture times': surface_capture_times,
@@ -279,26 +279,26 @@ def get_surface_mean_n_std(surface_capture_times, count_eggs, count_first, count
 
     df = pd.DataFrame(plotdatadict)
 
-    count_eggs_mean = df['eggs'].rolling(window_size).mean()
-    count_eggs_std = df['eggs'].rolling(window_size).std()
+    count_eggs_mean = df['eggs'].rolling(window_size, center=True, min_periods=1).mean()
+    count_eggs_std = df['eggs'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_first_mean = df['first'].rolling(window_size).mean()
-    count_first_std = df['first'].rolling(window_size).std()
+    count_first_mean = df['first'].rolling(window_size, center=True, min_periods=1).mean()
+    count_first_std = df['first'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_two_mean = df['two'].rolling(window_size).mean()
-    count_two_std = df['two'].rolling(window_size).std()
+    count_two_mean = df['two'].rolling(window_size, center=True, min_periods=1).mean()
+    count_two_std = df['two'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_four_mean = df['four'].rolling(window_size).mean()
-    count_four_std = df['four'].rolling(window_size).std()
+    count_four_mean = df['four'].rolling(window_size, center=True, min_periods=1).mean()
+    count_four_std = df['four'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_adv_mean = df['adv'].rolling(window_size).mean()
-    count_adv_std = df['adv'].rolling(window_size).std()
+    count_adv_mean = df['adv'].rolling(window_size, center=True, min_periods=1).mean()
+    count_adv_std = df['adv'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_dmg_mean = df['dmg'].rolling(window_size).mean()
-    count_dmg_std = df['dmg'].rolling(window_size).std()
+    count_dmg_mean = df['dmg'].rolling(window_size, center=True, min_periods=1).mean()
+    count_dmg_std = df['dmg'].rolling(window_size, center=True, min_periods=1).std()
 
-    count_total_mean = df['total'].rolling(window_size).mean()
-    count_total_std = df['total'].rolling(window_size).std()
+    count_total_mean = df['total'].rolling(window_size, center=True, min_periods=1).mean()
+    count_total_std = df['total'].rolling(window_size, center=True, min_periods=1).std()
 
     return count_total_mean, count_total_std
 
@@ -309,8 +309,7 @@ surface_count_total_mean, surface_count_total_std = get_surface_mean_n_std(surfa
 
 #Surface Count given manual count
 if scale_detection_results==True:
-    idx_surface_manual_count = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name)
-    manual_count = mc[idx_surface_manual_count]
+    manual_count = mc[submersion_idx]
     first_non_nan_index = surface_count_total_mean.index[surface_count_total_mean.notna() & (surface_count_total_mean != 0)][0]
     cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index] 
     nimage_to_tank_surface = area_tank / (cslics_fov_est)
@@ -319,45 +318,24 @@ if scale_detection_results==True:
 # countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
 surface_counttank_total = surface_count_total_mean * nimage_to_tank_surface 
-
+surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
 ##############################################################################
 ## Plots
 ##############################################################################
 
-# show averages to apply rolling means
-plotdatadict = {
-    'index': image_index,
-    'capture_time_days': decimal_days,
-    'image_count': subsurface_imge_count,
-    'density_count': subsurface_density_count,
-    'tank_count': subsurface_image_count_total
-}
-df = pd.DataFrame(plotdatadict)
-
-
-image_count_mean = df['image_count'].rolling(window_size).mean()
-image_count_std = df['image_count'].rolling(window_size).std()
-
-density_count_mean = df['density_count'].rolling(window_size).mean()
-density_count_std = df['density_count'].rolling(window_size).std()
-
-tank_count_mean = df['tank_count'].rolling(window_size, center=True).mean()
-tank_count_std = df['tank_count'].rolling(window_size, center=True).std()
-
 #### subsurface plot
-def subsurface_plot(decimal_days, subsurface_count_mean, subsurface_count_std,
+def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
                     manual_decimal_days, mc, plot_manual_std,
                     idx_subsuface_manual, dt_idx_subsurface_manual):
     fig1, ax1 = plt.subplots()
     # subsurface counts
-    plt.plot(decimal_days, subsurface_count_mean, label='subsurface count')
-    plt.errorbar(dt_idx_subsurface_manual, subsurface_count_mean[idx_subsuface_manual], 
-                 yerr=subsurface_count_std[idx_subsuface_manual], fmt='o', color='blue', alpha=0.5)
+    plt.plot(plot_subsurface_days, plot_subsurface_mean, label='subsurface count')
+    plt.errorbar(dt_idx_subsurface_manual, plot_subsurface_mean[idx_subsuface_manual], 
+                 yerr=plot_subsurface_std[idx_subsuface_manual], fmt='o', color='blue', alpha=0.5)
 
     # manual counts
     plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
     plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
-    
     
     #labeling
     plt.xlabel('days since stocking')
@@ -367,38 +345,36 @@ def subsurface_plot(decimal_days, subsurface_count_mean, subsurface_count_std,
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, "subsurface_counts.png"))
 
-idx1 = bisect.bisect_right(decimal_days,  manual_decimal_days[idx_subsuface_manual_count]) - 1
-idx2 = bisect.bisect_right(decimal_days, manual_decimal_days[-1]) - 1
+subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
+subsurface_stop_idx = bisect.bisect_right(decimal_days, manual_decimal_days[-1])
 
-plot_subsurface_days = decimal_days[idx1:idx2]
-plot_subsurface_mean = tank_count_mean[idx1:idx2]
-plot_subsurface_std = tank_count_std[idx1:idx2]
+plot_subsurface_days = decimal_days[subsurface_start_idx:subsurface_stop_idx]
+plot_subsurface_mean = subsurface_mean[subsurface_start_idx:subsurface_stop_idx]
+plot_subsurface_std = subsurface_std[subsurface_start_idx:subsurface_stop_idx]
 
 idx_subsuface_manual = []
 dt_idx_subsurface_manual = []
-for i in manual_decimal_days[idx_subsuface_manual_count:]:
+for i in manual_decimal_days[submersion_idx:]:
     idx = bisect.bisect_right(plot_subsurface_days, i)
-    idx_subsuface_manual.append(idx+idx1-1)
+    idx_subsuface_manual.append(idx+subsurface_start_idx-1)
     dt_idx_subsurface_manual.append(plot_subsurface_days[idx-1])
 
 subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
-                manual_decimal_days[idx_subsuface_manual_count:], 
-                mc[idx_subsuface_manual_count:], 
-                manual_std[idx_subsuface_manual_count:],
+                manual_decimal_days[submersion_idx:], 
+                mc[submersion_idx:], 
+                manual_std[submersion_idx:],
                 idx_subsuface_manual, dt_idx_subsurface_manual)
 
 
 #### surface plot
-def surface_plot(surface_decimal_days, surface_count_mean, surface_count_std,
+def surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
                  manual_decimal_days, mc, plot_manual_std,
                  idx_suface_manual, dt_idx_surface_manual):
     fig2, ax2 = plt.subplots()
     # surface counts
-    plt.plot(surface_decimal_days, surface_count_mean, label='surface count')
-    import code
-    code.interact(local=dict(globals(), **locals()))
-    plt.errorbar(dt_idx_surface_manual, surface_count_mean[idx_suface_manual], 
-                 yerr=surface_count_std[idx_suface_manual]*1000, fmt='o', color='blue', alpha=0.5)
+    plt.plot(plot_surface_days, plot_surface_mean, label='surface count', color='orange')
+    plt.errorbar(dt_idx_surface_manual, plot_surface_mean[idx_suface_manual], 
+                 yerr=plot_surface_std[idx_suface_manual], fmt='o', color='orange', alpha=0.5)
 
     # manual counts
     plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
@@ -413,25 +389,24 @@ def surface_plot(surface_decimal_days, surface_count_mean, surface_count_std,
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, "surface_counts.png"))
 
-idx3 = bisect.bisect_right(surface_decimal_days,  manual_decimal_days[0]) - 1
-idx4 = bisect.bisect_right(surface_decimal_days, manual_decimal_days[idx_subsuface_manual_count])+1
+surface_start_idx = bisect.bisect_right(surface_decimal_days,  manual_decimal_days[0]) - 1
+surface_stop_idx = bisect.bisect_right(surface_decimal_days, manual_decimal_days[submersion_idx])+1
 
-plot_surface_days = surface_decimal_days[idx3:idx4]
-plot_surface_mean = surface_counttank_total[idx3:idx4]
-plot_surface_std = surface_count_total_std[idx3:idx4]
+plot_surface_days = surface_decimal_days[surface_start_idx:surface_stop_idx]
+plot_surface_mean = surface_counttank_total[surface_start_idx:surface_stop_idx]
+plot_surface_std = surface_counttank_total_std[surface_start_idx:surface_stop_idx]
 
 idx_suface_manual = []
 dt_idx_surface_manual = []
-for i in manual_decimal_days[:idx_subsuface_manual_count+1]:
+for i in manual_decimal_days[:submersion_idx+1]:
     idx = bisect.bisect_right(plot_surface_days, i)
     idx_suface_manual.append(idx)
     dt_idx_surface_manual.append(plot_surface_days[idx-1])
-    print(f'idx: {idx}, i:{i} dt: {plot_surface_days[idx-1]}')
 
 surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
-             manual_decimal_days[:idx_subsuface_manual_count+1], 
-             mc[:idx_subsuface_manual_count+1], 
-             manual_std[:idx_subsuface_manual_count+1],
+             manual_decimal_days[:submersion_idx+1], 
+             mc[:submersion_idx+1], 
+             manual_std[:submersion_idx+1],
              idx_suface_manual, dt_idx_surface_manual)
 
 print('results ploted')
