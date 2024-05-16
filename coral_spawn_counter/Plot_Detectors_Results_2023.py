@@ -56,16 +56,16 @@ if scale_detection_results==False:
 capture_time = []
 
 # File locations
-save_plot_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06'
+save_plot_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01'
 manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-sheet_name = 'Dec-A.lor Tank 3'
-img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+sheet_name = 'Dec-A.lor Tank 4'
+img_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01/images'
 object_names_file = '/home/java/Java/cslics/metadata/obj.names'
 result_plot_name = 'tankcounts_with_scaling_10.png'
 plot_title = 'Cslics06 '+sheet_name+' alor_aten_2000'
 if Counts_avalible==True:
-    subsurface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_subsurface_detections/subsurface_detections.pkl'
-    surface_det_path = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_surface_detections/surface_detections.pkl'
+    subsurface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detections_subsurface/subsurface_detections.pkl'
+    surface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detect_surface/surface_detections.pkl'
 else:
     MAX_IMG = 10e10
     skip_img = 10
@@ -228,7 +228,7 @@ correlation_coefficient_not_scaled = np.corrcoef(mc_interpolated, subsurface_img
 rmse_scaled = np.sqrt(mean_squared_error(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_stop_time]))
 correlation_coefficient_scaled = np.corrcoef(mc_interpolated, subsurface_image_count_total[:idx_subsurface_manual_count_stop_time])[0, 1]
 
-print(f'After scaling subsurface: RMSE {rmse_scaled}, correlation coefficient {correlation_coefficient_scaled}')
+print(f'After scaling subsurface: RMSE {rmse_scaled / nimage_to_tank_volume}, correlation coefficient {correlation_coefficient_scaled}')
 print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficient {correlation_coefficient_not_scaled}')
 
 ##################################### surface counts ########################################
@@ -309,7 +309,7 @@ surface_count_total_mean, surface_count_total_std = get_surface_mean_n_std(surfa
 
 #Surface Count given manual count
 if scale_detection_results==True:
-    manual_count = mc[submersion_idx]
+    manual_count = mc[0]
     first_non_nan_index = surface_count_total_mean.index[surface_count_total_mean.notna() & (surface_count_total_mean != 0)][0]
     cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index] 
     nimage_to_tank_surface = area_tank / (cslics_fov_est)
