@@ -15,7 +15,8 @@ import shutil
 # dataset folder name
 # data_dir = '/home/dorian/Data/acropora_maggie_tenuis_dataset_100/20221114_AMaggieTenuis'
 # data_dir = '/home/agkelpie/Data/RRAP_2022_NovSpawning/acropora_maggie_tenuis_dataset/20221114_AMaggieTenuis'
-data_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Dec_Spawning/20221214_aloripedes_cslics07'
+# data_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Dec_Spawning/20221214_aloripedes_cslics07'
+data_dir = '/media/dorian/DTCSLICS_22/cslics_2022_datasets/AIMS_2022_Dec_Spawning/20221212_dfavus_cslics07'
 print(data_dir)
 
 # get all cslics within given dataset

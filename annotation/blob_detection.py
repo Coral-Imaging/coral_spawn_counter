@@ -206,7 +206,7 @@ def drawBlobs(image,
     
     
 
-img_dir = '/home/dorian/Data/cslics_2022_datasets/subsurface_data/20221113_amtenuis_cslics04/images_subset'
+img_dir = '/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/subsurface_test'
 img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
 # img_dir = '/home/dorian/Code/turtles/turtle_datasets/job10_mini/frames_0_200'
 # img_list = sorted(glob.glob(os.path.join(img_dir, '*.PNG')))
@@ -233,20 +233,37 @@ for i, img_name in enumerate(img_list):
     save_orig_img_name = os.path.join(save_dir, img_base_name + '_00_orig.jpg')
     cv.imwrite(save_orig_img_name, img)
     # TODO image processing/smoothing?
-    ksize = 61 # very high due to large noise and large scale features
+    ksize = 11 # very high due to large noise and large scale features
     img = cv.GaussianBlur(img, (ksize, ksize), 0)
     
     save_blur_img_name = os.path.join(save_dir, img_base_name + '_01_blur.jpg')
     cv.imwrite(save_blur_img_name, img)
-            
+    
+    kernel_size = 5
+    focus_measure = cv.Laplacian(img, cv.CV_16S, ksize=kernel_size)
+    abs_focus_measure = cv.convertScaleAbs(focus_measure)
+    
+    save_focus_img_name = os.path.join(save_dir, img_base_name + '_01_focus.jpg') 
+    cv.imwrite(save_focus_img_name, abs_focus_measure)
+    
+    # import code
+    # code.interact(local=dict(globals(), **locals()))
+    
+    # threshold the image:
+    
+    thresh, img_thresh = cv.threshold(abs_focus_measure, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+    save_thresh_img_name = os.path.join(save_dir, img_base_name + '_02_thresh.jpg') 
+    cv.imwrite(save_thresh_img_name, img_thresh)
+    
+    
     # import code
     # code.interact(local=dict(globals(), **locals()))
     
     # CANNY EDGE DETECTION
-    canny = cv.Canny(img, 3, 5, L2gradient=True)
+    # canny = cv.Canny(img, 3, 5, L2gradient=True)
     
-    save_edge_img_name = os.path.join(save_dir, img_base_name + '_02_edge.jpg')
-    cv.imwrite(save_edge_img_name, canny)
+    # save_edge_img_name = os.path.join(save_dir, img_base_name + '_02_edge.jpg')
+    # cv.imwrite(save_edge_img_name, canny)
     
     CANNY_GUI = False
     if CANNY_GUI:
@@ -263,6 +280,7 @@ for i, img_name in enumerate(img_list):
             print(x)
             
         cv.namedWindow('image', cv.WINDOW_NORMAL)
+        # cv.namedWindow('image')
         cv.createTrackbar('L', 'image', 0, 255, callback)
         cv.createTrackbar('U', 'image', 0, 255, callback)
         # cv.createTrackbar('A', 'image', 0, 300, callback)
@@ -279,8 +297,11 @@ for i, img_name in enumerate(img_list):
             # img_e = cv.Can`ny(img, low_threshold, high_threshold, apertureSize, L2gradient=True)
     
     # morphological operations
-    k = 21
-    kernel = np.ones((k,k), np.uint8)
+    k = 9
+    canny = img_thresh
+    # kernel = np.ones((k,k), np.uint8)
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(k, k))
+    # canny = cv.erode(canny, kernel, iterations = 1)
     canny = cv.dilate(canny, kernel, iterations = 1)
     canny = cv.morphologyEx(canny, cv.MORPH_CLOSE, kernel)
     canny = cv.morphologyEx(canny, cv.MORPH_OPEN, kernel)

@@ -113,7 +113,7 @@ class Detector(object):
         return True
     
     
-    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=True):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=False):
         """
         save predictions/detections (assuming predictions in yolo format) on image
         """

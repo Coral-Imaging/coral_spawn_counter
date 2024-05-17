@@ -44,7 +44,7 @@ weights_file = os.path.join( '/home/dorian/Code/cslics_ws/src/ultralytics_cslics
 # os.makedirs(save_plot_dir, exist_ok=True)
 # os.makedirs(save_img_dir, exist_ok=True)
 
-max_img = 100000
+max_img = 100
 # SD = Surface_Detector(meta_dir=root_dir,
 #                       img_dir=img_dir,
 #                       save_dir=os.path.join(save_dir, 'surface'),
