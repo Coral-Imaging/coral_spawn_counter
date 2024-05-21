@@ -1,0 +1,10 @@
+# Pipeline configuration file for cslics
+
+dataset: '20231205_alor_tank4_cslics01' #name of the dataset
+data_dir: '/home/java/Java/data/' # where data stored ## save_plot_dir
+manual_counts_file: '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx' # path to manual counts
+manual_counts_sheet: 'Dec-A.lor Tank 4' # sheet name in manual counts file
+object_names_file: '/home/java/Java/cslics/metadata/obj.names' # path to object names file
+subsurface_weights: '/home/java/Java/ultralytics/runs/detect/cslics_subsurface/20240520_cslics_subsurface_640p_yolov8x.pt' # path to subsurface weights
+surface_weights: '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt' # path to surface weights
+meta_dir: '/home/java/Java/cslics' # path to metadata directory'

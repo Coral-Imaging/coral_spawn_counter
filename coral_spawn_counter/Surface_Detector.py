@@ -129,7 +129,7 @@ class Surface_Detector(Detector):
         return pred[keep, :]
 
 
-    def convert_results_2_pkl(self, txtsavedir, save_file_name):
+    def convert_results_2_pkl(self, txtsavedir, save_file_name, imglist):
         """
         assuming detections have already been done (i.e. txtsavedir is full of txtfiles)
         convert textfiles and images into CoralImage and save data in pkl file,
@@ -148,15 +148,18 @@ class Surface_Detector(Detector):
                 detections = [det.rsplit() for det in detections]
 
                 # corresponding image name:
-                folder_name = txt_basename.split('_')[1]
+                folder_name = imglist[i*self.skip_interval].split('/')[-2]
+                #folder_name = txt_basename.split('_')[1]
                 img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + '.jpg')
-                # import code
-                # code.interact(local=dict(globals(), **locals()))
-                
-                CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
-                                    txt_name=txt,
-                                    detections=detections)
-                results.append(CImage)
+                try:
+                    CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
+                                        txt_name=txt,
+                                        detections=detections)
+                    results.append(CImage)
+                except:
+                    print(f'problem with {txt_basename}')
+                    import code
+                    code.interact(local=dict(globals(), **locals()))
                 
             # sort results based on metadata capture time
             results.sort(key=lambda x: x.metadata['capture_time'])
@@ -339,7 +342,7 @@ class Surface_Detector(Detector):
             # print(f'skipping every {skip_interval} images')
             if i % skip_interval == 0: # if even
                     
-                print(f'predictions on {i+1}/{len(imglist)}')
+                print(f'predictions on {imgname}, processing {i+1}/{len(imglist)}')
                 if i >= self.max_img: # for debugging purposes
                     print(f'hit max_img: {self.max_img}')
                     break
@@ -361,7 +364,7 @@ class Surface_Detector(Detector):
                     code.interact(local=dict(globals(), **locals()))
 
                 # save predictions as an image
-                #self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir)
+                self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir, BGR=True)
                 # save predictions as a text file
                 self.save_text_predictions(predictions, imgname, txtsavedir)
                 #self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
@@ -377,7 +380,7 @@ class Surface_Detector(Detector):
         print(f'time[s]/image = {duration / len(imglist)}')
         
         print('done detection')
-        self.convert_results_2_pkl(txtsavedir, self.output_file)
+        self.convert_results_2_pkl(txtsavedir, self.output_file, imglist)
         print(f'results stored in {self.output_file} file')
 
 def to_XML(base_file, img_location, output_file, classes, Coral_Detector):
