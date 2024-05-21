@@ -2,28 +2,20 @@
 
 """
 use the results from SubSurface_detector and Surface detector pixkle files and plot them
-assume that you have run the Surface and SubSurface Detectors on the relevant data already...
+Can be  run with or without the Surface and SubSurface Detectors on the relevant data already 
+ith subsurface detector being a blob counter.
 """
-#test
-t = 1
-
 import os
-import cv2 as cv
 import numpy as np
 import glob
-import random as rng
 import matplotlib.pyplot as plt
-import seaborn as sns
-import matplotlib as mpl
 import seaborn.objects as so
 import pickle
 import pandas as pd
 from datetime import datetime
-import time
 import sys
 import bisect
 from sklearn.metrics import mean_squared_error
-import math
 sys.path.insert(0, '')
 
 from coral_spawn_counter.CoralImage import CoralImage
@@ -32,18 +24,31 @@ from coral_spawn_counter.read_manual_counts import read_manual_counts
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
-# Consts (more below as well)
+## Varibles for running the script
+Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
+scale_detection_results = True #if True, scale the detection results to the tank size
+dataset = '20231205_alor_tank4_cslics01' #name of the dataset
+
+# File locations
+save_plot_dir = '/home/java/Java/data/'+dataset
+manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
+sheet_name = 'Dec-A.lor Tank 4'
+img_dir = '/home/java/Java/data/'+dataset+'/images'
+object_names_file = '/home/java/Java/cslics/metadata/obj.names'
+result_plot_name = 'tankcounts_with_scaling_10.png'
+plot_title = 'Cslics06 '+sheet_name+' alor_aten_2000'
+if Counts_avalible==True: #if false will have to set up the paths for the detectors
+    subsurface_det_path = '/home/java/Java/data/'+dataset+'/detections_subsurface/subsurface_detections.pkl'  # path to subsurface detections
+    surface_det_path = '/home/java/Java/data/'+dataset+'/detect_surface/surface_detections.pkl' # path to surface detections
+
+## Constant Definitions
 window_size = 100 # for rolling means, etc
 n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
 image_volume = 0.10 # mL
 tank_volume = 500 * 1000 # 500 L * 1000 mL/L
-
-Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
-scale_detection_results = True #if True, scale the detection results to the tank size
 image_span = 100 # how many images to averge out for the time history comparison
 idx_surface_manual_count = 1
-
 # estimated tank specs area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
@@ -55,28 +60,17 @@ if scale_detection_results==False:
     nimage_to_tank_volume = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
 capture_time = []
 
-# File locations
-save_plot_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01'
-manual_counts_file = '/home/java/Java/data/cslics_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx'
-sheet_name = 'Dec-A.lor Tank 4'
-img_dir = '/home/java/Java/data/20231205_alor_tank4_cslics01/images'
-object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-result_plot_name = 'tankcounts_with_scaling_10.png'
-plot_title = 'Cslics06 '+sheet_name+' alor_aten_2000'
-if Counts_avalible==True:
-    subsurface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detections_subsurface/subsurface_detections.pkl'
-    surface_det_path = '/home/java/Java/data/20231205_alor_tank4_cslics01/detect_surface/surface_detections.pkl'
-else:
+
+if Counts_avalible==False:
     MAX_IMG = 10e10
     skip_img = 10
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
-    save_dir_subsurface = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_subsurface_detections'
-    save_dir_surface = '/home/java/Java/data/20231204_alor_tank3_cslics06/alor_atem_2000_surface_detections'
+    save_dir_subsurface = '/home/java/Java/data/'+dataset+'/alor_atem_2000_subsurface_detections'
+    save_dir_surface = '/home/java/Java/data/'+dataset+'/alor_atem_2000_surface_detections'
     meta_dir = '/home/java/Java/cslics' 
     weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
     object_names_file = '/home/java/Java/cslics/metadata/obj.names'
-    result_plot_name = 'tankcounts_with_scaling_10.png'
     Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
                                       output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
     Coral_Detector.run()
@@ -91,7 +85,6 @@ img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
 os.makedirs(save_plot_dir, exist_ok=True)
 
 # load classes
-#with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
 with open(object_names_file, 'r') as f:
     classes = [line.strip() for line in f.readlines()]
 
@@ -111,8 +104,8 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
 
-#Get the surface idx_surface_manual_count
 def read_scale_times(dt, file, sheet_name):
+    """read the scale times from the excel file and return the index of the closest datetime object"""
     df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
     date_column = df['Date'].iloc[:]
     notes_column = df['Notes'].iloc[:]
@@ -174,11 +167,10 @@ def new_read_manual_counts(file, sheet_name):
             ts_of_averaged_counts.append(coral_counts_decimal[idx])
     stds_of_averaged_counts = np.std(averaged_counts)
     return averaged_counts, ts_of_averaged_counts, stds_of_averaged_counts
+
 ########################################################
 # read manual counts file
 ########################################################
-
-#dt, mc, tw = read_manual_counts(manual_counts_file)
 dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
 submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name)
 zero_time = dt[0]
@@ -319,6 +311,7 @@ if scale_detection_results==True:
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
 surface_counttank_total = surface_count_total_mean * nimage_to_tank_surface 
 surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
+
 ##############################################################################
 ## Plots
 ##############################################################################
@@ -345,6 +338,7 @@ def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, "subsurface_counts.png"))
 
+#get location to start and stop the plot
 subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
 subsurface_stop_idx = bisect.bisect_right(decimal_days, manual_decimal_days[-1])
 
@@ -352,6 +346,7 @@ plot_subsurface_days = decimal_days[subsurface_start_idx:subsurface_stop_idx]
 plot_subsurface_mean = subsurface_mean[subsurface_start_idx:subsurface_stop_idx]
 plot_subsurface_std = subsurface_std[subsurface_start_idx:subsurface_stop_idx]
 
+#get the error for the subsurface counts at the same time of manual counts
 idx_subsuface_manual = []
 dt_idx_subsurface_manual = []
 for i in manual_decimal_days[submersion_idx:]:
@@ -389,6 +384,7 @@ def surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
     plt.legend()
     plt.savefig(os.path.join(save_plot_dir, "surface_counts.png"))
 
+#get location to start and stop the plot
 surface_start_idx = bisect.bisect_right(surface_decimal_days,  manual_decimal_days[0]) - 1
 surface_stop_idx = bisect.bisect_right(surface_decimal_days, manual_decimal_days[submersion_idx])+1
 
@@ -396,6 +392,7 @@ plot_surface_days = surface_decimal_days[surface_start_idx:surface_stop_idx]
 plot_surface_mean = surface_counttank_total[surface_start_idx:surface_stop_idx]
 plot_surface_std = surface_counttank_total_std[surface_start_idx:surface_stop_idx]
 
+#get the error for the surface counts at the same time of manual counts
 idx_suface_manual = []
 dt_idx_surface_manual = []
 for i in manual_decimal_days[:submersion_idx+1]:
