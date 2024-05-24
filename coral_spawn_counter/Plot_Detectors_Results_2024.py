@@ -37,16 +37,17 @@ data_dir = config["data_dir"]
 manual_counts_file = config["manual_counts_file"]
 manual_counts_sheet = config.get("manual_counts_sheet")
 object_names_file = config["object_names_file"]
+assesor_id = dataset[-1]
 
 # File locations
 save_plot_dir = data_dir+dataset
 sheet_name = manual_counts_sheet
 img_dir = data_dir+dataset+'/images'
 result_plot_name = 'tankcounts_with_scaling_newsubsurface.png'
-plot_title = 'Cslics06 '+sheet_name+' '
+plot_title = 'Cslics08 '+sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
-    surface_det_path = data_dir+dataset+'/detect_surface/surface_detections.pkl' # path to surface detections
+    subsurface_det_path = data_dir+dataset+'/210_vague_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
 
 ## Constant Definitions
 window_size = 100 # for rolling means, etc
@@ -55,7 +56,7 @@ mpercent = 0.1 # range for manual counts
 image_volume = 0.10 # mL
 tank_volume = 500 * 1000 # 500 L * 1000 mL/L
 image_span = 100 # how many images to averge out for the time history comparison
-idx_surface_manual_count = 1
+idx_surface_manual_count = 0
 # estimated tank specs area
 rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
@@ -69,7 +70,7 @@ capture_time = []
 
 if Counts_avalible==False:
     MAX_IMG = 10e10
-    skip_img = 10
+    skip_img = 50
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
     save_dir_subsurface = data_dir+dataset+'/210_subsurface_detections'
@@ -111,22 +112,21 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
 
-def read_scale_times(dt, file, sheet_name):
+def read_scale_times(dt, file, sheet_name, assesor_id):
     """read the scale times from the excel file and return the index of the closest datetime object"""
+
     df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
     date_column = df['Date'].iloc[:]
     notes_column = df['Notes'].iloc[:]
     time_column = df['Time Collected'].iloc[:]
-
     combined_datetime = np.nan
     closest_index = None
     min_difference = None
 
     for index, note in enumerate(notes_column):
-        if note == 'Time placed into water' and not pd.isnull(combined_datetime):
+        if note == int(assesor_id):
             break
-        elif not pd.isnull(date_column[index]):
-            combined_datetime = datetime.combine(date_column[index], time_column[index])
+    combined_datetime = datetime.combine(date_column[index-1], time_column[index-1])
 
     for index, dt_item in enumerate(dt):
         difference = abs(combined_datetime - dt_item)
@@ -249,7 +249,7 @@ def get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, co
 # read manual counts file
 ########################################################
 dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
-submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name)
+submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
@@ -296,7 +296,7 @@ surface_count_total_mean, surface_count_total_std = get_mean_n_std(surface_captu
 
 #Surface Count given manual count
 if scale_detection_results==True:
-    manual_count = mc[0]
+    manual_count = mc[idx_surface_manual_count]
     first_non_nan_index = surface_count_total_mean.index[surface_count_total_mean.notna() & (surface_count_total_mean != 0)][0]
     cslics_fov_est = (area_tank / manual_count)*surface_count_total_mean[first_non_nan_index] 
     nimage_to_tank_surface = area_tank / (cslics_fov_est)
@@ -326,6 +326,9 @@ def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_
     plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
     plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
     
+    #highlight Scale point
+    plt.plot(manual_decimal_days[0], mc[0], 'ro', label='callibration point', markersize=10)
+
     #labeling
     plt.xlabel('days since stocking')
     plt.ylabel('tank count')
@@ -360,7 +363,7 @@ subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
 def surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
                  manual_decimal_days, mc, plot_manual_std,
                  idx_suface_manual, dt_idx_surface_manual,
-                 result_plot_name):
+                 result_plot_name, idx_surface_manual_count):
     fig2, ax2 = plt.subplots()
     # surface counts
     plt.plot(plot_surface_days, plot_surface_mean, label='surface count', color='orange')
@@ -371,7 +374,8 @@ def surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
     plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
     plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
     
-    
+    #highlight scale poin
+    plt.plot(manual_decimal_days[idx_surface_manual_count], mc[idx_surface_manual_count], 'ro', label='callibration point', markersize=10)
     #labeling
     plt.xlabel('days since stocking')
     plt.ylabel('tank count')
@@ -399,7 +403,7 @@ for i in manual_decimal_days[:submersion_idx+1]:
 surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
              manual_decimal_days[:submersion_idx+1], 
              mc[:submersion_idx+1], manual_std[:submersion_idx+1],
-             idx_suface_manual, dt_idx_surface_manual, result_plot_name)
+             idx_suface_manual, dt_idx_surface_manual, result_plot_name, idx_surface_manual_count)
 
 print('results ploted')
  
