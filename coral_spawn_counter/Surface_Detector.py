@@ -36,10 +36,13 @@ class Surface_Detector(Detector):
     DEFAULT_TXT_DIR = os.path.join(ROOT_DIR,'/images/surface_txt')
     
     
-    DEFAULT_DETECTOR_IMAGE_SIZE = 640
-    DEFAULT_CONFIDENCE_THREASHOLD = 0.50
+    DEFAULT_DETECTOR_IMAGE_SIZE = 1280
+    DEFAULT_CONFIDENCE_THREASHOLD = 0.01
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_IMG = 100000 # per image
+    DEFAULT_MAX_DET = 999 # max detections per image
+    
+    DEFAULT_IMG_PATTERN = '*/*.jpg' # default image pattern for finding images/types of images. '*/*.jpg' looks for one sub-level of folders (date) and jpgs
     
     # yolo path on cslics unit
     DEFAULT_YOLO8 = os.path.join('/home/cslics04/cslics_ws/src/ultralytics_cslics/weights', 'cslics_20230905_yolov8n_640p_amtenuis1000.pt')
@@ -59,7 +62,9 @@ class Surface_Detector(Detector):
                 iou: float = DEFAULT_IOU,
                 output_file: str = DEFAULT_OUTPUT_FILE,
                 txt_dir: str = DEFAULT_TXT_DIR,
-                skip_img: int = DEFAULT_SKIP_INTERVAL):
+                skip_img: int = DEFAULT_SKIP_INTERVAL,
+                max_det: int = DEFAULT_MAX_DET,
+                img_pattern: str = DEFAULT_IMG_PATTERN):
         
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -70,6 +75,8 @@ class Surface_Detector(Detector):
         self.model = YOLO(weights_file)
         self.conf = conf_thresh
         self.iou = iou
+        self.max_det = max_det
+        self.img_pattern = img_pattern
 
         self.output_file = output_file
         self.txt_dir = txt_dir
@@ -284,13 +291,16 @@ class Surface_Detector(Detector):
         return detections from a single rgb image (numpy array)
         passes prediction through nms and returns them in yolo format [x1 y1 x2 y2 conf class_idx class_name]
         """
+        # https://docs.ultralytics.com/modes/predict/#inference-arguments
         pred = self.model.predict(source=image,
                                   save=False,
                                   save_txt=False,
                                   save_conf=True,
                                   verbose=False,
                                   imgsz=self.img_size,
-                                  conf=self.conf)
+                                  conf=self.conf,
+                                  iou=self.iou,
+                                  max_det=self.max_det)
         boxes: Boxes = pred[0].boxes 
         pred = []
         for b in boxes:
@@ -326,7 +336,7 @@ class Surface_Detector(Detector):
     def run(self):
         print('running Surface_Detector.py on:')
         print(f'source images: {self.img_dir}')
-        imglist = sorted(glob.glob(os.path.join(self.img_dir, '*/*.jpg'))) # NOTE added for images/DATE/*.jpg
+        imglist = sorted(glob.glob(os.path.join(self.img_dir, self.img_pattern))) # NOTE added for images/DATE/*.jpg
         
         # where to save image and text detections
         imgsave_dir = os.path.join(self.save_dir, 'detection_images')
@@ -456,10 +466,14 @@ def to_XML(base_file, img_location, output_file, classes, Coral_Detector):
 
 def main():
     ######### For testing
-    weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
-    meta_dir = '/home/java/Java/cslics' #has obj.names
-    img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
-    save_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model'
+    # weights = '/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt'
+    weights = '/home/dorian/Data/java_data/cslics_surface_detectors_models/cslics_20240116_yolov8m_1280p_amt_alor2000.pt'
+    meta_dir ='/home/dorian/Data/cslics_2022_datasets/202211_amtenuis_1000/' # '/home/java/Java/cslics' #has obj.names
+    # img_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/images'
+    # save_dir = '/home/java/Java/data/20231204_alor_tank3_cslics06/detect_surface_2000_model'
+    save_dir = '/home/dorian/Dropbox/QUT/RRAP/Transition2Deployment/CSLICS/cslics_sample_images/cslics_media_release/coral_spawn'
+    img_dir = '/home/dorian/Dropbox/QUT/RRAP/Transition2Deployment/CSLICS/cslics_sample_images/cslics_media_release/'
+
     Coral_Detector = Surface_Detector(weights_file=weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir, max_img=99999999999999999999999999)
     Coral_Detector.run()
     # meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
