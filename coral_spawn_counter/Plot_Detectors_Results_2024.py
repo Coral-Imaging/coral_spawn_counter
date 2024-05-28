@@ -43,10 +43,10 @@ assesor_id = dataset[-1]
 save_plot_dir = data_dir+dataset
 sheet_name = manual_counts_sheet
 img_dir = data_dir+dataset+'/images'
-result_plot_name = 'tankcounts_with_scaling_newsubsurface.png'
-plot_title = 'Cslics08 '+sheet_name
+result_plot_name = 'tankcounts_with_scaling_'
+plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/210_vague_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
     surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
 
 ## Constant Definitions
@@ -67,6 +67,18 @@ if scale_detection_results==False:
     nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
     nimage_to_tank_volume = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
 capture_time = []
+
+MAX_IMG = 10e10
+skip_img = 50
+subsurface_pkl_name = 'subsurface_detections.pkl'
+save_dir_subsurface = data_dir+dataset+'/210_vague_subsurface_detections'
+meta_dir = config["meta_dir"]
+object_names_file = meta_dir+'/metadata/obj.names'
+subsurface_weights = config["subsurface_weights"]
+Coral_Detector = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
+                                    output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
+Coral_Detector.run()
+subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
 
 if Counts_avalible==False:
     MAX_IMG = 10e10
@@ -406,6 +418,41 @@ surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
              idx_suface_manual, dt_idx_surface_manual, result_plot_name, idx_surface_manual_count)
 
 print('results ploted')
+
+def whole_pot(manual_decimal_days, mc, manual_std,
+              decimal_days, subsurface_image_count_total, subsurface_image_count_std,
+              surface_decimal_days, surface_counttank_total, surface_counttank_total_std, 
+              result_plot_name, submersion_idx, idx_surface_manual_count):
+    fig3, ax3 = plt.subplots()
+    # subsurface counts
+    plt.plot(decimal_days, subsurface_image_count_total, label='subsurface count')
+    plt.fill_between(decimal_days, subsurface_image_count_total - subsurface_image_count_std, 
+                    subsurface_image_count_total + subsurface_image_count_std, alpha=0.2)
+
+    # surface counts
+    plt.plot(surface_decimal_days, surface_counttank_total, label='surface count', color='orange')
+    plt.fill_between(surface_decimal_days, surface_counttank_total - surface_counttank_total_std,
+                        surface_counttank_total + surface_counttank_total_std, alpha=0.2, color='orange')
+
+    # manual counts
+    plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
+    plt.errorbar(manual_decimal_days, mc, yerr=manual_std, fmt='o', color='green', alpha=0.5)
+    
+    #highlight Scale point
+    plt.plot(manual_decimal_days[idx_surface_manual_count], mc[idx_surface_manual_count], 'ro', label='surface callibration point', markersize=10)
+    plt.plot(manual_decimal_days[submersion_idx], mc[submersion_idx], 'bo', label='subsurface callibration point', markersize=10)
+
+    plt.xlabel('days since stocking')
+    plt.ylabel('tank count')
+    plt.title('Whole counts')
+    plt.suptitle(plot_title)
+    plt.legend()
+    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"whole_counts.png"))
  
+whole_pot(manual_decimal_days, mc, manual_std,
+              decimal_days, subsurface_image_count_total, subsurface_image_count_std,
+              surface_decimal_days, surface_counttank_total, surface_counttank_total_std, 
+              result_plot_name, submersion_idx, idx_surface_manual_count)
+
 import code
 code.interact(local=dict(globals(), **locals()))
