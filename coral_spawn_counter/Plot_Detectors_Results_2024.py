@@ -26,8 +26,12 @@ from coral_spawn_counter.Surface_Detector import Surface_Detector
 from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 ## Varibles for running the script
-Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
+Fert_Rate = True #if True, will calculate the fertalisation rate
+Counts_avalible = False #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
+before_2023 = False #if True, use the old manual counts file format and std of maual coutns = n (see constant definitions)
+                    # currently will need to manually set the submersion_idx
+submersion_idx = 2 #will be overwittien if before_2023 is False
 
 with open("/home/java/Java/cslics/coral_spawn_counter/coral_spawn_counter/config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -48,7 +52,7 @@ plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
     subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
     surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
-
+    fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
 ## Constant Definitions
 window_size = 100 # for rolling means, etc
 n = 1 # how many std deviations to show
@@ -63,45 +67,44 @@ area_tank = np.pi * rad_tank**2
 area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
 volume_image = 35 # Ml # VERY MUCH AN APPROXIMATION - TODO FIGURE OUT THE MORE PRECISE METHOD
 volume_tank = 500 * 1000 # 500 L = 500000 ml
+fertilisation_time = 180 # mintues, how long the fertilisation detector runs for
 if scale_detection_results==False:
     nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
     nimage_to_tank_volume = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
 capture_time = []
 
-MAX_IMG = 10e10
-skip_img = 50
-subsurface_pkl_name = 'subsurface_detections.pkl'
-save_dir_subsurface = data_dir+dataset+'/210_vague_subsurface_detections'
-meta_dir = config["meta_dir"]
-object_names_file = meta_dir+'/metadata/obj.names'
-subsurface_weights = config["subsurface_weights"]
-Coral_Detector = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
-                                    output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
-Coral_Detector.run()
-subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
 
 if Counts_avalible==False:
+    if before_2023:
+        img_pattern = '*.jpg'
+    else:
+        img_pattern = '*/*.jpg'
     MAX_IMG = 10e10
-    skip_img = 50
+    skip_img = 1
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
+    fert_pkl_name = 'fertalisation_detections.pkl'
     save_dir_subsurface = data_dir+dataset+'/210_subsurface_detections'
     save_dir_surface = data_dir+dataset+'/alor_atem_2000_surface_detections'
+    save_dir_fert = data_dir+dataset+'/fertalisation_detections'
     meta_dir = config["meta_dir"]
     object_names_file = meta_dir+'/metadata/obj.names'
     subsurface_weights = config["subsurface_weights"]
     surface_weights = config["surface_weights"]
-    Coral_Detector = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
-                                      output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
-    Coral_Detector.run()
-    Coral_Detector = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
-                                        output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img)
+    # Coral_Detector = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
+    #                                   output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    # Coral_Detector.run()
+    # Coral_Detector = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
+    #                                     output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    # Coral_Detector.run()
+    Coral_Detector = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
+                                      output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
     Coral_Detector.run()
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
+    fert_det_path = os.path.join(save_dir_fert, fert_pkl_name)
 
 # File setup
-img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
 os.makedirs(save_plot_dir, exist_ok=True)
 
 # load classes
@@ -145,8 +148,24 @@ def read_scale_times(dt, file, sheet_name, assesor_id):
         if min_difference is None or difference < min_difference:
             min_difference = difference
             closest_index = index
-
     return closest_index, combined_datetime
+
+def old_read_manual_counts(file):
+    df = pd.read_excel(os.path.join(file), sheet_name='DataExport', engine='openpyxl') 
+
+    date_column = df['Date'].iloc[:]
+    time_column = df['Time'].iloc[:]
+    count_column = df['Manual Count'].iloc[:]
+
+    date_time_objects = []
+    mc = []
+    for i, value in enumerate(count_column):
+        if pd.notna(value):
+            date_time_obj = datetime.combine(date_column[i], time_column[i])
+            date_time_objects.append(date_time_obj)
+            mc.append(value)
+
+    return date_time_objects, mc
 
 def new_read_manual_counts(file, sheet_name):
     """read the manual counts from the excel file and return the datetime objects and counts"""
@@ -159,13 +178,13 @@ def new_read_manual_counts(file, sheet_name):
     man_counts = []
     std = []
     for i, value in enumerate(count_coloum):
-        if i >= 1 and i % 6 == 0: #would normally just be i>0
+        if i % 6 == 0 and pd.notna(date_column[i]) and pd.notna(time_column[i]): #would normally just be i>0
             combined_datetime_obj = datetime.combine(date_column[i], time_column[i])
-        if i>6 and (i - 4) % 6 == 0 and not np.isnan(value): #would normally be i>4
-            man_counts.append(value)
             combined_datetime_objects.append(combined_datetime_obj)
-        if i>6 and (i - 5) % 6 == 0 and not np.isnan(value):
-            std.append(value)
+        if i>3 and (i - 4) % 6 == 0 and not np.isnan(value): #would normally be i>4
+            man_counts.append(value)
+        if i>4 and (i - 5) % 6 == 0 and not np.isnan(value):
+            std.append(value)    
     return combined_datetime_objects, man_counts, std
 
     """create a time history got coral counts"""
@@ -222,7 +241,7 @@ def load_surface_counts(surface_det_path):
     return surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg
 
 def get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
-                        count_adv, count_dmg, surface_counts):
+                        count_adv, count_dmg, surface_counts, window_size):
     plotdatadict = {'capture times': surface_capture_times,
                     'eggs': count_eggs,
                     'first': count_first,
@@ -255,28 +274,31 @@ def get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, co
     count_total_mean = df['total'].rolling(window_size, center=True, min_periods=1).mean()
     count_total_std = df['total'].rolling(window_size, center=True, min_periods=1).std()
 
-    return count_total_mean, count_total_std
+    return count_total_mean, count_total_std, count_eggs_mean, count_first_mean, count_two_mean, count_four_mean, count_adv_mean, count_dmg_mean
 
 ########################################################
 # read manual counts file
 ########################################################
-dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
-submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
+if before_2023:
+    dt, mc = old_read_manual_counts(manual_counts_file)
+else:
+    dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
+    submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
+    submersion_time = convert_to_decimal_days([submersion_time], dt[0])[0]
+
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
-submersion_time = convert_to_decimal_days([submersion_time], zero_time)[0]
-
 # #######################################################################
 # # Subsurface load pixle data
 # #######################################################################
 capture_time_dt, subsurface_imge_count, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(subsurface_det_path)
-subsurface_mean, subsurface_std = get_mean_n_std(capture_time_dt, count_eggs, count_first, count_two, count_four,
-                        count_adv, count_dmg, subsurface_imge_count)
+subsurface_mean, subsurface_std, _, _, _, _, _, _ = get_mean_n_std(capture_time_dt, count_eggs, count_first, count_two, count_four,
+                        count_adv, count_dmg, subsurface_imge_count, window_size)
 decimal_days = convert_to_decimal_days(capture_time_dt)
 
 if scale_detection_results==True:
-    manual_count = mc[submersion_idx+1]
+    manual_count = mc[submersion_idx]
     subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
     manual_scale_factor = manual_count / (subsurface_mean[subsurface_start_idx])
     volume_image = volume_tank / manual_scale_factor
@@ -303,8 +325,8 @@ print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficie
 
 surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(surface_det_path)
 
-surface_count_total_mean, surface_count_total_std = get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
-                        count_adv, count_dmg, surface_counts)
+surface_count_total_mean, surface_count_total_std, _, _, _, _, _, _ = get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
+                        count_adv, count_dmg, surface_counts, window_size)
 
 #Surface Count given manual count
 if scale_detection_results==True:
@@ -314,10 +336,32 @@ if scale_detection_results==True:
     nimage_to_tank_surface = area_tank / (cslics_fov_est)
     print(f'cslics surface count using FOV from manual count = {nimage_to_tank_surface}')
 
-# countperimage_total = count_eggs_mean + count_first_mean + count_two_mean + count_four_mean + count_adv # not counting damaged
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
 surface_counttank_total = surface_count_total_mean * nimage_to_tank_surface 
 surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
+################################### Fertilistion Rates ########################################
+if Fert_Rate:
+    fert_dt, fert_total_count, fert_count_eggs, fer_count_first, fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg = load_surface_counts(fert_det_path)
+    _, _, fert_count_eggs_mean, fert_count_first_mean, fert_count_two_mean, fert_count_four_mean, fert_count_adv_mean, fert_count_dmg_mean = get_mean_n_std(fert_dt, fert_count_eggs, fer_count_first, 
+                fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg, fert_total_count, 40)
+    fert_decimal_days = convert_to_decimal_days(fert_dt)
+    fert_decimal_mins = [x *24*60 for x in fert_decimal_days] #fixing the time for the data​
+    # TODO fert ratio is just first cleavage to eggs, or everything else to eggs?
+    countperimage_total = fert_count_eggs_mean + fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv_mean # not counting damaged
+    fert_ratio = (fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv)/ countperimage_total
+    fert_mean = fert_ratio.rolling(80).mean()
+    fig4, ax4 = plt.subplots()
+    plt.plot(fert_decimal_mins, fert_ratio, 
+             color='blue', label='fertilisation rate')
+    plt.plot(fert_decimal_mins, fert_mean, 
+             color='red', label='mean fertilisation rate')
+    plt.xlabel('minutes since stocking')
+    plt.ylabel('tank count')
+    plt.title('fertalisation rate')
+    plt.suptitle(plot_title)
+    plt.legend()
+    ax4.set_ylim(0, 1.5)
+    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"fertalisation.png"))
 
 ##############################################################################
 ## Plots
@@ -364,6 +408,9 @@ for i in manual_decimal_days[submersion_idx:]:
     idx = bisect.bisect_right(plot_subsurface_days, i)
     idx_subsuface_manual.append(idx+subsurface_start_idx-1)
     dt_idx_subsurface_manual.append(plot_subsurface_days[idx-1])
+
+if before_2023:
+    manual_std = mc * n
 
 subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
                 manual_decimal_days[submersion_idx:], mc[submersion_idx:], 
@@ -447,12 +494,16 @@ def whole_pot(manual_decimal_days, mc, manual_std,
     plt.title('Whole counts')
     plt.suptitle(plot_title)
     plt.legend()
+    ax3.set_ylim(0, 800000)
     plt.savefig(os.path.join(save_plot_dir, result_plot_name+"whole_counts.png"))
  
+
+
 whole_pot(manual_decimal_days, mc, manual_std,
-              decimal_days, subsurface_image_count_total, subsurface_image_count_std,
-              surface_decimal_days, surface_counttank_total, surface_counttank_total_std, 
+              decimal_days[:subsurface_stop_idx], subsurface_image_count_total[:subsurface_stop_idx], subsurface_image_count_std[:subsurface_stop_idx],
+              surface_decimal_days[:subsurface_stop_idx], surface_counttank_total[:subsurface_stop_idx], surface_counttank_total_std[:subsurface_stop_idx], 
               result_plot_name, submersion_idx, idx_surface_manual_count)
+
 
 import code
 code.interact(local=dict(globals(), **locals()))

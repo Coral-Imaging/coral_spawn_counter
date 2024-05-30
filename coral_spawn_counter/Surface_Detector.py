@@ -17,6 +17,7 @@ import pickle
 from ultralytics import YOLO
 from ultralytics.engine.results import Results, Boxes
 import sys
+from datetime import datetime
 sys.path.insert(0, '')
 from coral_spawn_counter.CoralImage import CoralImage
 from coral_spawn_counter.Detector import Detector
@@ -34,7 +35,7 @@ class Surface_Detector(Detector):
     DEFAULT_IMG_DIR = os.path.join('/home/dorian/Data/cslics_2023_datasets/2023_Nov_Spawning/20231103_aten_tank4_cslics01/images')
     DEFAULT_SAVE_DIR = os.path.join(ROOT_DIR,'/images/surface')
     DEFAULT_TXT_DIR = os.path.join(ROOT_DIR,'/images/surface_txt')
-    
+    DEFAULT_TIME = None # minutes
     
     DEFAULT_DETECTOR_IMAGE_SIZE = 1280
     DEFAULT_CONFIDENCE_THREASHOLD = 0.01
@@ -64,7 +65,8 @@ class Surface_Detector(Detector):
                 txt_dir: str = DEFAULT_TXT_DIR,
                 skip_img: int = DEFAULT_SKIP_INTERVAL,
                 max_det: int = DEFAULT_MAX_DET,
-                img_pattern: str = DEFAULT_IMG_PATTERN):
+                img_pattern: str = DEFAULT_IMG_PATTERN,
+                time_lim: int = DEFAULT_TIME):
         
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -77,6 +79,7 @@ class Surface_Detector(Detector):
         self.iou = iou
         self.max_det = max_det
         self.img_pattern = img_pattern
+        self.time_lim = time_lim
 
         self.output_file = output_file
         self.txt_dir = txt_dir
@@ -157,7 +160,10 @@ class Surface_Detector(Detector):
                 # corresponding image name:
                 folder_name = imglist[i*self.skip_interval].split('/')[-2]
                 #folder_name = txt_basename.split('_')[1]
-                img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + '.jpg')
+                if self.img_pattern == '*/*.jpg':
+                    img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + '.jpg')
+                else:
+                    img_name = os.path.join(self.img_dir, txt_basename[:-8] + '.jpg')
                 try:
                     CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
                                         txt_name=txt,
@@ -346,6 +352,10 @@ class Surface_Detector(Detector):
 
         start_time = time.time()
         
+        if self.time_lim is not None:
+            datetime0 = datetime.strptime(imglist[0].split('_')[-4]+imglist[0].split('_')[-3], "%Y%m%d%H%M%S")
+            print(f'time limit set to {self.time_lim} minutes, first img date: {datetime0}')
+
         for i, imgname in enumerate(imglist):
             # SKIP every 2 images to save time:
             skip_interval = self.skip_interval
@@ -357,6 +367,12 @@ class Surface_Detector(Detector):
                     print(f'hit max_img: {self.max_img}')
                     break
 
+                #time lim for fertilisation
+                current_datetime = datetime.strptime(imglist[i].split('_')[-4]+imglist[i].split('_')[-3], "%Y%m%d%H%M%S")
+                time_difference_minutes = (current_datetime - datetime0).total_seconds() / 60
+                if time_difference_minutes > self.time_lim:
+                    print(f'time limit reached: {time_difference_minutes} minutes')
+                    break
                 # load image
                 try:
                     img_rgb = self.prep_img_name(imgname)
