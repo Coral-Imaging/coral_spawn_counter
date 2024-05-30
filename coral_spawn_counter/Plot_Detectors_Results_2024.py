@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-use the results from SubSurface_detector and Surface detector pixkle files and plot them
+Uses the results from SubSurface_detector and Surface detector pixkle files and plot them
 Can be  run with or without the Surface and SubSurface Detectors on the relevant data already 
 with subsurface detector being a machine learning yolo detector
 """
@@ -19,11 +19,7 @@ from sklearn.metrics import mean_squared_error
 import yaml
 sys.path.insert(0, '')
 
-from coral_spawn_counter.CoralImage import CoralImage
-from coral_spawn_counter.read_manual_counts import read_manual_counts
-
 from coral_spawn_counter.Surface_Detector import Surface_Detector
-from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 ## Varibles for running the script
 Fert_Rate = True #if True, will calculate the fertalisation rate
@@ -50,9 +46,10 @@ img_dir = data_dir+dataset+'/images'
 result_plot_name = 'tankcounts_with_scaling_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    subsurface_det_path = data_dir+dataset+'/210_vague_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
     surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
     fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
+
 ## Constant Definitions
 window_size = 100 # for rolling means, etc
 n = 1 # how many std deviations to show
@@ -91,15 +88,15 @@ if Counts_avalible==False:
     object_names_file = meta_dir+'/metadata/obj.names'
     subsurface_weights = config["subsurface_weights"]
     surface_weights = config["surface_weights"]
-    # Coral_Detector = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
+    # Surface_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
     #                                   output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
-    # Coral_Detector.run()
-    # Coral_Detector = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
+    # Surface_Detection.run()
+    # Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
     #                                     output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
-    # Coral_Detector.run()
-    Coral_Detector = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
+    # Subsurface_Detection.run()
+    Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
                                       output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
-    Coral_Detector.run()
+    Fertilisation_Detection.run()
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
     fert_det_path = os.path.join(save_dir_fert, fert_pkl_name)
@@ -206,7 +203,7 @@ def new_read_manual_counts(file, sheet_name):
     stds_of_averaged_counts = np.std(averaged_counts)
     return averaged_counts, ts_of_averaged_counts, stds_of_averaged_counts
 
-def load_surface_counts(surface_det_path):
+def load_pixkel_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
     with open(surface_det_path, 'rb') as f:
         results = pickle.load(f)
@@ -289,10 +286,11 @@ else:
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
 manual_decimal_days = convert_to_decimal_days(dt, zero_time)
+
 # #######################################################################
 # # Subsurface load pixle data
 # #######################################################################
-capture_time_dt, subsurface_imge_count, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(subsurface_det_path)
+capture_time_dt, subsurface_imge_count, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_pixkel_counts(subsurface_det_path)
 subsurface_mean, subsurface_std, _, _, _, _, _, _ = get_mean_n_std(capture_time_dt, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, subsurface_imge_count, window_size)
 decimal_days = convert_to_decimal_days(capture_time_dt)
@@ -323,7 +321,7 @@ print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficie
 
 ##################################### surface counts ########################################
 
-surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_surface_counts(surface_det_path)
+surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_pixkel_counts(surface_det_path)
 
 surface_count_total_mean, surface_count_total_std, _, _, _, _, _, _ = get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts, window_size)
@@ -339,29 +337,6 @@ if scale_detection_results==True:
 surface_decimal_days = convert_to_decimal_days(surface_capture_times)
 surface_counttank_total = surface_count_total_mean * nimage_to_tank_surface 
 surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
-################################### Fertilistion Rates ########################################
-if Fert_Rate:
-    fert_dt, fert_total_count, fert_count_eggs, fer_count_first, fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg = load_surface_counts(fert_det_path)
-    _, _, fert_count_eggs_mean, fert_count_first_mean, fert_count_two_mean, fert_count_four_mean, fert_count_adv_mean, fert_count_dmg_mean = get_mean_n_std(fert_dt, fert_count_eggs, fer_count_first, 
-                fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg, fert_total_count, 40)
-    fert_decimal_days = convert_to_decimal_days(fert_dt)
-    fert_decimal_mins = [x *24*60 for x in fert_decimal_days] #fixing the time for the data​
-    # TODO fert ratio is just first cleavage to eggs, or everything else to eggs?
-    countperimage_total = fert_count_eggs_mean + fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv_mean # not counting damaged
-    fert_ratio = (fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv)/ countperimage_total
-    fert_mean = fert_ratio.rolling(80).mean()
-    fig4, ax4 = plt.subplots()
-    plt.plot(fert_decimal_mins, fert_ratio, 
-             color='blue', label='fertilisation rate')
-    plt.plot(fert_decimal_mins, fert_mean, 
-             color='red', label='mean fertilisation rate')
-    plt.xlabel('minutes since stocking')
-    plt.ylabel('tank count')
-    plt.title('fertalisation rate')
-    plt.suptitle(plot_title)
-    plt.legend()
-    ax4.set_ylim(0, 1.5)
-    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"fertalisation.png"))
 
 ##############################################################################
 ## Plots
@@ -497,13 +472,42 @@ def whole_pot(manual_decimal_days, mc, manual_std,
     ax3.set_ylim(0, 800000)
     plt.savefig(os.path.join(save_plot_dir, result_plot_name+"whole_counts.png"))
  
-
-
 whole_pot(manual_decimal_days, mc, manual_std,
               decimal_days[:subsurface_stop_idx], subsurface_image_count_total[:subsurface_stop_idx], subsurface_image_count_std[:subsurface_stop_idx],
               surface_decimal_days[:subsurface_stop_idx], surface_counttank_total[:subsurface_stop_idx], surface_counttank_total_std[:subsurface_stop_idx], 
               result_plot_name, submersion_idx, idx_surface_manual_count)
 
+
+################################### Fertilistion Rates ########################################
+if Fert_Rate:
+    fert_dt, fert_total_count, fert_count_eggs, fer_count_first, fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg = load_pixkel_counts(fert_det_path)
+    _, _, fert_count_eggs_mean, fert_count_first_mean, fert_count_two_mean, fert_count_four_mean, fert_count_adv_mean, fert_count_dmg_mean = get_mean_n_std(fert_dt, fert_count_eggs, fer_count_first, 
+                fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg, fert_total_count, 20)
+    fert_decimal_days = convert_to_decimal_days(fert_dt)
+    fert_decimal_mins = [x *24*60 for x in fert_decimal_days] #fixing the time for the data​
+    # TODO fert ratio is just first cleavage to eggs, or everything else to eggs?
+    countperimage_total = fert_count_eggs_mean + fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv_mean # not counting damaged
+    fert_ratio = (fert_count_first_mean + fert_count_two_mean + fert_count_four_mean + fert_count_adv_mean)/ countperimage_total
+    fert_mean = fert_ratio.rolling(40).mean()
+
+
+def fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_name):
+    fig4, ax4 = plt.subplots()
+    plt.plot(fert_decimal_mins, fert_ratio, 
+             color='blue', label='fertilisation rate')
+    plt.plot(fert_decimal_mins, fert_mean, 
+             color='red', label='mean fertilisation rate')
+    plt.xlabel('minutes since stocking')
+    plt.ylabel('tank count')
+    plt.title('fertalisation rate')
+    plt.suptitle(plot_title)
+    plt.legend()
+    ax4.set_ylim(0, 1.0)
+    plt.grid(True)
+    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"fertalisation.png"))
+
+if Fert_Rate:
+    fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_name)
 
 import code
 code.interact(local=dict(globals(), **locals()))
