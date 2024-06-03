@@ -42,11 +42,10 @@ assesor_id = dataset[-1]
 # File locations
 save_plot_dir = data_dir+dataset
 sheet_name = manual_counts_sheet
-img_dir = data_dir+dataset+'/images'
 result_plot_name = 'tankcounts_with_scaling_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/210_vague_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
     surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
     fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
 
@@ -74,10 +73,12 @@ capture_time = []
 if Counts_avalible==False:
     if before_2023:
         img_pattern = '*.jpg'
+        img_dir = data_dir+dataset+'/images_jpg'
     else:
         img_pattern = '*/*.jpg'
+        img_dir = data_dir+dataset+'/images'
     MAX_IMG = 10e10
-    skip_img = 1
+    skip_img = 50
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
     fert_pkl_name = 'fertalisation_detections.pkl'
@@ -88,15 +89,15 @@ if Counts_avalible==False:
     object_names_file = meta_dir+'/metadata/obj.names'
     subsurface_weights = config["subsurface_weights"]
     surface_weights = config["surface_weights"]
-    # Surface_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
-    #                                   output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
-    # Surface_Detection.run()
-    # Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
-    #                                     output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
-    # Subsurface_Detection.run()
-    Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
-                                      output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
-    Fertilisation_Detection.run()
+    Surface_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
+                                      output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    Surface_Detection.run()
+    Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
+                                        output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    Subsurface_Detection.run()
+    # Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
+    #                                   output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
+    # Fertilisation_Detection.run()
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
     fert_det_path = os.path.join(save_dir_fert, fert_pkl_name)
@@ -145,10 +146,16 @@ def read_scale_times(dt, file, sheet_name, assesor_id):
         if min_difference is None or difference < min_difference:
             min_difference = difference
             closest_index = index
+    
     return closest_index, combined_datetime
 
 def old_read_manual_counts(file):
-    df = pd.read_excel(os.path.join(file), sheet_name='DataExport', engine='openpyxl') 
+    try:
+        df = pd.read_excel(os.path.join(file), sheet_name='DataExport', engine='openpyxl') 
+    except:
+        import code
+        code.interact(local=dict(globals(), **locals()))
+        print('error reading the manual counts file, check the sheet name is correct')
 
     date_column = df['Date'].iloc[:]
     time_column = df['Time'].iloc[:]

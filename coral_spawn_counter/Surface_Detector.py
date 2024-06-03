@@ -368,11 +368,12 @@ class Surface_Detector(Detector):
                     break
 
                 #time lim for fertilisation
-                current_datetime = datetime.strptime(imglist[i].split('_')[-4]+imglist[i].split('_')[-3], "%Y%m%d%H%M%S")
-                time_difference_minutes = (current_datetime - datetime0).total_seconds() / 60
-                if time_difference_minutes > self.time_lim:
-                    print(f'time limit reached: {time_difference_minutes} minutes')
-                    break
+                if self.time_lim is not None:
+                    current_datetime = datetime.strptime(imglist[i].split('_')[-4]+imglist[i].split('_')[-3], "%Y%m%d%H%M%S")
+                    time_difference_minutes = (current_datetime - datetime0).total_seconds() / 60
+                    if time_difference_minutes > self.time_lim:
+                        print(f'time limit reached: {time_difference_minutes} minutes')
+                        break
                 # load image
                 try:
                     img_rgb = self.prep_img_name(imgname)
