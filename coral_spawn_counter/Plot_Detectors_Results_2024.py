@@ -22,12 +22,13 @@ sys.path.insert(0, '')
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 
 ## Varibles for running the script
-Fert_Rate = True #if True, will calculate the fertalisation rate
-Counts_avalible = False #if True, means pkl files avalible, else run the surface detectors
+Fert_Rate = False #if True, will calculate the fertalisation rate
+Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
+scale_subsurface_at_2 = False #if True, scale the subsurface counts at the second last manual count
 before_2023 = False #if True, use the old manual counts file format and std of maual coutns = n (see constant definitions)
                     # currently will need to manually set the submersion_idx
-submersion_idx = 2 #will be overwittien if before_2023 is False
+submersion_idx = 1 #will be overwittien if before_2023 is False
 
 with open("/home/java/Java/cslics/coral_spawn_counter/coral_spawn_counter/config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -42,7 +43,10 @@ assesor_id = dataset[-1]
 # File locations
 save_plot_dir = data_dir+dataset
 sheet_name = manual_counts_sheet
-result_plot_name = 'tankcounts_with_scaling_'
+if scale_subsurface_at_2==True:
+    result_plot_name = 'tankcounts_with_late_submersion_'
+else:
+    result_plot_name = 'tankcounts_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
     subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
@@ -71,12 +75,12 @@ capture_time = []
 
 
 if Counts_avalible==False:
-    if before_2023:
-        img_pattern = '*.jpg'
-        img_dir = data_dir+dataset+'/images_jpg'
-    else:
-        img_pattern = '*/*.jpg'
-        img_dir = data_dir+dataset+'/images'
+    # if before_2023:
+    img_pattern = '*.jpg'
+    img_dir = data_dir+dataset+'/images_jpg'
+    # else:
+    #     img_pattern = '*/*.jpg'
+    #     img_dir = data_dir+dataset+'/images'
     MAX_IMG = 10e10
     skip_img = 50
     subsurface_pkl_name = 'subsurface_detections.pkl'
@@ -127,7 +131,6 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
 def read_scale_times(dt, file, sheet_name, assesor_id):
     """read the scale times from the excel file and return the index of the closest datetime object"""
-
     df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
     date_column = df['Date'].iloc[:]
     notes_column = df['Notes'].iloc[:]
@@ -146,16 +149,15 @@ def read_scale_times(dt, file, sheet_name, assesor_id):
         if min_difference is None or difference < min_difference:
             min_difference = difference
             closest_index = index
-    
     return closest_index, combined_datetime
 
 def old_read_manual_counts(file):
-    try:
-        df = pd.read_excel(os.path.join(file), sheet_name='DataExport', engine='openpyxl') 
+    try: #sheet_name='DataExport'
+        df = pd.read_excel(os.path.join(file), sheet_name='Nov 14.11 Tank3 Export', engine='openpyxl') 
     except:
+        print('error reading the manual counts file, check the sheet name is correct')
         import code
         code.interact(local=dict(globals(), **locals()))
-        print('error reading the manual counts file, check the sheet name is correct')
 
     date_column = df['Date'].iloc[:]
     time_column = df['Time'].iloc[:]
@@ -173,19 +175,25 @@ def old_read_manual_counts(file):
 
 def new_read_manual_counts(file, sheet_name):
     """read the manual counts from the excel file and return the datetime objects and counts"""
-    df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
-    count_coloum = df['Mean, last 2 digits rounded\nSD, last 2 digits rounded'].iloc[:]
-    date_column = df['Date'].iloc[:]
-    time_column = df['Time Collected'].iloc[:]
+    try:
+        df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
+        count_coloum = df['Mean, last 2 digits rounded\nSD, last 2 digits rounded'].iloc[:]
+        date_column = df['Date'].iloc[:]
+        time_column = df['Time Collected'].iloc[:]
+        time_2 = df['Unnamed: 2'].iloc[:]
+    except:
+        print('error reading the manual counts file, check the sheet name is correct and headings are as expected')
+        import code
+        code.interact(local=dict(globals(), **locals()))
 
     combined_datetime_objects = []
     man_counts = []
     std = []
     for i, value in enumerate(count_coloum):
-        if i % 6 == 0 and pd.notna(date_column[i]) and pd.notna(time_column[i]): #would normally just be i>0
-            combined_datetime_obj = datetime.combine(date_column[i], time_column[i])
+        if i % 6 == 0 and pd.notna(date_column[i]) and pd.notna(time_column[i]): 
+            combined_datetime_obj = datetime.combine(date_column[i], time_2[i])
             combined_datetime_objects.append(combined_datetime_obj)
-        if i>3 and (i - 4) % 6 == 0 and not np.isnan(value): #would normally be i>4
+        if i>3 and (i - 4) % 6 == 0 and not np.isnan(value): 
             man_counts.append(value)
         if i>4 and (i - 5) % 6 == 0 and not np.isnan(value):
             std.append(value)    
@@ -287,8 +295,6 @@ if before_2023:
     dt, mc = old_read_manual_counts(manual_counts_file)
 else:
     dt, mc, manual_std = new_read_manual_counts(manual_counts_file, sheet_name)
-    submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
-    submersion_time = convert_to_decimal_days([submersion_time], dt[0])[0]
 
 zero_time = dt[0]
 plot_title = plot_title + ' ' + dt[0].strftime("%Y-%m-%d %H:%M:%S")
@@ -303,12 +309,18 @@ subsurface_mean, subsurface_std, _, _, _, _, _, _ = get_mean_n_std(capture_time_
 decimal_days = convert_to_decimal_days(capture_time_dt)
 
 if scale_detection_results==True:
+    submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
+    if scale_subsurface_at_2:
+        submersion_idx = len(mc)-2
+    submersion_time = convert_to_decimal_days([submersion_time], dt[0])[0]
     manual_count = mc[submersion_idx]
     subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
     manual_scale_factor = manual_count / (subsurface_mean[subsurface_start_idx])
     volume_image = volume_tank / manual_scale_factor
     nimage_to_tank_volume = volume_tank / volume_image
     print(f'cslics spawn subsurface scale factor: {nimage_to_tank_volume}')
+
+submersion_idx, submersion_time = read_scale_times(dt, manual_counts_file, 'CSLICS_'+sheet_name, assesor_id)
 
 subsurface_image_count_total = subsurface_mean * nimage_to_tank_volume
 subsurface_image_count_std = subsurface_std * nimage_to_tank_volume
@@ -353,7 +365,7 @@ surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
 def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
                     manual_decimal_days, mc, plot_manual_std,
                     idx_subsuface_manual, dt_idx_subsurface_manual,
-                    result_plot_name):
+                    result_plot_name, scale_subsurface_at_2):
     fig1, ax1 = plt.subplots()
     # subsurface counts
     plt.plot(plot_subsurface_days, plot_subsurface_mean, label='subsurface count')
@@ -365,7 +377,10 @@ def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_
     plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
     
     #highlight Scale point
-    plt.plot(manual_decimal_days[0], mc[0], 'ro', label='callibration point', markersize=10)
+    if scale_subsurface_at_2:
+        plt.plot(manual_decimal_days[-2], mc[-2], 'ro', label='callibration point', markersize=10)
+    else:
+        plt.plot(manual_decimal_days[0], mc[0], 'ro', label='callibration point', markersize=10)
 
     #labeling
     plt.xlabel('days since stocking')
@@ -392,12 +407,13 @@ for i in manual_decimal_days[submersion_idx:]:
     dt_idx_subsurface_manual.append(plot_subsurface_days[idx-1])
 
 if before_2023:
-    manual_std = mc * n
+    manual_std = np.full(len(mc), np.std(mc))
+
 
 subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
                 manual_decimal_days[submersion_idx:], mc[submersion_idx:], 
                 manual_std[submersion_idx:],
-                idx_subsuface_manual, dt_idx_subsurface_manual, result_plot_name)
+                idx_subsuface_manual, dt_idx_subsurface_manual, result_plot_name, scale_subsurface_at_2)
 
 
 #### surface plot
@@ -451,7 +467,7 @@ print('results ploted')
 def whole_pot(manual_decimal_days, mc, manual_std,
               decimal_days, subsurface_image_count_total, subsurface_image_count_std,
               surface_decimal_days, surface_counttank_total, surface_counttank_total_std, 
-              result_plot_name, submersion_idx, idx_surface_manual_count):
+              result_plot_name, submersion_idx, idx_surface_manual_count, scale_subsurface_at_2):
     fig3, ax3 = plt.subplots()
     # subsurface counts
     plt.plot(decimal_days, subsurface_image_count_total, label='subsurface count')
@@ -469,7 +485,10 @@ def whole_pot(manual_decimal_days, mc, manual_std,
     
     #highlight Scale point
     plt.plot(manual_decimal_days[idx_surface_manual_count], mc[idx_surface_manual_count], 'ro', label='surface callibration point', markersize=10)
-    plt.plot(manual_decimal_days[submersion_idx], mc[submersion_idx], 'bo', label='subsurface callibration point', markersize=10)
+    if scale_subsurface_at_2:
+        plt.plot(manual_decimal_days[-2], mc[-2], 'ro', label='subsurface callibration point', markersize=10)
+    else:
+        plt.plot(manual_decimal_days[submersion_idx], mc[submersion_idx], 'bo', label='subsurface callibration point', markersize=10)
 
     plt.xlabel('days since stocking')
     plt.ylabel('tank count')
@@ -482,7 +501,7 @@ def whole_pot(manual_decimal_days, mc, manual_std,
 whole_pot(manual_decimal_days, mc, manual_std,
               decimal_days[:subsurface_stop_idx], subsurface_image_count_total[:subsurface_stop_idx], subsurface_image_count_std[:subsurface_stop_idx],
               surface_decimal_days[:subsurface_stop_idx], surface_counttank_total[:subsurface_stop_idx], surface_counttank_total_std[:subsurface_stop_idx], 
-              result_plot_name, submersion_idx, idx_surface_manual_count)
+              result_plot_name, submersion_idx, idx_surface_manual_count, scale_subsurface_at_2)
 
 
 ################################### Fertilistion Rates ########################################

@@ -161,16 +161,16 @@ class Surface_Detector(Detector):
                 folder_name = imglist[i*self.skip_interval].split('/')[-2]
                 #folder_name = txt_basename.split('_')[1]
                 if self.img_pattern == '*/*.jpg':
-                    img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + '.jpg')
+                    img_name = os.path.join(self.img_dir, folder_name, txt_basename[:-8] + self.img_pattern[-4:])
                 else:
-                    img_name = os.path.join(self.img_dir, txt_basename[:-8] + '.jpg')
+                    img_name = os.path.join(self.img_dir, txt_basename[:-8] + self.img_pattern[-4:])
                 try:
                     CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
                                         txt_name=txt,
                                         detections=detections)
                     results.append(CImage)
                 except:
-                    print(f'problem with {txt_basename}')
+                    print(f'problem with {txt_basename}, when saving as CImage')
                     import code
                     code.interact(local=dict(globals(), **locals()))
                 
