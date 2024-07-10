@@ -22,7 +22,7 @@ sys.path.insert(0, '')
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 
 ## Varibles for running the script
-Fert_Rate = False #if True, will calculate the fertalisation rate
+Fert_Rate = True #if True, will calculate the fertalisation rate
 Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
 scale_detection_results = True #if True, scale the detection results to the tank size
 scale_subsurface_at_2 = False #if True, scale the subsurface counts at the second last manual count
@@ -76,11 +76,11 @@ capture_time = []
 
 if Counts_avalible==False:
     # if before_2023:
-    img_pattern = '*.jpg'
-    img_dir = data_dir+dataset+'/images_jpg'
+    # img_pattern = '*.jpg'
+    # img_dir = data_dir+dataset+'/images_jpg'
     # else:
-    #     img_pattern = '*/*.jpg'
-    #     img_dir = data_dir+dataset+'/images'
+    img_pattern = '*/*.jpg'
+    img_dir = data_dir+dataset+'/images'
     MAX_IMG = 10e10
     skip_img = 50
     subsurface_pkl_name = 'subsurface_detections.pkl'
@@ -99,9 +99,10 @@ if Counts_avalible==False:
     Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
                                         output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
     Subsurface_Detection.run()
-    # Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
-    #                                   output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
-    # Fertilisation_Detection.run()
+    if Fert_Rate:
+        Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
+                                        output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
+        Fertilisation_Detection.run()
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
     fert_det_path = os.path.join(save_dir_fert, fert_pkl_name)
@@ -191,12 +192,16 @@ def new_read_manual_counts(file, sheet_name):
     std = []
     for i, value in enumerate(count_coloum):
         if i % 6 == 0 and pd.notna(date_column[i]) and pd.notna(time_column[i]): 
-            combined_datetime_obj = datetime.combine(date_column[i], time_2[i])
+            combined_datetime_obj = datetime.combine(date_column[i], time_column[i])
             combined_datetime_objects.append(combined_datetime_obj)
         if i>3 and (i - 4) % 6 == 0 and not np.isnan(value): 
             man_counts.append(value)
         if i>4 and (i - 5) % 6 == 0 and not np.isnan(value):
             std.append(value)    
+    if (len(man_counts) < 1) or len(combined_datetime_objects) < 1:
+        print('error reading the manual counts, check colum headings')
+        import code
+        code.interact(local=dict(globals(), **locals()))
     return combined_datetime_objects, man_counts, std
 
     """create a time history got coral counts"""
@@ -457,10 +462,11 @@ for i in manual_decimal_days[:submersion_idx+1]:
     idx_suface_manual.append(idx)
     dt_idx_surface_manual.append(plot_surface_days[idx-1])
 
-surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
-             manual_decimal_days[:submersion_idx+1], 
-             mc[:submersion_idx+1], manual_std[:submersion_idx+1],
-             idx_suface_manual, dt_idx_surface_manual, result_plot_name, idx_surface_manual_count)
+if not scale_subsurface_at_2:
+    surface_plot(plot_surface_days, plot_surface_mean, plot_surface_std,
+                manual_decimal_days[:submersion_idx+1], 
+                mc[:submersion_idx+1], manual_std[:submersion_idx+1],
+                idx_suface_manual, dt_idx_surface_manual, result_plot_name, idx_surface_manual_count)
 
 print('results ploted')
 
@@ -520,19 +526,19 @@ if Fert_Rate:
 def fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_name):
     fig4, ax4 = plt.subplots()
     plt.plot(fert_decimal_mins, fert_ratio, 
-             color='blue', label='fertilisation rate')
+             color='blue', label='fertilisation success')
     plt.plot(fert_decimal_mins, fert_mean, 
-             color='red', label='mean fertilisation rate')
+             color='red', label='mean fertilisation success')
     plt.xlabel('minutes since stocking')
-    plt.ylabel('tank count')
-    plt.title('fertalisation rate')
+    plt.ylabel('fertalisation ratio')
+    plt.title('fertalisation success')
     plt.suptitle(plot_title)
     plt.legend()
     ax4.set_ylim(0, 1.0)
     plt.grid(True)
     plt.savefig(os.path.join(save_plot_dir, result_plot_name+"fertalisation.png"))
 
-if Fert_Rate:
+if Fert_Rate and not scale_subsurface_at_2:
     fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_name)
 
 import code

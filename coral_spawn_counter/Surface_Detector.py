@@ -38,7 +38,7 @@ class Surface_Detector(Detector):
     DEFAULT_TIME = None # minutes
     
     DEFAULT_DETECTOR_IMAGE_SIZE = 1280
-    DEFAULT_CONFIDENCE_THREASHOLD = 0.01
+    DEFAULT_CONFIDENCE_THREASHOLD = 0.30
     DEFAULT_IOU = 0.45
     DEFAULT_MAX_IMG = 100000 # per image
     DEFAULT_MAX_DET = 999 # max detections per image
