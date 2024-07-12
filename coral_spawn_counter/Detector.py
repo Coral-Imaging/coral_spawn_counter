@@ -85,12 +85,19 @@ class Detector(object):
         yellow = [255, 255, 0] # advanced
         brown = [144, 65, 2] # damaged
         green = [0, 255, 00] # egg
-        class_colours = {classes[0]: orange,
-                        classes[1]: blue,
-                        classes[2]: purple,
-                        classes[3]: yellow,
-                        classes[4]: brown,
-                        classes[5]: green}
+        colors = [orange, blue, purple, yellow, brown, green]
+        # iterate on length/number of classes (for flexibility, in case number of classes changes)
+        class_colours = {}
+        for i, c in enumerate(classes):
+            # TODO incrementall add to the dictionary
+            class_colours.update({c: colors[i]})
+            
+        # class_colours = {classes[0]: orange,
+        #                 classes[1]: blue,
+        #                 classes[2]: purple,
+        #                 classes[3]: yellow,
+        #                 classes[4]: brown,
+        #                 classes[5]: green}
         return class_colours
 
 
