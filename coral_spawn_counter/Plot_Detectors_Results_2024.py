@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-Uses the results from SubSurface_detector and Surface detector pixkle files and plot them
+Uses the results from SubSurface_detector and Surface detector pickle files and plot them
 Can be  run with or without the Surface and SubSurface Detectors on the relevant data already 
 with subsurface detector being a machine learning yolo detector
 """
@@ -21,16 +21,20 @@ sys.path.insert(0, '')
 
 from coral_spawn_counter.Surface_Detector import Surface_Detector
 
+def get_hyper_focal_dist(f, c, n):
+    return f + f**2 / (c * n)
+
+
 ## Varibles for running the script
 Fert_Rate = True #if True, will calculate the fertalisation rate
-Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
-scale_detection_results = True #if True, scale the detection results to the tank size
+Counts_avalible = False #if True, means pkl files avalible, else run the surface detectors
+scale_detection_results = False #if True, scale the detection results to the tank size
 scale_subsurface_at_2 = False #if True, scale the subsurface counts at the second last manual count
 before_2023 = False #if True, use the old manual counts file format and std of maual coutns = n (see constant definitions)
                     # currently will need to manually set the submersion_idx
 submersion_idx = 1 #will be overwittien if before_2023 is False
 
-with open("/home/java/Java/cslics/coral_spawn_counter/coral_spawn_counter/config.yaml", "r") as f:
+with open("/home/dorian/Code/cslics_ws/src/coral_spawn_counter/coral_spawn_counter/configdt.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 dataset = config["dataset"]
@@ -49,29 +53,65 @@ else:
     result_plot_name = 'tankcounts_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
-    surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
+    subsurface_det_path = data_dir+dataset+'/all_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    surface_det_path = data_dir+dataset+'/alor_atem_all_surface_detections/surface_detections.pkl' # path to surface detections
     fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
 
 ## Constant Definitions
-window_size = 100 # for rolling means, etc
+window_size = 100 # for rolling means, etc # TODO ascertain the effect of window_size on results, including stddev
 n = 1 # how many std deviations to show
 mpercent = 0.1 # range for manual counts
-image_volume = 0.10 # mL
-tank_volume = 500 * 1000 # 500 L * 1000 mL/L
+# image_volume = 0.10 # mL
+tank_volume = 500 * 1000 # 500 L * 1000 mL/L # NOTE in practice, tank volume is less than 500
 image_span = 100 # how many images to averge out for the time history comparison
 idx_surface_manual_count = 0
 # estimated tank specs area
-rad_tank = 100.0/2 # cm^2 # actually measured the tanks this time
+rad_tank = (100.0 * 10)/2 # mm^2 # actually measured the tanks this time
 area_tank = np.pi * rad_tank**2 
-area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
-volume_image = 35 # Ml # VERY MUCH AN APPROXIMATION - TODO FIGURE OUT THE MORE PRECISE METHOD
-volume_tank = 500 * 1000 # 500 L = 500000 ml
+# area_cslics = 1.2**2*(3/4) # cm^2 prboably closer to this @ 10cm distance, cslics04
+# TODO: have done - see dof_calcs.py in focus_experiment, Dorian to integrate
+
+## Camera & Lens characteristics
+# TODO should be a packaged function self-contained that outputs Diff_DOF
+width_pix = 4056 # pixels
+height_pix = 3040 # pixels
+pix_size = 1.55 / 1000 # um -> mm, pixel size
+sensor_width = width_pix * pix_size # mm
+sensor_height = height_pix * pix_size # mm
+f = 12 # mm, focal length
+aperture = 2.8 # f-stop number of the lens
+c = 0.1 # mm, circle of confusion
+hyp_dist = get_hyper_focal_dist(f, c, aperture) # hyper-focal distance = max depth of field of camera
+focus_dist = 50 #mm focusing distance, practically the working distance of the camera
+# NOTE: focus distance was kept to ~ the same in the CSLICS 2023, but may differ between CSLICS (see CSLICS tank setup notes)
+dof_far = (hyp_dist * focus_dist) / (hyp_dist - (focus_dist - f))
+dof_near = (hyp_dist * focus_dist) / (hyp_dist + (focus_dist - f))
+dof_diff = abs(dof_far - dof_near) # mm
+print(f'DoF diff = {dof_diff} mm')
+
+work_dist = focus_dist # mm, working distance
+# 1.33 for refraction through water, lensing effect
+hfov = work_dist * sensor_height / (1.33 * f) # mm, horizontal field-of-view
+vfov = work_dist * sensor_width / (1.33 * f) # mm, vertical field-of-view
+print(f'horizontal FOV = {hfov}')
+print(f'vertical FOV = {vfov}')
+
+area_cslics = hfov * vfov # mm, area of cslics
+print(f'area_cslics = {area_cslics} mm^2')
+
+# we can approximate the frustum as a rectangular prism, since the angular FOV is not that wide
+focus_volume = hfov * vfov * dof_diff # mm^3
+print(f'focus volume = {focus_volume} mm^3')
+
+volume_image = focus_volume / 1000 # Ml # VERY MUCH AN APPROXIMATION - TODO FIGURE OUT THE MORE PRECISE METHOD
+volume_tank = 475 * 1000 # 500 L = 500000 ml
 fertilisation_time = 180 # mintues, how long the fertilisation detector runs for
 if scale_detection_results==False:
     nimage_to_tank_surface = area_tank / area_cslics ### replaced latter with modifier based on manual counts
     nimage_to_tank_volume = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
 capture_time = []
+
+
 
 
 if Counts_avalible==False:
@@ -81,8 +121,8 @@ if Counts_avalible==False:
     # else:
     img_pattern = '*/*.jpg'
     img_dir = data_dir+dataset+'/images'
-    MAX_IMG = 10e10
-    skip_img = 50
+    MAX_IMG = 2000
+    skip_img = 1 # we skip every X images for speed
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
     fert_pkl_name = 'fertalisation_detections.pkl'
@@ -93,15 +133,40 @@ if Counts_avalible==False:
     object_names_file = meta_dir+'/metadata/obj.names'
     subsurface_weights = config["subsurface_weights"]
     surface_weights = config["surface_weights"]
-    Surface_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_surface, 
-                                      output_file=surface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    Surface_Detection = Surface_Detector(weights_file=surface_weights, 
+                                         meta_dir = meta_dir, 
+                                         img_dir=img_dir, 
+                                         save_dir=save_dir_surface, 
+                                         output_file=surface_pkl_name, 
+                                         max_img=MAX_IMG, 
+                                         skip_img=skip_img, 
+                                         img_pattern=img_pattern,
+                                         conf_thresh=0.5,
+                                         iou=0.5)
     Surface_Detection.run()
-    Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_subsurface,
-                                        output_file=subsurface_pkl_name, max_img=MAX_IMG, skip_img=skip_img, img_pattern=img_pattern)
+    Subsurface_Detection = Surface_Detector(weights_file=subsurface_weights, 
+                                            meta_dir = meta_dir, 
+                                            img_dir=img_dir, 
+                                            save_dir=save_dir_subsurface,
+                                            output_file=subsurface_pkl_name, 
+                                            max_img=MAX_IMG, 
+                                            skip_img=skip_img, 
+                                            img_pattern=img_pattern,
+                                            conf_thresh=0.5,
+                                            iou=0.5)
     Subsurface_Detection.run()
     if Fert_Rate:
-        Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, meta_dir = meta_dir, img_dir=img_dir, save_dir=save_dir_fert, 
-                                        output_file=fert_pkl_name, max_img=MAX_IMG, skip_img=1, img_pattern=img_pattern, time_lim=fertilisation_time)
+        Fertilisation_Detection = Surface_Detector(weights_file=surface_weights, 
+                                                   meta_dir = meta_dir, 
+                                                   img_dir=img_dir, 
+                                                   save_dir=save_dir_fert, 
+                                                   output_file=fert_pkl_name, 
+                                                   max_img=MAX_IMG, 
+                                                   skip_img=1, 
+                                                   img_pattern=img_pattern, 
+                                                   time_lim=fertilisation_time,
+                                                   conf_thresh=0.5,
+                                                   iou=0.5)
         Fertilisation_Detection.run()
     subsurface_det_path = os.path.join(save_dir_subsurface, subsurface_pkl_name) 
     surface_det_path = os.path.join(save_dir_surface, surface_pkl_name)
@@ -541,5 +606,6 @@ def fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_
 if Fert_Rate and not scale_subsurface_at_2:
     fert_plot(fert_decimal_mins, fert_ratio, fert_mean, plot_title, result_plot_name)
 
+print('done')
 import code
 code.interact(local=dict(globals(), **locals()))

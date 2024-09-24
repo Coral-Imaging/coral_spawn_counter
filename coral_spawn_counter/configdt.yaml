@@ -1,0 +1,10 @@
+# Pipeline configuration file for cslics
+
+dataset: '20231205_alor_tank4_cslics08' #name of the dataset
+data_dir: '/home/dorian/Data/cslics_2023_datasets/2023_Dec_Spawning/' # where data stored ## save_plot_dir
+manual_counts_file: '/home/dorian/Data/CAD-2.1_C-SLIC_ManualCounts/2023-12/C-SLIC culture density data sheet.xlsx' # path to manual counts
+manual_counts_sheet: 'Dec-A.lor Tank 4' # sheet name in manual counts file
+object_names_file: '/home/dorian/Data/cslics_2023_datasets/metadata/obj.names' # path to object names file
+subsurface_weights: '/home/dorian/Code/cslics_ws/src/coral_spawn_counter/weights/20240520_cslics_subsurface_640p_yolov8x_more_conservative.pt' # path to subsurface weights
+surface_weights: '/home/dorian/Code/cslics_ws/src/coral_spawn_counter/weights/cslics_20230905_yolov8m_640p_amtenuis1000.pt' # path to surface weights
+meta_dir: '/home/dorian/Data/cslics_2023_datasets' # path to metadata directory'

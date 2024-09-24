@@ -38,8 +38,8 @@ class Surface_Detector(Detector):
     DEFAULT_TIME = None # minutes
     
     DEFAULT_DETECTOR_IMAGE_SIZE = 1280
-    DEFAULT_CONFIDENCE_THREASHOLD = 0.30
-    DEFAULT_IOU = 0.45
+    DEFAULT_CONFIDENCE_THRESHOLD = 0.30
+    DEFAULT_IOU = 0.5
     DEFAULT_MAX_IMG = 100000 # per image
     DEFAULT_MAX_DET = 999 # max detections per image
     
@@ -59,7 +59,7 @@ class Surface_Detector(Detector):
                 max_img: int = DEFAULT_MAX_IMG,
                 img_size: int = DEFAULT_DETECTOR_IMAGE_SIZE,
                 weights_file: str = DEFAULT_YOLO8,
-                conf_thresh: float = DEFAULT_CONFIDENCE_THREASHOLD,
+                conf_thresh: float = DEFAULT_CONFIDENCE_THRESHOLD,
                 iou: float = DEFAULT_IOU,
                 output_file: str = DEFAULT_OUTPUT_FILE,
                 txt_dir: str = DEFAULT_TXT_DIR,
