@@ -10,7 +10,7 @@ model.train(data='data/cslics_surface.yaml',
             workers=10,
             cache=True,
             amp=False,
-            batch=-1
+            batch=8,
             )
 
 print('done')
