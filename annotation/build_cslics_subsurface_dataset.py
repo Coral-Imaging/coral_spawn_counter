@@ -12,6 +12,7 @@ import code # for debugging
 # specify target directories (via glob) and image patterns of image files to find
 # img_dir = '/media/dorian/subcslics23/cslics_subsurface_dataset/images/20231102_aant_tank3_cslics06/images/20231104'
 
+random.seed(42)
 
 def copy_random_files(img_dir, out_dir, img_pattern, num_images_get):
     # copy random number of files from one folder (img_dir) to another folder (out_dir)
