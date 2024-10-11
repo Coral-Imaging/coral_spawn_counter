@@ -53,8 +53,8 @@ else:
     result_plot_name = 'tankcounts_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/all_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
-    surface_det_path = data_dir+dataset+'/alor_atem_all_surface_detections/surface_detections.pkl' # path to surface detections
+    subsurface_det_path = data_dir+dataset+'/subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    surface_det_path = data_dir+dataset+'/alor_atem_surface_detections/surface_detections.pkl' # path to surface detections
     fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
 
 ## Constant Definitions
@@ -80,7 +80,7 @@ sensor_width = width_pix * pix_size # mm
 sensor_height = height_pix * pix_size # mm
 f = 12 # mm, focal length
 aperture = 2.8 # f-stop number of the lens
-c = 0.1 # mm, circle of confusion
+c = 0.2 # mm, circle of confusion, def 0.1, increase to 0.2 to double (linear) the sample volume
 hyp_dist = get_hyper_focal_dist(f, c, aperture) # hyper-focal distance = max depth of field of camera
 focus_dist = 50 #mm focusing distance, practically the working distance of the camera
 # NOTE: focus distance was kept to ~ the same in the CSLICS 2023, but may differ between CSLICS (see CSLICS tank setup notes)
@@ -121,13 +121,13 @@ if Counts_avalible==False:
     # else:
     img_pattern = '*/*.jpg'
     img_dir = data_dir+dataset+'/images'
-    MAX_IMG = 2000
+    MAX_IMG = 100000
     skip_img = 1 # we skip every X images for speed
     subsurface_pkl_name = 'subsurface_detections.pkl'
     surface_pkl_name = 'surface_detections.pkl'
     fert_pkl_name = 'fertalisation_detections.pkl'
-    save_dir_subsurface = data_dir+dataset+'/210_subsurface_detections'
-    save_dir_surface = data_dir+dataset+'/alor_atem_2000_surface_detections'
+    save_dir_subsurface = data_dir+dataset+'/100000_subsurface_detections'
+    save_dir_surface = data_dir+dataset+'/alor_atem_100000_surface_detections'
     save_dir_fert = data_dir+dataset+'/fertalisation_detections'
     meta_dir = config["meta_dir"]
     object_names_file = meta_dir+'/metadata/obj.names'
@@ -288,7 +288,7 @@ def new_read_manual_counts(file, sheet_name):
     stds_of_averaged_counts = np.std(averaged_counts)
     return averaged_counts, ts_of_averaged_counts, stds_of_averaged_counts
 
-def load_pixkel_counts(surface_det_path):
+def load_counts(surface_det_path):
     #with open(os.path.join(root_dir, surface_pkl_file), 'rb') as f:
     with open(surface_det_path, 'rb') as f:
         results = pickle.load(f)
@@ -373,7 +373,7 @@ manual_decimal_days = convert_to_decimal_days(dt, zero_time)
 # #######################################################################
 # # Subsurface load pixle data
 # #######################################################################
-capture_time_dt, subsurface_imge_count, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_pixkel_counts(subsurface_det_path)
+capture_time_dt, subsurface_imge_count, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_counts(subsurface_det_path)
 subsurface_mean, subsurface_std, _, _, _, _, _, _ = get_mean_n_std(capture_time_dt, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, subsurface_imge_count, window_size)
 decimal_days = convert_to_decimal_days(capture_time_dt)
@@ -410,7 +410,7 @@ print(f'Before scaling subsurface: RMSE {rmse_not_scaled}, correlation coefficie
 
 ##################################### surface counts ########################################
 
-surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_pixkel_counts(surface_det_path)
+surface_capture_times, surface_counts, count_eggs, count_first, count_two, count_four, count_adv, count_dmg = load_counts(surface_det_path)
 
 surface_count_total_mean, surface_count_total_std, _, _, _, _, _, _ = get_mean_n_std(surface_capture_times, count_eggs, count_first, count_two, count_four,
                         count_adv, count_dmg, surface_counts, window_size)
@@ -431,6 +431,28 @@ surface_counttank_total_std = surface_count_total_std * nimage_to_tank_surface
 ## Plots
 ##############################################################################
 
+
+#### plot image count
+# and std deviation of the counts
+
+subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
+subsurface_stop_idx = bisect.bisect_right(decimal_days, manual_decimal_days[-1])
+
+ss_days = decimal_days[subsurface_start_idx:subsurface_stop_idx]
+ss_img_actual = subsurface_imge_count[subsurface_start_idx:subsurface_stop_idx]
+ss_img_count = subsurface_mean[subsurface_start_idx:subsurface_stop_idx]
+ss_img_count_std = subsurface_std[subsurface_start_idx:subsurface_stop_idx]
+fig0, ax0 = plt.subplots()
+plt.plot(ss_days, ss_img_actual, label='ss image count')
+plt.plot(ss_days, ss_img_count, label='ss image count mean')
+plt.fill_between(ss_days, ss_img_count - ss_img_count_std, ss_img_count + ss_img_count_std, alpha=0.2)
+plt.xlabel('days since stocking')
+plt.ylabel('image count')
+plt.title('Subsurface: Image Counts')
+plt.suptitle(plot_title)
+plt.legend()
+plt.savefig(os.path.join(save_plot_dir, 'subsurface_image_counts.png'))
+
 #### subsurface plot
 def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_std,
                     manual_decimal_days, mc, plot_manual_std,
@@ -439,12 +461,14 @@ def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_
     fig1, ax1 = plt.subplots()
     # subsurface counts
     plt.plot(plot_subsurface_days, plot_subsurface_mean, label='subsurface count')
+    plt.fill_between(plot_subsurface_days, plot_subsurface_mean - plot_subsurface_std, 
+                    plot_subsurface_mean + plot_subsurface_std, alpha=0.2)
     plt.errorbar(dt_idx_subsurface_manual, plot_subsurface_mean[idx_subsuface_manual], 
                  yerr=plot_subsurface_std[idx_subsuface_manual], fmt='o', color='blue', alpha=0.5)
 
     # manual counts
-    plt.plot(manual_decimal_days, mc, label='manual count', color='green', marker='o', linestyle='--')
-    plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='green', alpha=0.5)
+    plt.plot(manual_decimal_days, mc, label='manual count', color='orange', marker='o', linestyle='--')
+    plt.errorbar(manual_decimal_days, mc, yerr=plot_manual_std, fmt='o', color='orange', alpha=0.5)
     
     #highlight Scale point
     if scale_subsurface_at_2:
@@ -458,7 +482,7 @@ def subsurface_plot(plot_subsurface_days, plot_subsurface_mean, plot_subsurface_
     plt.title('Subsurface counts')
     plt.suptitle(plot_title)
     plt.legend()
-    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"subsurface_counts.png"))
+    plt.savefig(os.path.join(save_plot_dir, result_plot_name+"subsurface_counts.png"), dpi=300)
 
 #get location to start and stop the plot
 subsurface_start_idx = bisect.bisect_right(decimal_days,  manual_decimal_days[submersion_idx]) - 1
@@ -535,7 +559,7 @@ if not scale_subsurface_at_2:
 
 print('results ploted')
 
-def whole_pot(manual_decimal_days, mc, manual_std,
+def whole_plot(manual_decimal_days, mc, manual_std,
               decimal_days, subsurface_image_count_total, subsurface_image_count_std,
               surface_decimal_days, surface_counttank_total, surface_counttank_total_std, 
               result_plot_name, submersion_idx, idx_surface_manual_count, scale_subsurface_at_2):
@@ -569,7 +593,7 @@ def whole_pot(manual_decimal_days, mc, manual_std,
     ax3.set_ylim(0, 800000)
     plt.savefig(os.path.join(save_plot_dir, result_plot_name+"whole_counts.png"))
  
-whole_pot(manual_decimal_days, mc, manual_std,
+whole_plot(manual_decimal_days, mc, manual_std,
               decimal_days[:subsurface_stop_idx], subsurface_image_count_total[:subsurface_stop_idx], subsurface_image_count_std[:subsurface_stop_idx],
               surface_decimal_days[:subsurface_stop_idx], surface_counttank_total[:subsurface_stop_idx], surface_counttank_total_std[:subsurface_stop_idx], 
               result_plot_name, submersion_idx, idx_surface_manual_count, scale_subsurface_at_2)
@@ -577,7 +601,7 @@ whole_pot(manual_decimal_days, mc, manual_std,
 
 ################################### Fertilistion Rates ########################################
 if Fert_Rate:
-    fert_dt, fert_total_count, fert_count_eggs, fer_count_first, fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg = load_pixkel_counts(fert_det_path)
+    fert_dt, fert_total_count, fert_count_eggs, fer_count_first, fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg = load_counts(fert_det_path)
     _, _, fert_count_eggs_mean, fert_count_first_mean, fert_count_two_mean, fert_count_four_mean, fert_count_adv_mean, fert_count_dmg_mean = get_mean_n_std(fert_dt, fert_count_eggs, fer_count_first, 
                 fert_count_two, fert_count_four, fert_count_adv, fert_count_dmg, fert_total_count, 20)
     fert_decimal_days = convert_to_decimal_days(fert_dt)
