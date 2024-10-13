@@ -8,12 +8,14 @@ import os
 import glob
 import cv2 as cv
 import matplotlib.pyplot as plt
+import numpy as np
 
 CONTRAST_THRESHOLD=0.02
 EDGE_THRESHOLD=200
 SIGMA=1.2
 MIN_SIZE=10
 MAX_SIZE=200
+DILATE=100
 
 class SiftFeatures:
     
@@ -22,13 +24,23 @@ class SiftFeatures:
                  edge_threshold: float = EDGE_THRESHOLD,
                  sigma: float = SIGMA,
                  min_size: float = MIN_SIZE,
-                 max_size: float = MAX_SIZE):
+                 max_size: float = MAX_SIZE,
+                 dilate: float = DILATE):
         
+        # sift feature parameters
         self.contrast_threshold = contrast_threshold
         self.edge_threshold = edge_threshold
         self.sigma = sigma
+        
+        # filter sift features
         self.min_size = min_size
         self.max_size = max_size
+        
+        # when converting sift features to binary mask of putative coral matches
+        # how much to dilate around the given features
+        # NOTE could consider doing a variable dilation wrt size, but some features have not matched according to size/visually
+        # instead, we choose a constant value appropriate for the size of the corals in the image (max radius) in units of pixels
+        self.dilate = dilate
         
         # contrastThreshold	The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions. The larger the threshold, the less features are produced by the detector.
         
@@ -100,6 +112,26 @@ class SiftFeatures:
         return kp
     
     
+    def create_sift_mask(self, image, kp):
+        # in areas around SIFT features in kp, create binary mask that says areas around here should be considered as putative matches for corals
+        # we do this, so that we can just AND binary masks from other steps in the pipeline that are mask-oriented 
+        
+        # create mask
+        # for each kp, draw on mask with specified dilation radius
+        # return mask
+        
+        mask = np.zeros_like(image, dtype=np.uint8)
+        for k in kp:
+            center = (int(k.pt[0]), int(k.pt[1]))
+            radius = self.dilate
+            color = 255 # binary mask, white
+            thickness = -1 # filled circle
+
+            cv.circle(mask, center, radius, color, thickness)
+        
+        return mask
+        
+    
 if __name__ == "__main__":
     print('SiftFeatures.py')
     
@@ -130,6 +162,13 @@ if __name__ == "__main__":
         basename = os.path.basename(img_name).rsplit('.', 1)[0]
         save_name = os.path.join(save_dir, basename + '_sift.jpg')
         cv.imwrite(save_name, img_ftr)
+        
+        # draw mask of sift regions
+        mask_sift = sift.create_sift_mask(img_bgr, kp)
+        save_name = os.path.join(save_dir, basename + '_mask.jpg')
+        cv.imwrite(save_name, mask_sift)
+        
+        
         
     print('done')
         
