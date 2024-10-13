@@ -7,7 +7,7 @@
 import os
 import glob
 import cv2 as cv
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
 CONTRAST_THRESHOLD=0.02
@@ -25,7 +25,7 @@ class SiftFeatures:
                  sigma: float = SIGMA,
                  min_size: float = MIN_SIZE,
                  max_size: float = MAX_SIZE,
-                 dilate: float = DILATE):
+                 dilate: int = DILATE):
         
         # sift feature parameters
         self.contrast_threshold = contrast_threshold

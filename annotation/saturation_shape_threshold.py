@@ -64,7 +64,7 @@ plt.title('V Value')
 # apply smoothing
 img_s = img_hsv[:,:,1]
 k = 5 # want to choose smoothing kernel less than 10% of radius of corals? (50 px)
-img_s = cv.GaussianBlur(img_s, ksize=(k,k),sigmaX=1 )
+img_s = cv.GaussianBlur(img_s, ksize=(k,k),sigmaX=0 )
 
 
 # show histogram of the image
