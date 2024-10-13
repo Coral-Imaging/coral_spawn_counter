@@ -52,6 +52,10 @@ class Surface_Detector(Detector):
     DEFAULT_OUTPUT_FILE = 'surface_detections.pkl'
     DEFAULT_SKIP_INTERVAL = 1
                  
+    DEFAULT_SAVE_IMAGE = True
+    DEFAULT_SAVE_TEXT = True
+    
+                 
     def __init__(self,
                 meta_dir: str = DEFAULT_META_DIR,
                 img_dir: str = DEFAULT_IMG_DIR,
@@ -66,7 +70,9 @@ class Surface_Detector(Detector):
                 skip_img: int = DEFAULT_SKIP_INTERVAL,
                 max_det: int = DEFAULT_MAX_DET,
                 img_pattern: str = DEFAULT_IMG_PATTERN,
-                time_lim: int = DEFAULT_TIME):
+                time_lim: int = DEFAULT_TIME,
+                save_img: bool = DEFAULT_SAVE_IMAGE,
+                save_txt: bool = DEFAULT_SAVE_TEXT):
         
         self.weights_file = weights_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -81,6 +87,8 @@ class Surface_Detector(Detector):
         self.img_pattern = img_pattern
         self.time_lim = time_lim
 
+        self.save_img = save_img
+        self.save_txt = save_txt
         self.output_file = output_file
         self.txt_dir = txt_dir
         self.skip_interval = skip_img
@@ -391,9 +399,11 @@ class Surface_Detector(Detector):
                     code.interact(local=dict(globals(), **locals()))
 
                 # save predictions as an image
-                self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir, BGR=True)
+                if self.save_img:
+                    self.save_image_predictions(predictions, img_rgb, imgname, imgsave_dir, BGR=True)
                 # save predictions as a text file
-                self.save_text_predictions(predictions, imgname, txtsavedir)
+                if self.save_txt:
+                    self.save_text_predictions(predictions, imgname, txtsavedir)
                 #self.ground_truth_compare_predict(img_rgb, imgname, predictions, imgsave_dir)
                 #self.show_ground_truth(imageCopy, imgname, imgsave_dir)
             
