@@ -5,7 +5,7 @@
 
 import cv2 as cv
 import numpy as np
-
+import os
 
 
 class FilterCommon:
@@ -99,9 +99,9 @@ class FilterCommon:
         if DENOISE:
             # denoise
             image = cv.fastNlMeansDenoising(image, 
-                                                templateWindowSize=self.template_window_size,
-                                                searchWindowSize=self.search_window_size,
-                                                h=self.denoise_strength)
+                                            templateWindowSize=self.template_window_size,
+                                            searchWindowSize=self.search_window_size,
+                                            h=self.denoise_strength)
         
         if THRESHOLD:
             # threshold using Otsu's method to automatically get threshold
@@ -132,3 +132,46 @@ class FilterCommon:
             mask, label_list = self.filter_components(np.zeros_like(mask), num_labels, labels, stats)
 
         return mask
+    
+    
+    def display_mask_overlay(self, image, mask, mask_alpha=0.25, mask_color=(0,125,240)):
+        # display image with mask as an overlay
+        # assume the mask is the same size as the input image TODO should check this
+        # mask_alpha is the transparency factor
+        
+        # resize mask to match image size
+        mask = cv.resize(mask, (image.shape[1], image.shape[0]))
+        mask = mask.astype(bool)
+        
+        mask_bgr = np.zeros_like(image)
+        mask_bgr[:,:,0] = mask * mask_color[0]
+        mask_bgr[:,:,1] = mask * mask_color[1]
+        mask_bgr[:,:,2] = mask * mask_color[2]
+
+        mask_bgr = cv.cvtColor(mask_bgr, cv.COLOR_BGR2BGRA)
+        
+        if image.shape[2] == 3:
+            image = cv.cvtColor(image, cv.COLOR_BGR2BGRA)
+
+        blended = cv.addWeighted(mask_bgr, mask_alpha, image, 1-mask_alpha, 0)
+        
+        return blended
+        
+        
+        
+    def save_image(self, image, image_name, save_dir, str_pattern, quality=50):
+        # save image with image name, 
+        # assume that image_name is absolute filename/path coming from glob
+        # save the image in dir
+        # according to str_pattern, which specifies the filetype
+        # quality to save space
+        
+        basename = os.path.basename(image_name).rsplit('.', 1)[0]
+        save_name = os.path.join(save_dir, basename + str_pattern)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), quality]
+        cv.imwrite(save_name, image, encode_param)
+        
+        
+        

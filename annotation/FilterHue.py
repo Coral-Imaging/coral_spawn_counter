@@ -93,14 +93,12 @@ if __name__ == "__main__":
             break
         img_bgr = cv.imread(img_name)
         
-        img_hue_mask = hue.create_hue_mask(img_bgr)
+        mask = hue.create_hue_mask(img_bgr)
+        mask_overlay = hue.display_mask_overlay(img_bgr, mask)
         
         # save
-        basename = os.path.basename(img_name).rsplit('.', 1)[0]
-        save_name = os.path.join(save_dir, basename + '_hue.jpg')
-        cv.imwrite(save_name, img_hue_mask)
-        
-        # TODO save image as alpha on original image for easier comparison
+        hue.save_image(mask, img_name, save_dir, '_hue.jpg')
+        hue.save_image(mask_overlay, img_name, save_dir, '_hueoverlay.jpg')
         
     print('done')
 

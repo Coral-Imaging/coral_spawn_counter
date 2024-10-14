@@ -86,15 +86,13 @@ if __name__ == "__main__":
             break
         img_bgr = cv.imread(img_name)
         
-        img_sat_mask = sat.create_saturation_mask(img_bgr)
+        mask = sat.create_saturation_mask(img_bgr)
+        
+        mask_overlay = sat.display_mask_overlay(img_bgr, mask)
         
         # save
-        basename = os.path.basename(img_name).rsplit('.', 1)[0]
-        save_name = os.path.join(save_dir, basename + '_sat.jpg')
-        cv.imwrite(save_name, img_sat_mask)
-        
-        # TODO save image as alpha on original image for easier comparison
-        # TODO should be a base class, since all filter methods will want this functionality
+        sat.save_image(mask, img_name, save_dir, '_sat.jpg')
+        sat.save_image(mask_overlay, img_name, save_dir, '_satoverlay.jpg')
         
     print('done')
 

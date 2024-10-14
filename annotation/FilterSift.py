@@ -9,6 +9,7 @@ import glob
 import cv2 as cv
 # import matplotlib.pyplot as plt
 import numpy as np
+from FilterCommon import FilterCommon
 
 CONTRAST_THRESHOLD=0.02
 EDGE_THRESHOLD=200
@@ -17,7 +18,7 @@ MIN_SIZE=10
 MAX_SIZE=200
 DILATE=100
 
-class SiftFeatures:
+class SiftFeatures(FilterCommon):
     
     def __init__(self,
                  contrast_threshold: float = CONTRAST_THRESHOLD,
@@ -26,6 +27,8 @@ class SiftFeatures:
                  min_size: float = MIN_SIZE,
                  max_size: float = MAX_SIZE,
                  dilate: int = DILATE):
+        
+        FilterCommon.__init__(self)
         
         # sift feature parameters
         self.contrast_threshold = contrast_threshold
@@ -120,7 +123,7 @@ class SiftFeatures:
         # for each kp, draw on mask with specified dilation radius
         # return mask
         
-        mask = np.zeros_like(image, dtype=np.uint8)
+        mask = np.zeros_like(image[:,:,0], dtype=np.uint8)
         for k in kp:
             center = (int(k.pt[0]), int(k.pt[1]))
             radius = self.dilate
@@ -159,15 +162,12 @@ if __name__ == "__main__":
         img_ftr = sift.draw_keypoints(img_bgr, kp)
         
         # save
-        basename = os.path.basename(img_name).rsplit('.', 1)[0]
-        save_name = os.path.join(save_dir, basename + '_sift.jpg')
-        cv.imwrite(save_name, img_ftr)
-        
+        sift.save_image(img_ftr, img_name, save_dir, '_sift.jpg')
+    
         # draw mask of sift regions
         mask_sift = sift.create_sift_mask(img_bgr, kp)
-        save_name = os.path.join(save_dir, basename + '_mask.jpg')
-        cv.imwrite(save_name, mask_sift)
-        
+        mask_overlay = sift.display_mask_overlay(img_bgr, mask_sift)
+        sift.save_image(mask_overlay, img_name, save_dir, '_siftoverlay.jpg')
         
         
     print('done')
