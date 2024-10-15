@@ -18,7 +18,7 @@ MIN_SIZE=10
 MAX_SIZE=200
 DILATE=100
 
-class SiftFeatures(FilterCommon):
+class SiftFilter(FilterCommon):
     
     def __init__(self,
                  contrast_threshold: float = CONTRAST_THRESHOLD,
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     
     save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/sift'
     os.makedirs(save_dir, exist_ok=True)
-    sift = SiftFeatures()
+    sift = SiftFilter()
     max_img = 10
     for i, img_name in enumerate(img_list):
         print()

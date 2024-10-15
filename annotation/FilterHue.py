@@ -27,7 +27,7 @@ FILTER_MAX_CIRCULARITY = 1.0
 HUE_MIN = 0
 HUE_MAX = 30
 
-class HueFilter(FilterCommon):
+class FilterHue(FilterCommon):
     
     def __init__(self,
                  template_window_size: int = DENOISE_TEMPLATE_WINDOW_SIZE,

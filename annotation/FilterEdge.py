@@ -26,7 +26,7 @@ KERNEL_EDGE_DILATION_SIZE = 101
 
 # NOTE use edge_detection.py to determine what canny edge thresholds to use, as they are quite sensitive
 
-class EdgeFilter(FilterCommon):
+class FilterEdge(FilterCommon):
     
     def __init__(self,
                  template_window_size: int = DENOISE_TEMPLATE_WINDOW_SIZE,
