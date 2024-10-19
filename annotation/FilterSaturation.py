@@ -88,7 +88,7 @@ if __name__ == "__main__":
     save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/saturation'
     os.makedirs(save_dir, exist_ok=True)
     
-    sat = SaturationFilter()
+    sat = FilterSaturation()
     max_img = 10
     for i, img_name in enumerate(img_list):
         print()
