@@ -15,14 +15,14 @@ KERNEL_SIZE=11
 
 KERNEL_GAUSSIAN_SMOOTH = 37
 
-CANNY_LOWER_THRESHOLD = 6
-CANNY_UPPER_THRESHOLD = 7
+CANNY_LOWER_THRESHOLD = 8
+CANNY_UPPER_THRESHOLD = 15
 
 FILTER_MIN_AREA = 2000
 FILTER_MAX_AREA = 40000
 FILTER_MIN_CIRCULARITY = 0.3
 FILTER_MAX_CIRCULARITY = 1.0
-KERNEL_EDGE_DILATION_SIZE = 101
+KERNEL_EDGE_DILATION_SIZE = 31
 
 # NOTE use edge_detection.py to determine what canny edge thresholds to use, as they are quite sensitive
 
@@ -40,22 +40,37 @@ class FilterEdge(FilterCommon):
                  max_circ: float = FILTER_MAX_CIRCULARITY,
                  kernel_size: int = KERNEL_SIZE,
                  edge_dilation: int = KERNEL_EDGE_DILATION_SIZE,
-                 gaussian_kernel: int = KERNEL_GAUSSIAN_SMOOTH):
+                 gaussian_kernel: int = KERNEL_GAUSSIAN_SMOOTH,
+                 config: dict = None):
         
-        FilterCommon.__init__(self, 
-                              template_window_size, 
-                              search_window_size,
-                              denoise_strength,
-                              min_area,
-                              max_area,
-                              min_circ,
-                              max_circ,
-                              kernel_size)
-        
-        self.canny_lower_thresh = canny_lower_thresh
-        self.canny_upper_thresh = canny_upper_thresh
-        self.edge_dilation = edge_dilation
-        self.gaussian_kernel = gaussian_kernel
+        if config:
+            FilterCommon.__init__(self, 
+                                config['denoise_template_window_size'], 
+                                config['denoise_search_window_size'],
+                                config['denoise_strength'],
+                                config['min_area'],
+                                config['max_area'],
+                                config['min_circularity'],
+                                config['max_circularity'],
+                                config['kernel_size'])
+            self.canny_lower_thresh = config['canny_lower_thresh']
+            self.canny_upper_thresh = config['canny_upper_thresh']
+            self.edge_dilation = config['edge_dilation']
+            self.gaussian_kernel = config['gaussian_kernel']
+        else:
+            FilterCommon.__init__(self, 
+                                template_window_size, 
+                                search_window_size,
+                                denoise_strength,
+                                min_area,
+                                max_area,
+                                min_circ,
+                                max_circ,
+                                kernel_size)
+            self.canny_lower_thresh = canny_lower_thresh
+            self.canny_upper_thresh = canny_upper_thresh
+            self.edge_dilation = edge_dilation
+            self.gaussian_kernel = gaussian_kernel
         
     
     def create_edge_mask(self, image_bgr):
@@ -88,8 +103,9 @@ class FilterEdge(FilterCommon):
                             THRESHOLD=False,
                             MORPH=True,
                             FILL_HOLES=True,
-                            FILTER_CC=True)
-        
+                            FILTER_CC=True,
+                            SAVE_STEPS=False)
+
         # expand the surviving regions
         kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (self.edge_dilation, self.edge_dilation))
         mask_dilated = cv.dilate(mask, kernel, iterations=1)
@@ -102,13 +118,15 @@ if __name__ == "__main__"        :
     print('EdgeFilter.py')
     
     img_pattern = '*.jpg'
-    img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+    # img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+    img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
     img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
     
-    save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/edge'
+    # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/edge'
+    save_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/edge'
     os.makedirs(save_dir, exist_ok=True)
     
-    edge = EdgeFilter()
+    edge = FilterEdge()
     max_img = 4
     
     for i, img_name in enumerate(img_list):

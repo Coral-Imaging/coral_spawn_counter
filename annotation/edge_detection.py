@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 img_pattern = '*.jpg'
-img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+# img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
 i = 0
@@ -82,9 +83,9 @@ if TOOL:
 
     cv.destroyAllWindows()
 else:
-    ksize = kernel_size[18]
-    l = 6
-    u = 7
+    ksize = kernel_size[6] #18
+    l = 6# 6
+    u = 10 # 7
     
 
 
@@ -140,7 +141,7 @@ plt.title('image filled in from threshold')
 numlabels, labels, stats, centroids = cv.connectedComponentsWithStats(img_thresh, connectivity=8)
 filtered_image = np.zeros_like(img_thresh)
 
-min_area = 2000
+min_area = 1500
 max_area = 40000
 
 min_circ = 0.3

@@ -87,7 +87,8 @@ class FilterCommon:
                 THRESHOLD=True,
                 MORPH=True,
                 FILL_HOLES=True,
-                FILTER_CC=True):
+                FILTER_CC=True,
+                SAVE_STEPS=False):
         # 1) denoise
         # 2) threshold (Otsu's)
         # 3) morphological ops for nicer blobs (maybe should be after fill-in holes?)
@@ -102,12 +103,17 @@ class FilterCommon:
                                             templateWindowSize=self.template_window_size,
                                             searchWindowSize=self.search_window_size,
                                             h=self.denoise_strength)
+            if SAVE_STEPS:
+                self.save_image(image, image_name='01denoise')
         
         if THRESHOLD:
             # threshold using Otsu's method to automatically get threshold
             thresh_value, mask = cv.threshold(image, thresh_min, thresh_max, thresh_meth)
+            if SAVE_STEPS:
+                self.save_image(mask, image_name='02thresh')
         else:
             mask = image
+            
         
         if MORPH:
             # apply morphological operations
@@ -116,21 +122,25 @@ class FilterCommon:
             mask = cv.dilate(mask, kernel, iterations = 1)
             mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
             mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
+            if SAVE_STEPS:
+                self.save_image(mask, image_name='03morph')
         
         if FILL_HOLES:
             # fill in any holes from original threshold
             contour, _ = cv.findContours(mask, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
             for cont in contour:
                 cv.drawContours(mask, [cont], 0, 255, -1)
+            if SAVE_STEPS:
+                self.save_image(mask, image_name='04fill')
         
         if FILTER_CC:
             # group blobs into connected components for analysis
             num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(mask, 
                                                                                 connectivity=8)
-            
-            
             mask, label_list = self.filter_components(np.zeros_like(mask), num_labels, labels, stats)
-
+            if SAVE_STEPS:
+                self.save_image(mask, image_name='05filter')
+                
         return mask
     
     
@@ -159,7 +169,7 @@ class FilterCommon:
         
         
         
-    def save_image(self, image, image_name, save_dir, str_pattern, quality=50):
+    def save_image(self, image, image_name, save_dir='./', str_pattern='.jpg', quality=50):
         # save image with image name, 
         # assume that image_name is absolute filename/path coming from glob
         # save the image in dir

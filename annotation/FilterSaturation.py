@@ -24,7 +24,7 @@ FILTER_MAX_CIRCULARITY = 1.0
 
 KERNEL_SIZE=11
 
-class SaturationFilter(FilterCommon):
+class FilterSaturation(FilterCommon):
     
     def __init__(self,
                  template_window_size: int = DENOISE_TEMPLATE_WINDOW_SIZE,
@@ -34,17 +34,29 @@ class SaturationFilter(FilterCommon):
                  max_area: float = FILTER_MAX_AREA,
                  min_circ: float = FILTER_MIN_CIRCULARITY,
                  max_circ: float = FILTER_MAX_CIRCULARITY,
-                 kernel_size: int = KERNEL_SIZE):
+                 kernel_size: int = KERNEL_SIZE,
+                 config: dict = None):
         
-        FilterCommon.__init__(self, 
-                              template_window_size, 
-                              search_window_size,
-                              denoise_strength,
-                              min_area,
-                              max_area,
-                              min_circ,
-                              max_circ,
-                              kernel_size)
+        if config:
+            FilterCommon.__init__(self, 
+                                config['denoise_template_window_size'], 
+                                config['denoise_search_window_size'],
+                                config['denoise_strength'],
+                                config['min_area'],
+                                config['max_area'],
+                                config['min_circularity'],
+                                config['max_circularity'],
+                                config['kernel_size'])
+        else:
+            FilterCommon.__init__(self, 
+                                template_window_size, 
+                                search_window_size,
+                                denoise_strength,
+                                min_area,
+                                max_area,
+                                min_circ,
+                                max_circ,
+                                kernel_size)
    
   
     

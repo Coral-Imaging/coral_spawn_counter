@@ -24,6 +24,8 @@ FILTER_MAX_AREA = 20000
 FILTER_MIN_CIRCULARITY = 0.5
 FILTER_MAX_CIRCULARITY = 1.0
 
+# TODO need to be able to specify which direction the min/max range is
+# due to looping/range from 0 to 255/360 of hue values
 HUE_MIN = 0
 HUE_MAX = 30
 
@@ -39,19 +41,38 @@ class FilterHue(FilterCommon):
                  max_circ: float = FILTER_MAX_CIRCULARITY,
                  kernel_size: int = KERNEL_SIZE,
                  hue_min: float = HUE_MIN,
-                 hue_max: float = HUE_MAX):
+                 hue_max: float = HUE_MAX,
+                 config: dict = None):
         
-        FilterCommon.__init__(self, 
-                              template_window_size, 
-                              search_window_size,
-                              denoise_strength,
-                              min_area,
-                              max_area,
-                              min_circ,
-                              max_circ,
-                              kernel_size)
-        self.hue_min = hue_min
-        self.hue_max = hue_max
+        # hue_denoise_template_window_size = config['hue']['denoise_template_window_size']
+        # hue_denoise_search_window_size = config['hue']['denoise_search_window_size']
+        # hue_denoise_strength = config['hue']['denoise_strength']
+
+        # NOTE: config overrides all defaults and previously-set parameters
+        if config:
+            FilterCommon.__init__(self, 
+                                config['denoise_template_window_size'], 
+                                config['denoise_search_window_size'],
+                                config['denoise_strength'],
+                                config['min_area'],
+                                config['max_area'],
+                                config['min_circularity'],
+                                config['max_circularity'],
+                                config['kernel_size'])
+            self.hue_min = config['hue_min']
+            self.hue_max = config['hue_max']
+        else:
+            FilterCommon.__init__(self, 
+                                template_window_size, 
+                                search_window_size,
+                                denoise_strength,
+                                min_area,
+                                max_area,
+                                min_circ,
+                                max_circ,
+                                kernel_size)
+            self.hue_min = hue_min
+            self.hue_max = hue_max
    
     
     def create_hue_mask(self, image_bgr):
@@ -83,7 +104,7 @@ if __name__ == "__main__":
     save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/hue'
     os.makedirs(save_dir, exist_ok=True)
     
-    hue = HueFilter()
+    hue = FilterHue()
     max_img = 4
     for i, img_name in enumerate(img_list):
         print()

@@ -11,14 +11,14 @@ import cv2 as cv
 import numpy as np
 from FilterCommon import FilterCommon
 
-CONTRAST_THRESHOLD=0.02
+CONTRAST_THRESHOLD=0.03
 EDGE_THRESHOLD=200
 SIGMA=1.2
 MIN_SIZE=10
 MAX_SIZE=200
 DILATE=100
 
-class SiftFilter(FilterCommon):
+class FilterSift(FilterCommon):
     
     def __init__(self,
                  contrast_threshold: float = CONTRAST_THRESHOLD,
@@ -26,31 +26,41 @@ class SiftFilter(FilterCommon):
                  sigma: float = SIGMA,
                  min_size: float = MIN_SIZE,
                  max_size: float = MAX_SIZE,
-                 dilate: int = DILATE):
+                 dilate: int = DILATE,
+                 config: dict = None):
         
-        FilterCommon.__init__(self)
+        if config:
+            FilterCommon.__init__(self)
         
-        # sift feature parameters
-        self.contrast_threshold = contrast_threshold
-        self.edge_threshold = edge_threshold
-        self.sigma = sigma
-        
-        # filter sift features
-        self.min_size = min_size
-        self.max_size = max_size
-        
-        # when converting sift features to binary mask of putative coral matches
-        # how much to dilate around the given features
-        # NOTE could consider doing a variable dilation wrt size, but some features have not matched according to size/visually
-        # instead, we choose a constant value appropriate for the size of the corals in the image (max radius) in units of pixels
-        self.dilate = dilate
+            # sift feature parameters
+            self.contrast_threshold = config['contrast_threshold']
+            self.edge_threshold = config['edge_threshold']
+            self.sigma = config['sigma']
+            
+            # filter sift features
+            self.min_size = config['min_size']
+            self.max_size = config['max_size']
+            self.dilate = config['dilate']
+        else:
+            FilterCommon.__init__(self)
+            # sift feature parameters
+            self.contrast_threshold = contrast_threshold
+            self.edge_threshold = edge_threshold
+            self.sigma = sigma
+            
+            # filter sift features
+            self.min_size = min_size
+            self.max_size = max_size
+            
+            # when converting sift features to binary mask of putative coral matches
+            # how much to dilate around the given features
+            # NOTE could consider doing a variable dilation wrt size, but some features have not matched according to size/visually
+            # instead, we choose a constant value appropriate for the size of the corals in the image (max radius) in units of pixels
+            self.dilate = dilate
         
         # contrastThreshold	The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions. The larger the threshold, the less features are produced by the detector.
-        
         # edgeThreshold	The threshold used to filter out edge-like features. Note that the its meaning is different from the contrastThreshold, i.e. the larger the edgeThreshold, the less features are filtered out (more features are retained).
-        
-        # 	The sigma of the Gaussian applied to the input image at the octave #0. If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
-        
+        # The sigma of the Gaussian applied to the input image at the octave #0. If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         self.sift = cv.SIFT_create(contrastThreshold=self.contrast_threshold, 
                                    edgeThreshold=self.edge_threshold, 
                                    sigma=self.sigma)
