@@ -5,21 +5,20 @@ class:
     - 0 # bue
     - 0 # green
     - 255 #red
-
 hue:
   denoise_template_window_size: 7
   denoise_search_window_size: 21
   denoise_strength: 3
   kernel_size: 11
-  min_area: 1000
+  min_area: 2000
   max_area: 20000
   min_circularity: 0.5
   max_circularity: 1.0
   hue_min: 0
   hue_max: 30
 sift:
-  contrast_threshold: 0.03
-  edge_threshold: 200
+  contrast_threshold: 0.025
+  edge_threshold: 100
   sigma: 1.2
   min_size: 10
   max_size: 200
@@ -28,9 +27,9 @@ saturation:
   denoise_template_window_size: 7
   denoise_search_window_size: 21
   denoise_strength: 3
-  kernel_size: 11
-  min_area: 1000
-  max_area: 20000
+  kernel_size: 21
+  min_area: 2000
+  max_area: 30000
   min_circularity: 0.3
   max_circularity: 1.0
 edge:
@@ -39,11 +38,21 @@ edge:
   denoise_strength: 3
   kernel_size: 31
   min_area: 2000
-  max_area: 40000
+  max_area: 30000
   min_circularity: 0.3
   max_circularity: 1.0
   canny_lower_thresh: 8
   canny_upper_thresh: 15
   edge_dilation: 31
   gaussian_kernel: 37
-
+laplacian:
+  denoise_template_window_size: 11
+  denoise_search_window_size: 31
+  denoise_strength: 5
+  kernel_size: 31
+  min_area: 3000
+  max_area: 40000
+  min_circularity: 0.3
+  max_circularity: 1.0  
+  laplacian_kernel_size: 5
+  edge_dilation_kernel_size: 101

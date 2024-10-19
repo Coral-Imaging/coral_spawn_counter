@@ -19,11 +19,11 @@ import yaml
 import code 
 import re
 
-from FilterEdge import FilterEdge
+# from FilterEdge import FilterEdge
 from FilterSift import FilterSift   
 from FilterHue import FilterHue
 from FilterSaturation import FilterSaturation
-
+from FilterLaplacian import FilterLaplacian
 
 def save_image_predictions(predictions, img, imgname, imgsavedir, class_colors, quality=50, imgformat='.jpg'):
         """
@@ -137,8 +137,9 @@ with open(obj_names_file, 'w') as file:
 
 sift = FilterSift(config=config['sift'])
 sat = FilterSaturation(config=config['saturation'])
-edge = FilterEdge(config=config['edge'])
+# edge = FilterEdge(config=config['edge'])
 hue = FilterHue(config=config['hue'])
+laplacian = FilterLaplacian(config=config['laplacian'])
 
 max_img = 4
 for i, img_name in enumerate(img_list):
@@ -182,9 +183,15 @@ for i, img_name in enumerate(img_list):
     hue.save_image(mask_hue, img_name, save_dir, '_hue.jpg')
     hue.save_image(mask_hue_overlay, img_name, save_dir, '_hueoverlay.jpg')
 
+    # LAPLACIAN FILTER:
+    mask_lapl = laplacian.create_laplacian_mask(img_bgr)
+    mask_lapl_overlay = laplacian.display_mask_overlay(img_bgr, mask_lapl)
+    laplacian.save_image(mask_lapl, img_name, save_dir, '_lapl.jpg')
+    laplacian.save_image(mask_lapl_overlay, img_name, save_dir, '_laploverlay.jpg')
+    
     # COMBINE MASKS
     # mask_combined = mask_sift & mask_sat & mask_edge & mask_hue
-    mask_combined = mask_sift & mask_sat & mask_hue
+    mask_combined = mask_sift & mask_sat & mask_hue & mask_lapl
     # show respective overlays onto original image
     mask_combined_overlay = hue.display_mask_overlay(img_bgr, mask_combined)
     
