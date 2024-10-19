@@ -37,10 +37,10 @@ def save_image_predictions(predictions, img, imgname, imgsavedir, class_colors, 
             xcen, ycen, w, h = p[1], p[2], p[3], p[4]
             
             #extract back into cv lengths
-            x1 = xcen*imgw - w/2
-            x2 = xcen*imgw + w/2
-            y1 = ycen*imgh - h/2
-            y2 = ycen*imgh + h/2      
+            x1 = (xcen - w/2) *imgw
+            x2 = (xcen + w/2) *imgw
+            y1 = (ycen - h/2) *imgh
+            y2 = (ycen + h/2 ) *imgh    
             cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colors, 3)
             # cv.putText(img, f"{class_name}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
 
@@ -83,6 +83,7 @@ def save_text_predictions(annotations, imgname, txtsavedir, txtformat='.txt'):
 
 # TODO might tighten down the dilations as a result for tighter boxes
 
+#####################
 img_pattern = '*.jpg'
 img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
@@ -91,9 +92,30 @@ img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 save_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/output'
 os.makedirs(save_dir, exist_ok=True)
 
+# save dataset export directory
+save_export_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/export'
 # save output annotations
-txt_save_dir = os.path.join(save_dir, 'labels')
+txt_save_dir = os.path.join(save_export_dir, 'obj_train_data')
 os.makedirs(txt_save_dir, exist_ok=True)
+
+# save train.txt file
+train_txt_name = os.path.join(save_export_dir, 'train.txt' )
+# wipe it clean
+with open(train_txt_name, 'w') as train_file:
+    pass
+        
+# save obj.names file
+obj_names_file = os.path.join(save_export_dir, 'obj.names')
+
+# save obj.data file
+obj_data_file = os.path.join(save_export_dir, 'obj.data')
+with open(obj_data_file, 'w') as file:
+    file.write('classes = 1\n')
+    file.write('train = data/train.txt\n')
+    file.write('names = data/obj.names\n')
+    file.write('backup = backup/')
+
+######################
 
 # init filters
 config_file = '../data/annotation_20231102_aant_tank3_cslics06.yaml'
@@ -108,12 +130,17 @@ class_color = tuple(config['class']['color_bgr'])
 # print(type(class_color))
 print(f'class_color = {class_color}')
 
+# write obj.names file:
+with open(obj_names_file, 'w') as file:
+    file.write(class_name)
+
+
 sift = FilterSift(config=config['sift'])
 sat = FilterSaturation(config=config['saturation'])
 edge = FilterEdge(config=config['edge'])
 hue = FilterHue(config=config['hue'])
 
-max_img = 1
+max_img = 4
 for i, img_name in enumerate(img_list):
     print()
     print(f'{i}: {img_name}')
@@ -123,11 +150,11 @@ for i, img_name in enumerate(img_list):
     img_bgr = cv.imread(img_name)
     
     # EDGE FILTER:
-    mask_edge = edge.create_edge_mask(img_bgr)
-    mask_edge_overlay = edge.display_mask_overlay(img_bgr, mask_edge)
+    #mask_edge = edge.create_edge_mask(img_bgr)
+    #mask_edge_overlay = edge.display_mask_overlay(img_bgr, mask_edge)
     
-    edge.save_image(mask_edge, img_name, save_dir, '_edge.jpg')
-    edge.save_image(mask_edge_overlay, img_name, save_dir, '_edgeoverlay.jpg')
+    #edge.save_image(mask_edge, img_name, save_dir, '_edge.jpg')
+    #edge.save_image(mask_edge_overlay, img_name, save_dir, '_edgeoverlay.jpg')
     
     # SIFT FILTER:
     kp = sift.get_best_sift_features(img_bgr)
@@ -156,14 +183,14 @@ for i, img_name in enumerate(img_list):
     hue.save_image(mask_hue_overlay, img_name, save_dir, '_hueoverlay.jpg')
 
     # COMBINE MASKS
-    mask_combined = mask_sift & mask_sat & mask_edge & mask_hue
+    # mask_combined = mask_sift & mask_sat & mask_edge & mask_hue
+    mask_combined = mask_sift & mask_sat & mask_hue
     # show respective overlays onto original image
     mask_combined_overlay = hue.display_mask_overlay(img_bgr, mask_combined)
     
     hue.save_image(mask_combined, img_name, save_dir, '_combined.jpg')
     hue.save_image(mask_combined_overlay, img_name, save_dir, '_combinedoverlay.jpg')
     
-
     # output bboxes from each connected component/region in YOLO format
     img_width, img_height = mask_combined.shape[1], mask_combined.shape[0]
     contours, _ = cv.findContours(mask_combined, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
@@ -173,20 +200,24 @@ for i, img_name in enumerate(img_list):
         x,y,w,h = cv.boundingRect(c)
         xcen = (x + w/2.0)/img_width
         ycen = (y + h/2.0)/img_height
+        
         # x1 = x / img_width
         # y1 = y / img_height
         # x2 = (x + w)/img_width
         # y2 = (y + h)/img_height
         # class x_center y_center width height
-        bb.append([class_label, xcen, ycen, w, h])
+        bb.append([class_label, xcen, ycen, w/img_width, h/img_height])
         
     # export/save to text file
     save_text_predictions(bb, img_name, txt_save_dir)
     
     # draw exported annotations
-    
     save_image_predictions(bb, img_bgr, img_name, save_dir, class_color)
         
+    # append name to train.txt file
+    write_line = os.path.join('data/obj_train_data/', os.path.basename(img_name))
+    with open(train_txt_name, 'a') as train_file:
+        train_file.write(write_line + '\n')
     
 
 print('done')
