@@ -1,0 +1,49 @@
+class:
+  name: coral
+  label: 0
+  color_bgr: 
+    - 0 # bue
+    - 0 # green
+    - 255 #red
+
+hue:
+  denoise_template_window_size: 7
+  denoise_search_window_size: 21
+  denoise_strength: 3
+  kernel_size: 11
+  min_area: 1000
+  max_area: 20000
+  min_circularity: 0.5
+  max_circularity: 1.0
+  hue_min: 0
+  hue_max: 30
+sift:
+  contrast_threshold: 0.03
+  edge_threshold: 200
+  sigma: 1.2
+  min_size: 10
+  max_size: 200
+  dilate: 100
+saturation:
+  denoise_template_window_size: 7
+  denoise_search_window_size: 21
+  denoise_strength: 3
+  kernel_size: 11
+  min_area: 1000
+  max_area: 20000
+  min_circularity: 0.3
+  max_circularity: 1.0
+edge:
+  denoise_template_window_size: 7
+  denoise_search_window_size: 21
+  denoise_strength: 3
+  kernel_size: 31
+  min_area: 2000
+  max_area: 40000
+  min_circularity: 0.3
+  max_circularity: 1.0
+  canny_lower_thresh: 8
+  canny_upper_thresh: 15
+  edge_dilation: 31
+  gaussian_kernel: 37
+

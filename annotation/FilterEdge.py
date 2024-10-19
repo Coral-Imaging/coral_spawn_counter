@@ -104,7 +104,7 @@ class FilterEdge(FilterCommon):
                             MORPH=True,
                             FILL_HOLES=True,
                             FILTER_CC=True,
-                            SAVE_STEPS=False)
+                            SAVE_STEPS=True)
 
         # expand the surviving regions
         kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (self.edge_dilation, self.edge_dilation))

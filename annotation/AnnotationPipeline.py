@@ -17,12 +17,60 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 import yaml
 import code 
+import re
 
 from FilterEdge import FilterEdge
 from FilterSift import FilterSift   
 from FilterHue import FilterHue
 from FilterSaturation import FilterSaturation
 
+
+def save_image_predictions(predictions, img, imgname, imgsavedir, class_colors, quality=50, imgformat='.jpg'):
+        """
+        save predictions/detections (assuming predictions in yolo format) on image
+        """
+        # assuming input image is rgb, need to convert back to bgr:
+        
+        imgw, imgh = img.shape[1], img.shape[0]
+        for p in predictions:
+            cls = int(p[0])
+            xcen, ycen, w, h = p[1], p[2], p[3], p[4]
+            
+            #extract back into cv lengths
+            x1 = xcen*imgw - w/2
+            x2 = xcen*imgw + w/2
+            y1 = ycen*imgh - h/2
+            y2 = ycen*imgh + h/2      
+            cv.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), class_colors, 3)
+            # cv.putText(img, f"{class_name}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
+
+        imgsavename = os.path.basename(imgname)
+        # add day into save directory to prevent an untenable number of images in a single folder
+        os.makedirs(os.path.join(imgsavedir), exist_ok=True)
+        
+        imgsave_path = os.path.join(imgsavedir, imgsavename.rsplit('.',1)[0] + '_annotated' + imgformat)
+        
+        # to save on memory, reduce quality of saved image
+        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), quality]
+        cv.imwrite(imgsave_path, img, encode_param)
+        return True
+    
+def save_text_predictions(annotations, imgname, txtsavedir, txtformat='.txt'):
+        """
+        save annotations/predictions/detections into text file
+        [class x1 y1 x2 y2]
+        """
+        txtsavename = os.path.basename(imgname).rsplit('.',1)[0]
+        os.makedirs(os.path.join(txtsavedir), exist_ok=True)
+        txtsavepath = os.path.join(txtsavedir, txtsavename + txtformat)
+
+        # predictions [ pix pix pix pix conf class ]
+        with open(txtsavepath, 'w') as f:
+            for a in annotations:
+                class_label = int(a[0])
+                x1, y1, x2, y2 = a[1], a[2], a[3], a[4]
+                f.write(f'{class_label:g} {x1:.6f} {y1:.6f} {x2:.6f} {y2:.6f}\n')
+        return True
 
 # the idea is that each Filter outputs a binary mask
 # each image in the dataset is run through each filter
@@ -39,13 +87,27 @@ img_pattern = '*.jpg'
 img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
+# save output images
 save_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/output'
 os.makedirs(save_dir, exist_ok=True)
 
+# save output annotations
+txt_save_dir = os.path.join(save_dir, 'labels')
+os.makedirs(txt_save_dir, exist_ok=True)
+
 # init filters
-config_file = './cslics_annotation_01.yaml'
+config_file = '../data/annotation_20231102_aant_tank3_cslics06.yaml'
 with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
+
+class_name = config['class']['name']
+class_label = config['class']['label']
+# print(type(class_name))
+print(f'class_name = {class_name}')
+class_color = tuple(config['class']['color_bgr'])
+# print(type(class_color))
+print(f'class_color = {class_color}')
+
 sift = FilterSift(config=config['sift'])
 sat = FilterSaturation(config=config['saturation'])
 edge = FilterEdge(config=config['edge'])
@@ -86,7 +148,6 @@ for i, img_name in enumerate(img_list):
     sat.save_image(mask_sat, img_name, save_dir, '_sat.jpg')
     sat.save_image(mask_sat_overlay, img_name, save_dir, '_satoverlay.jpg')
 
-    
     # HUE FILTER:
     mask_hue = hue.create_hue_mask(img_bgr)
     mask_hue_overlay = hue.display_mask_overlay(img_bgr, mask_hue)
@@ -102,9 +163,33 @@ for i, img_name in enumerate(img_list):
     hue.save_image(mask_combined, img_name, save_dir, '_combined.jpg')
     hue.save_image(mask_combined_overlay, img_name, save_dir, '_combinedoverlay.jpg')
     
-    # import code
-    # code.interact(local=dict(globals(), **locals()))
 
+    # output bboxes from each connected component/region in YOLO format
+    img_width, img_height = mask_combined.shape[1], mask_combined.shape[0]
+    contours, _ = cv.findContours(mask_combined, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    bb = []
+    for c in contours:
+        # get bbox:
+        x,y,w,h = cv.boundingRect(c)
+        xcen = (x + w/2.0)/img_width
+        ycen = (y + h/2.0)/img_height
+        # x1 = x / img_width
+        # y1 = y / img_height
+        # x2 = (x + w)/img_width
+        # y2 = (y + h)/img_height
+        # class x_center y_center width height
+        bb.append([class_label, xcen, ycen, w, h])
+        
+    # export/save to text file
+    save_text_predictions(bb, img_name, txt_save_dir)
     
-    # TODO output bboxes from each connected component/region in YOLO format
+    # draw exported annotations
+    
+    save_image_predictions(bb, img_bgr, img_name, save_dir, class_color)
+        
+    
+
+print('done')
+# import code
+# code.interact(local=dict(globals(), **locals()))
     

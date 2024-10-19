@@ -139,8 +139,7 @@ class FilterCommon:
                                                                                 connectivity=8)
             mask, label_list = self.filter_components(np.zeros_like(mask), num_labels, labels, stats)
             if SAVE_STEPS:
-                self.save_image(mask, image_name='05filter')
-                
+                self.save_image(mask, image_name='05filter')       
         return mask
     
     
