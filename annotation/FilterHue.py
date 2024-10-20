@@ -28,7 +28,7 @@ FILTER_MAX_CIRCULARITY = 1.0
 # due to looping/range from 0 to 255/360 of hue values
 HUE_MIN = 0
 HUE_MAX = 30
-
+EDGE_DILATION_KERNEL_SIZE = 31
 class FilterHue(FilterCommon):
     
     def __init__(self,
@@ -42,6 +42,7 @@ class FilterHue(FilterCommon):
                  kernel_size: int = KERNEL_SIZE,
                  hue_min: float = HUE_MIN,
                  hue_max: float = HUE_MAX,
+                 edge_dilation_kernel_size: int = EDGE_DILATION_KERNEL_SIZE,
                  config: dict = None):
         
         # hue_denoise_template_window_size = config['hue']['denoise_template_window_size']
@@ -58,9 +59,15 @@ class FilterHue(FilterCommon):
                                 config['max_area'],
                                 config['min_circularity'],
                                 config['max_circularity'],
-                                config['kernel_size'])
+                                config['kernel_size'],
+                                config['process_denoise'],
+                                config['process_thresh'],
+                                config['process_morph'],
+                                config['process_fill'],
+                                config['process_filter'])
             self.hue_min = config['hue_min']
             self.hue_max = config['hue_max']
+            self.edge_dilation_kernel_size = config['edge_dilation_kernel_size']
         else:
             FilterCommon.__init__(self, 
                                 template_window_size, 
@@ -70,11 +77,18 @@ class FilterHue(FilterCommon):
                                 max_area,
                                 min_circ,
                                 max_circ,
-                                kernel_size)
+                                kernel_size,
+                                process_denoise=True,
+                                process_thresh=True,
+                                process_morph=False,
+                                process_fill=False,
+                                process_filter=False
+                                )
             self.hue_min = hue_min
             self.hue_max = hue_max
+            self.edge_dilation_kernel_size = edge_dilation_kernel_size
    
-    
+   
     def create_hue_mask(self, image_bgr):
         # process hue image to create mask of where relevant blobs are
         image_hsv = cv.cvtColor(image_bgr, cv.COLOR_BGR2HSV)
@@ -85,11 +99,10 @@ class FilterHue(FilterCommon):
                             thresh_min=self.hue_max, 
                             thresh_max=255, 
                             thresh_meth=cv.THRESH_BINARY_INV,
-                            DENOISE=True,
-                            THRESHOLD=True,
-                            MORPH=False,
-                            FILL_HOLES=False,
-                            FILTER_CC=False)
+                            SAVE_STEPS=True)
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (self.edge_dilation_kernel_size, self.edge_dilation_kernel_size))
+        mask = cv.dilate(mask, kernel, iterations=1)
+        
         return mask
     
     
@@ -98,14 +111,14 @@ if __name__ == "__main__":
     print('HueFilter.py')
     
     img_pattern = '*.jpg'
-    img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+    img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
     img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
     
-    save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/hue'
+    save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output/hue'
     os.makedirs(save_dir, exist_ok=True)
     
     hue = FilterHue()
-    max_img = 4
+    max_img = 3
     for i, img_name in enumerate(img_list):
         print()
         print(f'{i}: {img_name}')

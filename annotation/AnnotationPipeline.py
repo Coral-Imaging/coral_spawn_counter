@@ -8,7 +8,7 @@
 # Hue
 # Saturation
 # TODO also, Hough transform
-# TODO also Laplacian
+# also Laplacian
 
 import os
 import glob
@@ -18,6 +18,7 @@ import cv2 as cv
 import yaml
 import code 
 import re
+import time
 
 # from FilterEdge import FilterEdge
 from FilterSift import FilterSift   
@@ -85,15 +86,15 @@ def save_text_predictions(annotations, imgname, txtsavedir, txtformat='.txt'):
 
 #####################
 img_pattern = '*.jpg'
-img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
+img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
 # save output images
-save_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/output'
+save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output'
 os.makedirs(save_dir, exist_ok=True)
 
 # save dataset export directory
-save_export_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/export'
+save_export_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/export'
 # save output annotations
 txt_save_dir = os.path.join(save_export_dir, 'obj_train_data')
 os.makedirs(txt_save_dir, exist_ok=True)
@@ -118,7 +119,7 @@ with open(obj_data_file, 'w') as file:
 ######################
 
 # init filters
-config_file = '../data/annotation_20231102_aant_tank3_cslics06.yaml'
+config_file = '../data/annotation_20231103_aten_tank4_cslics08.yaml'
 with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
 
@@ -141,7 +142,8 @@ sat = FilterSaturation(config=config['saturation'])
 hue = FilterHue(config=config['hue'])
 laplacian = FilterLaplacian(config=config['laplacian'])
 
-max_img = 4
+start_time = time.time()
+max_img = 2
 for i, img_name in enumerate(img_list):
     print()
     print(f'{i}: {img_name}')
@@ -168,20 +170,20 @@ for i, img_name in enumerate(img_list):
     mask_sift = sift.create_sift_mask(img_bgr, kp)
     mask_sift_overlay = sift.display_mask_overlay(img_bgr, mask_sift)
     sift.save_image(mask_sift_overlay, img_name, save_dir, '_siftoverlay.jpg')
-        
-    # SATURATION FILTER:
-    mask_sat = sat.create_saturation_mask(img_bgr)
-    mask_sat_overlay = sat.display_mask_overlay(img_bgr, mask_sat)
- 
-    sat.save_image(mask_sat, img_name, save_dir, '_sat.jpg')
-    sat.save_image(mask_sat_overlay, img_name, save_dir, '_satoverlay.jpg')
-
+    
     # HUE FILTER:
     mask_hue = hue.create_hue_mask(img_bgr)
     mask_hue_overlay = hue.display_mask_overlay(img_bgr, mask_hue)
     
     hue.save_image(mask_hue, img_name, save_dir, '_hue.jpg')
     hue.save_image(mask_hue_overlay, img_name, save_dir, '_hueoverlay.jpg')
+
+    # SATURATION FILTER:
+    mask_sat = sat.create_saturation_mask(img_bgr)
+    mask_sat_overlay = sat.display_mask_overlay(img_bgr, mask_sat)
+ 
+    sat.save_image(mask_sat, img_name, save_dir, '_sat.jpg')
+    sat.save_image(mask_sat_overlay, img_name, save_dir, '_satoverlay.jpg')
 
     # LAPLACIAN FILTER:
     mask_lapl = laplacian.create_laplacian_mask(img_bgr)
@@ -226,6 +228,12 @@ for i, img_name in enumerate(img_list):
     with open(train_txt_name, 'a') as train_file:
         train_file.write(write_line + '\n')
     
+end_time = time.time()
+duration = end_time - start_time
+print('run time: {} sec'.format(duration))
+print('run time: {} min'.format(duration / 60.0))
+print('run time: {} hrs'.format(duration / 3600.0))
+print(f'time[s]/image = {duration / len(img_list)}')
 
 print('done')
 # import code

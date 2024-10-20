@@ -46,7 +46,12 @@ class FilterSaturation(FilterCommon):
                                 config['max_area'],
                                 config['min_circularity'],
                                 config['max_circularity'],
-                                config['kernel_size'])
+                                config['kernel_size'],
+                                config['process_denoise'],
+                                config['process_thresh'],
+                                config['process_morph'],
+                                config['process_fill'],
+                                config['process_filter'])
         else:
             FilterCommon.__init__(self, 
                                 template_window_size, 
@@ -56,7 +61,13 @@ class FilterSaturation(FilterCommon):
                                 max_area,
                                 min_circ,
                                 max_circ,
-                                kernel_size)
+                                kernel_size,
+                                process_denoise=True,
+                                process_thresh=True,
+                                process_morph=True,
+                                process_fill=True,
+                                process_filter=True
+                                )
    
   
     
@@ -73,7 +84,7 @@ class FilterSaturation(FilterCommon):
         #     Usage: Saturation helps to control the vividness of colors in an image.
         image_hsv = cv.cvtColor(image_bgr, cv.COLOR_BGR2HSV)
         image_s = image_hsv[:,:,1]
-        mask = self.process(image_s)
+        mask = self.process(image_s, SAVE_STEPS=False)
         return mask
     
     

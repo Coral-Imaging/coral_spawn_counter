@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 img_pattern = '*.jpg'
-img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
 i = 0
@@ -97,8 +97,8 @@ plt.title('labelled connected components')
 # for visualisation, create a new image of the filtered components
 filtered_image = np.zeros_like(img_sb)
 
-min_area = 1000
-max_area = 20000
+min_area = 200
+max_area = 10000
 
 min_circ = 0.5
 max_circ = 1.0

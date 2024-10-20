@@ -19,6 +19,12 @@ class FilterCommon:
     FILTER_MAX_CIRCULARITY = 1.0
     KERNEL_SIZE=11
     
+    PROCESS_DENOISE = True
+    PROCESS_THRESH = True
+    PROCESS_MORPH = True
+    PROCESS_FILL = True
+    PROCESS_FILTER = True
+    
     def __init__(self,
                  template_window_size: int = DENOISE_TEMPLATE_WINDOW_SIZE,
                  search_window_size: int = DENOISE_SEARCH_WINDOW_SIZE,
@@ -27,7 +33,12 @@ class FilterCommon:
                  max_area: float = FILTER_MAX_AREA,
                  min_circ: float = FILTER_MIN_CIRCULARITY,
                  max_circ: float = FILTER_MAX_CIRCULARITY,
-                 kernel_size: int = KERNEL_SIZE):
+                 kernel_size: int = KERNEL_SIZE,
+                 process_denoise: bool = PROCESS_DENOISE,
+                 process_thresh: bool = PROCESS_THRESH,
+                 process_morph: bool = PROCESS_MORPH,
+                 process_fill: bool = PROCESS_FILL,
+                 process_filter: bool = PROCESS_FILTER):
         
         self.template_window_size = template_window_size
         self.search_window_size = search_window_size
@@ -41,6 +52,12 @@ class FilterCommon:
             print(f'kernel size received was {kernel_size}. Must be odd, adding 1 to make odd.')
             kernel_size+=1
         self.kernel_size = kernel_size
+        
+        self.process_denoise = process_denoise
+        self.process_thresh = process_thresh
+        self.process_morph = process_morph
+        self.process_fill = process_fill
+        self.process_filter = process_filter
 
 
     def filter_components(self, image_filter, num_labels, labels, stats):
@@ -83,11 +100,6 @@ class FilterCommon:
                 thresh_min=0, 
                 thresh_max=255, 
                 thresh_meth=cv.THRESH_BINARY + cv.THRESH_OTSU,
-                DENOISE=True,
-                THRESHOLD=True,
-                MORPH=True,
-                FILL_HOLES=True,
-                FILTER_CC=True,
                 SAVE_STEPS=False):
         # 1) denoise
         # 2) threshold (Otsu's)
@@ -97,7 +109,7 @@ class FilterCommon:
         # 6) filter
         
 
-        if DENOISE:
+        if self.process_denoise:
             # denoise
             image = cv.fastNlMeansDenoising(image, 
                                             templateWindowSize=self.template_window_size,
@@ -106,7 +118,7 @@ class FilterCommon:
             if SAVE_STEPS:
                 self.save_image(image, image_name='01denoise')
         
-        if THRESHOLD:
+        if self.process_thresh:
             # threshold using Otsu's method to automatically get threshold
             thresh_value, mask = cv.threshold(image, thresh_min, thresh_max, thresh_meth)
             if SAVE_STEPS:
@@ -114,8 +126,16 @@ class FilterCommon:
         else:
             mask = image
             
+        # import matplotlib.pyplot as plt
+        # plt.figure()
+        # plt.imshow(image)   
+        # plt.title('denoised image')
+        # plt.show()
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+
         
-        if MORPH:
+        if self.process_morph:
             # apply morphological operations
             # to make image filter components smoothed out, and a bit nicer
             kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (self.kernel_size, self.kernel_size))
@@ -125,7 +145,7 @@ class FilterCommon:
             if SAVE_STEPS:
                 self.save_image(mask, image_name='03morph')
         
-        if FILL_HOLES:
+        if self.process_fill:
             # fill in any holes from original threshold
             contour, _ = cv.findContours(mask, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
             for cont in contour:
@@ -133,7 +153,7 @@ class FilterCommon:
             if SAVE_STEPS:
                 self.save_image(mask, image_name='04fill')
         
-        if FILTER_CC:
+        if self.process_filter:
             # group blobs into connected components for analysis
             num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(mask, 
                                                                                 connectivity=8)

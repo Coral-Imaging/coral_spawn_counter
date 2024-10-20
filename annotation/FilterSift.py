@@ -18,6 +18,10 @@ MIN_SIZE=10
 MAX_SIZE=200
 DILATE=100
 
+DENOISE_TEMPLATE_WINDOW_SIZE = 7
+DENOISE_SEARCH_WINDOW_SIZE = 21
+DENOISE_STRENGTH = 5
+
 class FilterSift(FilterCommon):
     
     def __init__(self,
@@ -27,11 +31,19 @@ class FilterSift(FilterCommon):
                  min_size: float = MIN_SIZE,
                  max_size: float = MAX_SIZE,
                  dilate: int = DILATE,
+                 template_window_size: int = DENOISE_TEMPLATE_WINDOW_SIZE,
+                 search_window_size: int = DENOISE_SEARCH_WINDOW_SIZE,
+                 denoise_strength: float = DENOISE_STRENGTH,
                  config: dict = None):
         
         if config:
             FilterCommon.__init__(self)
         
+            # denoise parameters
+            self.template_window_size = config['denoise_template_window_size']
+            self.search_window_size = config['denoise_search_window_size']
+            self.denoise_strength = config['denoise_strength']
+            
             # sift feature parameters
             self.contrast_threshold = config['contrast_threshold']
             self.edge_threshold = config['edge_threshold']
@@ -43,6 +55,12 @@ class FilterSift(FilterCommon):
             self.dilate = config['dilate']
         else:
             FilterCommon.__init__(self)
+            
+            # denoise parameters
+            self.template_window_size = template_window_size
+            self.search_window_size = search_window_size
+            self.denoise_strength = denoise_strength
+            
             # sift feature parameters
             self.contrast_threshold = contrast_threshold
             self.edge_threshold = edge_threshold
@@ -69,9 +87,14 @@ class FilterSift(FilterCommon):
     def get_keypoints(self, image, mask=None):
         # assume image coming in is bgr
         image_gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        
+        image_denoise = cv.fastNlMeansDenoising(image_gray, 
+                                                templateWindowSize=self.template_window_size,
+                                                searchWindowSize=self.search_window_size,
+                                                h=self.denoise_strength)
         # NOTE: mask can be a binary area of where to look for keypoints, and is optional in the image
         # TODO checks for valid image, numpy array
-        keypoints = self.sift.detect(image_gray, mask)
+        keypoints = self.sift.detect(image_denoise, mask)
         return keypoints
         
     
@@ -154,7 +177,7 @@ if __name__ == "__main__":
     
     save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/sift'
     os.makedirs(save_dir, exist_ok=True)
-    sift = SiftFilter()
+    sift = FilterSift()
     max_img = 10
     for i, img_name in enumerate(img_list):
         print()

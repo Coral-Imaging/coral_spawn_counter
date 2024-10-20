@@ -20,7 +20,7 @@ FILTER_MAX_CIRCULARITY = 1.0
 
 KERNEL_EDGE_DILATION_SIZE = 51
 LAPLACIAN_KERNEL_SIZE = 5
-
+LAPLACIAN_THRESHOLD = 25
 class FilterLaplacian(FilterCommon):
     
     def __init__(self,
@@ -34,6 +34,7 @@ class FilterLaplacian(FilterCommon):
                  kernel_size: int = KERNEL_SIZE,
                  laplacian_kernel_size: int = LAPLACIAN_KERNEL_SIZE,
                  edge_dilation_kernel_size: int = KERNEL_EDGE_DILATION_SIZE,
+                 laplacian_threshold: int = LAPLACIAN_THRESHOLD,
                  config: dict = None):
         if config:
             FilterCommon.__init__(self, 
@@ -44,8 +45,14 @@ class FilterLaplacian(FilterCommon):
                                 config['max_area'],
                                 config['min_circularity'],
                                 config['max_circularity'],
-                                config['kernel_size'])
+                                config['kernel_size'],
+                                config['process_denoise'],
+                                config['process_thresh'],
+                                config['process_morph'],
+                                config['process_fill'],
+                                config['process_filter'])
             self.laplacian_kernel_size = config['laplacian_kernel_size']
+            self.laplacian_threshold = config['laplacian_threshold']
             self.edge_dilation_kernel_size = config['edge_dilation_kernel_size']
         else:
             FilterCommon.__init__(self, 
@@ -56,8 +63,15 @@ class FilterLaplacian(FilterCommon):
                                 max_area,
                                 min_circ,
                                 max_circ,
-                                kernel_size)
+                                kernel_size,
+                                process_denoise=True,
+                                process_thresh=True,
+                                process_morph=True,
+                                process_fill=True,
+                                process_filter=True
+                                )
             self.laplacian_kernel_size = laplacian_kernel_size
+            self.laplacian_threshold = laplacian_threshold
             self.edge_dilation_kernel_size = edge_dilation_kernel_size
         
         
@@ -84,15 +98,10 @@ class FilterLaplacian(FilterCommon):
         # import code
         # code.interact(local=dict(globals(), **locals()))
         mask = self.process(abs_lapl, 
-                            thresh_min=25,
+                            thresh_min=self.laplacian_threshold,
                             thresh_max=255,
                             thresh_meth=cv.THRESH_BINARY,
-                            DENOISE=True,
-                            THRESHOLD=True,
-                            MORPH=True,
-                            FILL_HOLES=True,
-                            FILTER_CC=True,
-                            SAVE_STEPS=True)
+                            SAVE_STEPS=False)
         
         # need a big dilation at the end to expand the region
         # expand the surviving regions
