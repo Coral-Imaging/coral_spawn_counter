@@ -7,8 +7,10 @@ has detector.save_to_text_predictions
 set class colours, etc
 """
 
+
 import os
 import cv2 as cv
+import re
 # import numpy as np
 import glob as glob
 # from datetime import datetime
@@ -85,14 +87,40 @@ class Detector(object):
         yellow = [255, 255, 0] # advanced
         brown = [144, 65, 2] # damaged
         green = [0, 255, 00] # egg
-        class_colours = {classes[0]: orange,
-                        classes[1]: blue,
-                        classes[2]: purple,
-                        classes[3]: yellow,
-                        classes[4]: brown,
-                        classes[5]: green}
+        colors = [orange, blue, purple, yellow, brown, green]
+        # iterate on length/number of classes (for flexibility, in case number of classes changes)
+        class_colours = {}
+        for i, c in enumerate(classes):
+            # TODO incrementall add to the dictionary
+            class_colours.update({c: colors[i]})
+            
+        # class_colours = {classes[0]: orange,
+        #                 classes[1]: blue,
+        #                 classes[2]: purple,
+        #                 classes[3]: yellow,
+        #                 classes[4]: brown,
+        #                 classes[5]: green}
         return class_colours
 
+    def get_date_str(self, relative_filename, pattern=None):
+        """get_date_str
+        gets date string from filename following cslics image naming convention
+        designed for basename only, untested with absolute filepaths
+        Args:
+            name (_type_): _description_
+        """
+        if pattern is None:
+            pattern = r'cslics\d+_(\d{8})'
+            # regular expression to extract the date from the filename of the format:
+            # 'cslics01_20231205_234344_838548_img.jpg'
+        match = re.search(pattern, relative_filename)
+        if match:
+            date_str = match.group(1)
+        else:
+            date_str = None
+            print('get_date_str: no date found in filename')
+        return date_str
+        
 
     def save_text_predictions(self, predictions, imgname, txtsavedir):
         """
@@ -100,7 +128,10 @@ class Detector(object):
         [x1 y1 x2 y2 conf class_idx class_name]
         """
         txtsavename = os.path.basename(imgname)
-        txtsavepath = os.path.join(txtsavedir, txtsavename[:-4] + self.SUFFIX_TXT)
+        date_str = self.get_date_str(txtsavename)
+        os.makedirs(os.path.join(txtsavedir, date_str), exist_ok=True)
+        
+        txtsavepath = os.path.join(txtsavedir, date_str, txtsavename[:-4] + self.SUFFIX_TXT)
 
         # predictions [ pix pix pix pix conf class ]
         with open(txtsavepath, 'w') as f:
@@ -113,7 +144,7 @@ class Detector(object):
         return True
     
     
-    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=False):
+    def save_image_predictions(self, predictions, img, imgname, imgsavedir, BGR=False, quality=50):
         """
         save predictions/detections (assuming predictions in yolo format) on image
         """
@@ -134,10 +165,18 @@ class Detector(object):
             cv.putText(img, f"{self.classes[cls]}: {conf:.2f}", (int(x1), int(y1 - 5)), cv.FONT_HERSHEY_SIMPLEX, 0.5, self.class_colours[self.classes[cls]], 2)
 
         imgsavename = os.path.basename(imgname)
-        imgsave_path = os.path.join(imgsavedir, imgsavename[:-4] + self.SUFFIX_IMG)
+        # add day into save directory to prevent an untenable number of images in a single folder
+        # get date from imgsavename
+        date_str = self.get_date_str(imgsavename)
+        os.makedirs(os.path.join(imgsavedir, date_str), exist_ok=True)
+        
+        imgsave_path = os.path.join(imgsavedir, date_str, imgsavename.rsplit('.',1)[0] + self.SUFFIX_IMG)
+        
         if BGR:
             img = cv.cvtColor(img, cv.COLOR_RGB2BGR)        
-        cv.imwrite(imgsave_path, img)
+        # to save on memory, reduce quality of saved image
+        encode_param = [int(cv.IMWRITE_JPEG_QUALITY), quality]
+        cv.imwrite(imgsave_path, img, encode_param)
         return True
 
         

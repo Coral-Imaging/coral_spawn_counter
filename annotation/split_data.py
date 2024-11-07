@@ -75,12 +75,17 @@ def split_files(input_dir, output_dir, train_ratio, val_ratio):
 
     """
     # Get the total number of files in the input directory
-    length = len(os.listdir(input_dir))
-    print(f'length = {length}')
+    num_images = len(os.listdir(input_dir))
+    print(f'length = {num_images}')
     
     # Calculate the number of training and validation files based on the ratios provided
-    train_length = int(length * train_ratio)
-    val_length = int(length * val_ratio)
+    train_length = int(num_images * train_ratio)
+    val_length = int(num_images * val_ratio)
+    
+    print(f'total images: {num_images}')
+    print(f'number of train images = {train_length}')
+    print(f'number of val images = {val_length}')
+    print(f'number of test images = {num_images - train_length - val_length}')
     
     # Copy the files into the appropriate directories
     for fname in sorted(os.listdir(input_dir))[:train_length]:
@@ -94,8 +99,8 @@ def split_files(input_dir, output_dir, train_ratio, val_ratio):
 # ==================================================================================================
 
 # train/val/test ratio
-train_ratio = 0.7
-val_ratio = 0.15
+train_ratio = 0.85
+val_ratio = 0.1
 # test_ratio is remainder
 test_ratio = 1.0 - train_ratio - val_ratio
 
@@ -109,14 +114,14 @@ if not ((train_ratio + val_ratio + test_ratio) == 1):
     ValueError(train_ratio, 'sum of train/val/test ratios must equal 1')
 
 # image folder with all images
-img_dir = '/home/java/Java/data/202212_aloripedes_500/images'
+img_dir = '/home/dorian/Data/cslics_desktop/data/2023_combined_larvae/images'
 
 # text folder with all annotations
-ann_dir = '/home/java/Java/data/202212_aloripedes_500/labels'
+ann_dir = '/home/dorian/Data/cslics_desktop/data/2023_combined_larvae/labels'
 
 # output folder
-output_dir_images = '/home/java/Java/data/202212_aloripedes_500/test/images'
-output_dir_txt = '/home/java/Java/data/202212_aloripedes_500/test/labels'
+output_dir_images = '/home/dorian/Data/cslics_desktop/data/2023_combined_larvae/split/images'
+output_dir_txt = '/home/dorian/Data/cslics_desktop/data/2023_combined_larvae/split/labels'
 # ==================================================================================================
 os.makedirs(output_dir_images, exist_ok=True)
 os.makedirs(os.path.join(output_dir_images, 'train'), exist_ok=True)
