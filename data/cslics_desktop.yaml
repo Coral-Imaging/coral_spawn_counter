@@ -1,0 +1,26 @@
+# data config file that defines:
+# the dataset root directory "path"
+# the relative paths to train/val/test image directories (or text files with image paths)
+# a class "names" dictionary
+
+path: /home/java/Java/data/cslics_desktop_data/
+train: 
+ - 2023_combined_embryogenesis/split/train # training images relative to 'path' 
+ - Negative_images
+ - cslics_desktop_October_2024_aken/train
+val: 
+ - 2023_combined_embryogenesis/split/val # validation images relative to 'path'
+ - cslics_desktop_October_2024_aken/val
+test: 
+ - 2023_combined_embryogenesis/split/test # test images (optional)
+ - cslics_desktop_October_2024_aken/test
+
+
+# Classes
+names:
+  0: FourEightCell
+  1: FirstCleavage
+  2: TwoCell
+  3: Advanced
+  4: Damaged
+  5: Egg

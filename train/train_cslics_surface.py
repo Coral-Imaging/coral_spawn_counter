@@ -1,16 +1,17 @@
 from ultralytics import YOLO
 
 # load pretrained model
-model = YOLO('weights/yolov8x.pt')
+model = YOLO('yolov8n.pt')
 
 # train the model
-model.train(data='data/cslics_surface.yaml', 
-            epochs=300, 
-            imgsz=640,
+model.train(data='data/cslics_desktop.yaml', 
+            epochs=500, 
+            imgsz=1280,
             workers=10,
             cache=True,
             amp=False,
-            batch=-1
+            batch=1,
+            project='cslics_desktop_2024'
             )
 
 print('done')

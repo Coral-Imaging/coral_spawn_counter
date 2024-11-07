@@ -9,7 +9,7 @@ import random
 
 #if want to split train, val, test data
 #directory has a images and labels subfolder
-dir = '/home/java/Java/data/cslics_2924_alor_1000_(2022n23_combined)'
+dir = '/home/java/Java/data/cslics_desktop_data/cslics_desktop_October_2024_aken'
 
 train_ratio = 0.70
 test_ratio = 0.15
@@ -63,12 +63,12 @@ def move_file(filelist,savepathbase,savepathext):
     for i, item in enumerate(filelist):
         copy_link(item, output_path)
 
-move_file(txtlist,dir,'labels/train')
-move_file(imagelist,dir,'images/train')
-move_file(validtext,dir,'labels/val')
-move_file(validimg,dir,'images/val')
-move_file(testtext,dir,'labels/test')
-move_file(testimg,dir,'images/test')
+move_file(txtlist,dir,'train/labels')
+move_file(imagelist,dir,'train/images')
+move_file(validtext,dir,'val/labels')
+move_file(validimg,dir,'val/images')
+move_file(testtext,dir,'test/labels')
+move_file(testimg,dir,'test/images')
 
 print("split complete")
 
