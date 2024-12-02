@@ -15,18 +15,18 @@ import zipfile
 import sys
 
 ### File locations ###
-base_file = "/home/java/Downloads/annotations.xml"
-base_img_location = "/home/java/Java/data/cslics_desktop_data/cslics_desktop_2024_October_maeq/images_all"
-output_filename = "/home/java/Downloads/cslics_2024_1pm_complete.xml"
+base_file = "/home/java/Downloads/pde_n_alor/annotations.xml"
+base_img_location = "/home/java/Java/data/cslics_desktop_data/20241121_alor_n_pde"
+output_filename = "/home/java/Downloads/pde_n_alor.xml"
 # base_file = sys.args[1]
 # base_img_location = sys.args[2]
 # output_filename = sys.args[3]
 
 ### Parameters ###
-weight_file = "/home/java/Java/ultralytics/runs/detect/cslics_desktop_Nov_2024/weights/best.pt"
+weight_file = "/home/java/Java/cslics/cslics_surface_detectors_models/cslics_desktop_20241125.pt"
 
 classes = ["Four-Eight-Cell Stage", "First Cleavage", "Two-Cell Stage", "Advanced Stage", "Damaged", "Egg", "Larvae"]
-labeled = [0,1,2,3,4,5,6,7,8,9,10, 15, 25, 30, 50, 55, 60, 65, 70,71,72,73,74,75,76,77,78,79,80, 89]
+labeled = None # [0,1,2,3,4,5,6,7,8,9,10, 15, 25, 30, 50, 55, 60, 65, 70,71,72,73,74,75,76,77,78,79,80, 89]
 
 
 class Detect2Cvat:
@@ -39,13 +39,15 @@ class Detect2Cvat:
                  output_file: str = OUTPUT_FILE, 
                  weights_file: str = DEFAULT_WEIGHT_FILE,
                  base_file: str = BASE_FILE, 
-                 output_as_mask: str = False):
+                 output_as_mask: str = False,
+                 labeled: list = None):
         self.img_location = img_location
         self.base_file = base_file
         self.output_file = output_file
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.model = YOLO(weights_file).to(self.device)
         self.output_as_mask = output_as_mask
+        self.labeled = labeled
 
 
     def run(self):
@@ -80,7 +82,7 @@ class Detect2Cvat:
             new_elem.set('height', str(image_height))
             
             #copy images already labeled
-            if i in labeled:
+            if self.labeled is not None and i in self.labeled:
                 boxes = image_element.findall('.//box')
                 for box in boxes:
                     new_box = SubElement(new_elem, 'box')
