@@ -9,7 +9,7 @@ import random
 
 #if want to split train, val, test data
 #directory has a images and labels subfolder
-dir = '/home/java/Java/data/cslics_desktop_data/cslics_desktop_October_2024_aken'
+inpur_dir = '/home/java/Java/data/cslics_desktop_data/cslics_desktop_2024_October_maeq'
 
 train_ratio = 0.70
 test_ratio = 0.15
@@ -21,8 +21,8 @@ def check_ratio(test_ratio,train_ratio,valid_ratio):
     if not((train_ratio+test_ratio+valid_ratio)==1): ValueError("sum of train/val/test ratio must equal 1")
 check_ratio(test_ratio,train_ratio,valid_ratio)
 
-imagelist = glob.glob(os.path.join(dir,'images', '*.jpg'))
-txtlist = glob.glob(os.path.join(dir, 'labels', '*.txt'))
+imagelist = glob.glob(os.path.join(inpur_dir,'images_all', '*.jpg'))
+txtlist = glob.glob(os.path.join(inpur_dir, 'labels_all', '*.txt'))
 txtlist.sort()
 imagelist.sort()
 imgno = len(txtlist) 
@@ -63,12 +63,12 @@ def move_file(filelist,savepathbase,savepathext):
     for i, item in enumerate(filelist):
         copy_link(item, output_path)
 
-move_file(txtlist,dir,'train/labels')
-move_file(imagelist,dir,'train/images')
-move_file(validtext,dir,'val/labels')
-move_file(validimg,dir,'val/images')
-move_file(testtext,dir,'test/labels')
-move_file(testimg,dir,'test/images')
+move_file(txtlist,inpur_dir,'train/labels')
+move_file(imagelist,inpur_dir,'train/images')
+move_file(validtext,inpur_dir,'val/labels')
+move_file(validimg,inpur_dir,'val/images')
+move_file(testtext,inpur_dir,'test/labels')
+move_file(testimg,inpur_dir,'test/images')
 
 print("split complete")
 
