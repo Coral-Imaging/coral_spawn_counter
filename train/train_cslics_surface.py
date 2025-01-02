@@ -3,7 +3,7 @@ import torch
 
 # load pretrained model
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-model = YOLO('yolov8n.pt')
+model = YOLO('yolov8m.pt')
 
 # train the model
 model.train(data='data_yml_files/cslics_desktop.yaml', 

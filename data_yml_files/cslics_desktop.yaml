@@ -9,16 +9,22 @@ train:
  - 2023_combined_embryogenesis/split/train # training images relative to 'path' 
  - Negative_images/train
  - cslics_desktop_October_2024_aken/train
+ - 20241121_lobo/train
+ - 20241121_alor_n_pde/train
 val: 
  - cslics_desktop_2024_October_maeq/val
  - 2023_combined_embryogenesis/split/val # validation images relative to 'path'
  - cslics_desktop_October_2024_aken/val
  - Negative_images/val
+ - 20241121_lobo/val
+ - 20241121_alor_n_pde/val
 test: 
  - 2023_combined_embryogenesis/split/test # test images (optional)
  - cslics_desktop_October_2024_aken/test
  - Negative_images/test
  - cslics_desktop_2024_October_maeq/test
+ - 20241121_lobo/test
+ - 20241121_alor_n_pde/test
 
 
 # Classes

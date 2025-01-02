@@ -9,7 +9,7 @@ import random
 
 #if want to split train, val, test data
 #directory has a images and labels subfolder
-inpur_dir = '/home/java/Java/data/cslics_desktop_data/cslics_desktop_2024_October_maeq'
+inpur_dir = '/home/java/Java/data/cslics_desktop_data/20241121_lobo'
 
 train_ratio = 0.70
 test_ratio = 0.15
@@ -21,8 +21,8 @@ def check_ratio(test_ratio,train_ratio,valid_ratio):
     if not((train_ratio+test_ratio+valid_ratio)==1): ValueError("sum of train/val/test ratio must equal 1")
 check_ratio(test_ratio,train_ratio,valid_ratio)
 
-imagelist = glob.glob(os.path.join(inpur_dir,'images_all', '*.jpg'))
-txtlist = glob.glob(os.path.join(inpur_dir, 'labels_all', '*.txt'))
+imagelist = glob.glob(os.path.join(inpur_dir,'images', '*.jpg'))
+txtlist = glob.glob(os.path.join(inpur_dir, 'labels', '*.txt'))
 txtlist.sort()
 imagelist.sort()
 imgno = len(txtlist) 
