@@ -27,14 +27,14 @@ def get_hyper_focal_dist(f, c, n):
 
 ## Varibles for running the script
 Fert_Rate = True #if True, will calculate the fertalisation rate
-Counts_avalible = False #if True, means pkl files avalible, else run the surface detectors
-scale_detection_results = False #if True, scale the detection results to the tank size
+Counts_avalible = True #if True, means pkl files avalible, else run the surface detectors
+scale_detection_results = True #if True, scale the detection results to the tank size
 scale_subsurface_at_2 = False #if True, scale the subsurface counts at the second last manual count
 before_2023 = False #if True, use the old manual counts file format and std of maual coutns = n (see constant definitions)
                     # currently will need to manually set the submersion_idx
 submersion_idx = 1 #will be overwittien if before_2023 is False
 
-with open("/home/dorian/Code/cslics_ws/src/coral_spawn_counter/coral_spawn_counter/configdt.yaml", "r") as f:
+with open("/home/java/Java/cslics/coral_spawn_counter/coral_spawn_counter/config_ssd.yaml", "r") as f: ##NOTE this is path to the config file
     config = yaml.safe_load(f)
 
 dataset = config["dataset"]
@@ -45,7 +45,7 @@ object_names_file = config["object_names_file"]
 assesor_id = dataset[-1]
 
 # File locations
-save_plot_dir = data_dir+dataset
+save_plot_dir = data_dir+'Plot_Counts' ##NOTE this is save location
 sheet_name = manual_counts_sheet
 if scale_subsurface_at_2==True:
     result_plot_name = 'tankcounts_with_late_submersion_'
@@ -53,8 +53,8 @@ else:
     result_plot_name = 'tankcounts_'
 plot_title = dataset.split('_')[-1]+ ' ' + sheet_name
 if Counts_avalible==True: #if false will have to set up the paths for the detectors
-    subsurface_det_path = data_dir+dataset+'/subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
-    surface_det_path = data_dir+dataset+'/alor_atem_surface_detections/surface_detections.pkl' # path to surface detections
+    subsurface_det_path = data_dir+dataset+'/210_subsurface_detections/subsurface_detections.pkl'  # path to subsurface detections
+    surface_det_path = data_dir+dataset+'/alor_atem_2000_surface_detections/surface_detections.pkl' # path to surface detections
     fert_det_path = data_dir+dataset+'/fertalisation_detections/fertalisation_detections.pkl' # path to fertalisation detections
 
 ## Constant Definitions
