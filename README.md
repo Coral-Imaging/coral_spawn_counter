@@ -38,3 +38,6 @@ other cslic runs are also on the SSD card `/media/java/cslics_ssd`
 All cslics runs are in Rstore `smb://rstore.qut.edu.au/projects/sef/marine_robotics/dorian/rrap/cslics` 
 
 Current best ultralytics model `/home/java/Java/ultralytics/runs/detect/train - aten_alor_2000/weights/best.pt` trained on 2000 images of aten and alor cslics
+
+## Contact Java
+Java Terry can be reached at '33javalava@gmail.com' or on '0444 584 863'
