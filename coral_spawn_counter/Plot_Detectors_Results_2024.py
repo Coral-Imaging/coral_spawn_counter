@@ -34,7 +34,7 @@ before_2023 = False #if True, use the old manual counts file format and std of m
                     # currently will need to manually set the submersion_idx
 submersion_idx = 1 #will be overwittien if before_2023 is False
 
-with open("/home/java/Java/cslics/coral_spawn_counter/coral_spawn_counter/config_ssd.yaml", "r") as f: ##NOTE this is path to the config file
+with open("/home/wardlewo/Reggie/corals/coral_spawn_counter/coral_spawn_counter/config_ssd.yaml", "r") as f: ##NOTE this is path to the config file
     config = yaml.safe_load(f)
 
 dataset = config["dataset"]
