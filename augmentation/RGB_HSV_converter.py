@@ -2,14 +2,9 @@
 import os
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
-directories = ['/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_november_spawning/100000001ab0438d', 
-               '/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_november_spawning/100000000029da9b', 
-               '/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_november_spawning/100000009c23b5af', 
-               '/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/10000000570f9d9c', 
-               '/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/100000009c23b5af', 
-               '/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/10000000f620da42'
-               ]
+directories = ['/media/java/cslics_ssd/2024_cslics_light_dark_banding']
 
 # Initialize the dictionaries
 banding = {}
@@ -62,7 +57,47 @@ def channel_shift_stitch(image_name: str, channel: str, intensity: int):
     
     return stitched_image
 
-
+def multi_channel_shift_stitch(image_name: str, h_shift: int, s_shift: int, v_shift: int):
+    """
+    Create a stitched image with the same image shifted by specified intensities for H, S, and V channels in HSV color space.
+    
+    Parameters:
+        image_name (str): Path to the input image.
+        h_shift (int): The intensity of the shift for the H channel.
+        s_shift (int): The intensity of the shift for the S channel.
+        v_shift (int): The intensity of the shift for the V channel.
+    
+    Returns:
+        stitched_image (np.ndarray): The stitched image with applied channel shifts.
+    """
+    # Read the image and convert to HSV
+    image = cv2.imread(image_name)
+    if image is None:
+        raise FileNotFoundError(f"Image '{image_name}' not found.")
+    
+    hsv_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    
+    # Function to apply channel shift
+    def shift_channel(hsv_img, h_shift, s_shift, v_shift):
+        shifted_img = hsv_img.copy()
+        shifted_img[:, :, 0] = np.clip(shifted_img[:, :, 0] + h_shift, 0, 255)
+        shifted_img[:, :, 1] = np.clip(shifted_img[:, :, 1] + s_shift, 0, 255)
+        shifted_img[:, :, 2] = np.clip(shifted_img[:, :, 2] + v_shift, 0, 255)
+        return shifted_img
+    
+    # Generate the three versions of the image
+    left_image = shift_channel(hsv_image, -h_shift, -s_shift, -v_shift)
+    right_image = shift_channel(hsv_image, h_shift, s_shift, v_shift)
+    
+    # Convert the shifted images back to BGR
+    left_image_bgr = cv2.cvtColor(left_image, cv2.COLOR_HSV2RGB)
+    center_image_bgr = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
+    right_image_bgr = cv2.cvtColor(right_image, cv2.COLOR_HSV2RGB)
+    
+    # Stitch the images together
+    stitched_image = np.hstack((left_image_bgr, center_image_bgr, right_image_bgr))
+    
+    return stitched_image
 
 class HSVInfo:
     """
@@ -132,31 +167,33 @@ class HSVInfo:
 if __name__ == '__main__':
     # Iterate over the directories
     for directory in directories:
-        # Get the subdirectories
-        subdirectories = ['banding', 'no_banding']
-        
-        # Iterate over the subdirectories
-        for subdirectory in subdirectories:
-            # Get the path to the subdirectory
-            subdirectory_path = os.path.join(directory, subdirectory)
-            
-            # Get the list of image files in the subdirectory
-            image_files = os.listdir(subdirectory_path)
-            
-            # Iterate over the image files
-            for image_file in image_files:
-                # Read the image
-                image_path = os.path.join(subdirectory_path, image_file)
-                image = cv2.imread(image_path)
+        # Search for subdirectories containing 'banding' and 'no_banding'
+        for root, dirs, files in os.walk(directory):
+            if 'banding' in dirs and 'no_banding' in dirs:
+                subdirectories = ['banding', 'no_banding']
                 
-                # Assign the image to the appropriate dictionary
-                if subdirectory == 'banding':
-                    banding[image_file] = image
-                elif subdirectory == 'no_banding':
-                    no_banding[image_file] = image
-                else:
-                    print("Invalid subdirectory.")
-                    raise ValueError("Invalid subdirectory.")
+                # Iterate over the subdirectories
+                for subdirectory in subdirectories:
+                    # Get the path to the subdirectory
+                    subdirectory_path = os.path.join(root, subdirectory)
+                    
+                    # Get the list of image files in the subdirectory
+                    image_files = os.listdir(subdirectory_path)
+                    
+                    # Iterate over the image files
+                    for image_file in image_files:
+                        # Read the image
+                        image_path = os.path.join(subdirectory_path, image_file)
+                        image = cv2.imread(image_path)
+                        
+                        # Assign the image to the appropriate dictionary
+                        if subdirectory == 'banding':
+                            banding[image_file] = image
+                        elif subdirectory == 'no_banding':
+                            no_banding[image_file] = image
+                        else:
+                            print("Invalid subdirectory.")
+                            raise ValueError("Invalid subdirectory.")
 
     # Convert the images to HSV
     banding_hsv = {key: cv2.cvtColor(value, cv2.COLOR_RGB2HSV) for key, value in banding.items()}
@@ -183,7 +220,7 @@ if __name__ == '__main__':
     print(f"\033[1mBanding   V\033[0m | \033[1m{round(banding_value_min.value, 3):<12}\033[0m | \033[1m{round(banding_value_max.value, 3):<13}\033[0m | \033[1m{round(((banding_value_max.value - banding_value_min.value) / banding_value_max.value) * 100, 3):<12}\033[0m | \033[1m{round(banding_value_max.value - banding_value_min.value, 3):<12}\033[0m")
     print(f"NoBanding V | {round(no_banding_value_min.value, 3):<12} | {round(no_banding_value_max.value, 3):<13} | {round(((no_banding_value_max.value - no_banding_value_min.value) / no_banding_value_max.value) * 100, 3):<12} | {round(no_banding_value_max.value - no_banding_value_min.value, 3):<12}")
     print()
-    print(banding_hue_max.name)
+    #print(banding_hue_max.name)
     #print(banding_value_min.name,banding_value_max.name)
 
 
@@ -204,10 +241,11 @@ if __name__ == '__main__':
     print(f"    V       | {no_banding_value_avg:<14} | {round(no_banding_value_std,3):<14} | {banding_value_avg:<13} | {round(banding_value_std,3):<13} | {round(abs(banding_value_avg - no_banding_value_avg) / no_banding_value_avg * 100, 2):<12} | {round(abs(banding_value_avg - no_banding_value_avg), 2):<12}")
     print()
 
-    #testImage = "/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/100000009c23b5af/banding/2024-10-24_16-02-38_clean.jpg"
-    #testImage = "/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_november_spawning/100000000029da9b/banding/2024-11-23_17-01-05_clean.jpg"
-    testImage = "/media/wardlewo/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/100000009c23b5af/no_banding/2024-10-26_03-00-18_clean.jpg"
-    result = channel_shift_stitch(testImage, 'H', banding_hue_std)
+
+    #testImage = "/media/java/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/100000009c23b5af/banding/2024-10-24_16-02-38_clean.jpg"
+    #testImage = "/media/java/cslics_ssd/2024_cslics_light_dark_banding/2024_november_spawning/100000000029da9b/banding/2024-11-23_17-01-05_clean.jpg"
+    testImage = "/media/java/cslics_ssd/2024_cslics_light_dark_banding/2024_october_spawning/100000009c23b5af/no_banding/2024-10-26_03-00-18_clean.jpg"
+    result = multi_channel_shift_stitch(testImage, banding_hue_std, banding_saturation_std, banding_value_std)
     cv2.namedWindow("HSV_Adjusted_Image", cv2.WINDOW_NORMAL) 
     cv2.resizeWindow("HSV_Adjusted_Image", 1920, 1080) 
     cv2.imshow("HSV_Adjusted_Image", result)

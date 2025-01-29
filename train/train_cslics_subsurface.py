@@ -16,4 +16,5 @@ model.train(data='../data/side_imaging.yml',
             batch=4,
             ).to(device)
 
+
 print('done')
