@@ -1,9 +1,9 @@
 run:
-  name: 20231102_aant_tank3_cslics06
-  species: aant
-  date: 20231102
-  camera_id: 06
-  tank: 3
+  name: 100000009c23b5af
+  species: aken
+  date: 20241024
+  camera_id: 02
+  tank: 2
 class:
   name: coral
   label: 0
@@ -18,42 +18,42 @@ hue:
   process_morph: False
   process_fill: False
   process_filter: False
-  denoise_template_window_size: 7
-  denoise_search_window_size: 21
-  denoise_strength: 3
-  kernel_size: 11
+  denoise_template_window_size: 14
+  denoise_search_window_size: 31
+  denoise_strength: 5
+  kernel_size: 31
   min_area: 2000
-  max_area: 20000
-  min_circularity: 0.5
+  max_area: 5000
+  min_circularity: 0.2
   max_circularity: 1.0
   hue_min: 0
-  hue_max: 30
-  edge_dilation_kernel_size: 1
+  hue_max: 40
+  edge_dilation_kernel_size: 31
 sift:
   do: True
-  contrast_threshold: 0.025
+  contrast_threshold: 0.01
   edge_threshold: 100
   sigma: 1.2
   min_size: 10
   max_size: 200
-  dilate: 100
-  denoise_template_window_size: 7
-  denoise_search_window_size: 21
+  dilate: 45
+  denoise_template_window_size: 14
+  denoise_search_window_size: 31
   denoise_strength: 5
 saturation:
   do: True
   process_denoise: True
   process_thresh: True
-  process_morph: True
-  process_fill: True
-  process_filter: True
-  denoise_template_window_size: 7
-  denoise_search_window_size: 21
-  denoise_strength: 3
-  kernel_size: 21
+  process_morph: False
+  process_fill: False
+  process_filter: False
+  denoise_template_window_size: 14
+  denoise_search_window_size: 31
+  denoise_strength: 5
+  kernel_size: 31
   min_area: 2000
   max_area: 30000
-  min_circularity: 0.3
+  min_circularity: 0.2
   max_circularity: 1.0
 edge:
   do: False
@@ -81,19 +81,19 @@ laplacian:
   process_morph: True
   process_fill: True
   process_filter: True
-  denoise_template_window_size: 11
+  denoise_template_window_size: 15
   denoise_search_window_size: 31
-  denoise_strength: 5
-  kernel_size: 31
-  min_area: 3000
-  max_area: 40000
-  min_circularity: 0.3
+  denoise_strength: 7
+  kernel_size: 11
+  min_area: 400
+  max_area: 10000
+  min_circularity: 0.2
   max_circularity: 1.0  
   laplacian_kernel_size: 5
-  edge_dilation_kernel_size: 101
-  laplacian_threshold: 25
+  edge_dilation_kernel_size: 40
+  laplacian_threshold: 35
 value:
-  do: False
+  do: True
   process_denoise: True
   process_thresh: True
   process_morph: True
@@ -103,9 +103,9 @@ value:
   denoise_search_window_size: 21
   denoise_strength: 5
   kernel_size: 21
-  min_area: 2000
+  min_area: 800
   max_area: 40000
-  min_circularity: 0.5
+  min_circularity: 0.2
   max_circularity: 1.0
   value_min: 0
   value_max: 150

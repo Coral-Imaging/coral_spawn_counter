@@ -170,15 +170,29 @@ class FilterSift(FilterCommon):
     
 if __name__ == "__main__":
     print('SiftFeatures.py')
-    
+        
     img_pattern = '*.jpg'
-    img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/images'
+    # img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
+    img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
     img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
     
-    save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/output/sift'
+    # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output/hue'
+    save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/sift'
     os.makedirs(save_dir, exist_ok=True)
-    sift = FilterSift()
-    max_img = 10
+    
+    config = {}
+    config['denoise_template_window_size'] = 14
+    config['denoise_search_window_size'] = 31
+    config['denoise_strength'] = 5
+    config['min_size'] = 10
+    config['max_size'] = 200
+    config['contrast_threshold'] = 0.01
+    config['edge_threshold'] = 100
+    config['sigma'] = 1.2
+    config['dilate'] = 45
+                 
+    sift = FilterSift(config=config)
+    max_img = 5
     for i, img_name in enumerate(img_list):
         print()
         print(f'{i}: {img_name}')
@@ -189,7 +203,7 @@ if __name__ == "__main__":
         kp = sift.get_best_sift_features(img_bgr)
         
         # check:
-        sift.print_keypoints(kp)
+        # sift.print_keypoints(kp)
         
         # draw
         img_ftr = sift.draw_keypoints(img_bgr, kp)

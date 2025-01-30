@@ -75,7 +75,7 @@ class FilterLaplacian(FilterCommon):
             self.edge_dilation_kernel_size = edge_dilation_kernel_size
         
         
-    def create_laplacian_mask(self, image_bgr):
+    def create_laplacian_mask(self, image_bgr, image_name=None, save_dir=None):
         
         # convert to grayscale
         image_g = cv.cvtColor(image_bgr, cv.COLOR_BGR2GRAY)
@@ -90,10 +90,11 @@ class FilterLaplacian(FilterCommon):
         lapl = cv.Laplacian(image_d, cv.CV_16S, ksize=self.laplacian_kernel_size)
         abs_lapl = cv.convertScaleAbs(lapl)
         
-        
+        # uncomment to see absolute laplacian image/values
         # plt.figure()
-        # plt.imshow(abs_lalpl)
+        # plt.imshow(abs_lapl)
         # plt.show()
+        # TODO create a histogram of this to help find?
         
         # import code
         # code.interact(local=dict(globals(), **locals()))
@@ -101,7 +102,9 @@ class FilterLaplacian(FilterCommon):
                             thresh_min=self.laplacian_threshold,
                             thresh_max=255,
                             thresh_meth=cv.THRESH_BINARY,
-                            SAVE_STEPS=False)
+                            SAVE_STEPS=False, # TODO fix if True, but image_name and save_dir not passed, crashes
+                            image_name=image_name,
+                            save_dir=save_dir)
         
         # need a big dilation at the end to expand the region
         # expand the surviving regions
@@ -114,14 +117,36 @@ if __name__ == "__main__":
     print('FilterLaplacian.py')
     
     img_pattern = '*.jpg'
-    img_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/images'
-    img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
+    # root_dir = 
+    # img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
+    img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
+    img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)), reverse=True)
     
-    save_dir = '/Users/doriantsai/Code/cslics_ws/cslics_2023_subsurface_dataset/20231102_aant_tank3_cslics06/laplacian'
+    # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output/hue'
+    save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/laplacian'
     os.makedirs(save_dir, exist_ok=True)
     
-    lap = FilterLaplacian()
+    config = {}
+    config['denoise_template_window_size'] = 14
+    config['denoise_search_window_size'] = 31
+    config['denoise_strength'] = 7
+    config['min_area'] = 400
+    config['max_area'] = 10000
+    config['min_circularity'] = 0.2
+    config['max_circularity'] = 1.0
+    config['kernel_size'] = 11
+    config['process_denoise'] = True
+    config['process_thresh'] = True
+    config['process_morph'] = True
+    config['process_fill'] = True
+    config['process_filter'] = True
+    config['laplacian_kernel_size'] = 5
+    config['laplacian_threshold'] = 20
+    config['edge_dilation_kernel_size'] = 40
+    
+    lap = FilterLaplacian(config=config)
     max_img = 10
+    # iterate over several images
     for i, img_name in enumerate(img_list):
         print()
         print(f'{i}: {img_name}')
@@ -130,12 +155,31 @@ if __name__ == "__main__":
             break
         img_bgr = cv.imread(img_name)
         
-        mask = lap.create_laplacian_mask(img_bgr)
+        basename = os.path.basename(img_name).rsplit('.', 1)[0] # temp hack to save progress
+        mask = lap.create_laplacian_mask(img_bgr, image_name=basename, save_dir=save_dir)
         mask_overlay = lap.display_mask_overlay(img_bgr, mask)
         
         lap.save_image(mask, img_name, save_dir, '_lap.jpg')
         lap.save_image(mask_overlay, img_name, save_dir, '_lapoverlay.jpg')
-        
+    
+    # repeat with different thresholds for one image
+    # img_name = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/images/cslics06_20231206_202458_816291_img.jpg'
+    # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/laplacian'
+    # os.makedirs(save_dir, exist_ok=True)
+    
+    # n = 10
+    # lap_thresh_array = np.linspace(10, n*10, n)
+    # img_bgr = cv.imread(img_name)
+    # print(lap_thresh_array)
+    # for i, lap_thresh in enumerate(lap_thresh_array):
+    #     print()
+    #     print(f'{i}: lap_thresh = {lap_thresh}')
+    #     lap = FilterLaplacian(laplacian_threshold=lap_thresh)
+    #     mask = lap.create_laplacian_mask(img_bgr)
+    #     mask_overlay = lap.display_mask_overlay(img_bgr, mask)
+    #     lap.save_image(mask, img_name, save_dir, '_lap'+str(lap_thresh)+'.jpg')
+    #     lap.save_image(mask_overlay, img_name, save_dir, '_lapoverlay'+str(lap_thresh)+'.jpg')
+    
     
     print('done')
         
