@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 img_pattern = '*.jpg'
-img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
+img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
-i = 0
+i = 10
 
-img_name = img_list[0]
+img_name = img_list[i]
 img_bgr = cv.imread(img_name) # BGR format
 img_rgb = cv.cvtColor(img_bgr, cv.COLOR_BGR2RGB)
 img_hsv = cv.cvtColor(img_bgr, cv.COLOR_BGR2HSV)

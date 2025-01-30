@@ -44,14 +44,18 @@ def copy_random_files(img_dir, out_dir, img_pattern, num_images_get):
 # also, output directory
 
 # specify img pattern
-img_pattern = '*.jpg'
+img_pattern = '*/*clean.jpg'
 # specify how many images to get 
-num_images_get = 150 # only take 1% for training? ~15k images/day
+num_images_get = 25 # only take 1% for training? ~15k images/day
+# for quicker turn-around, we'll say 50/day
 
-run_list = ['20231102_aant_tank3_cslics06',
-       '20231103_aten_tank4_cslics08',
-       '20231204_alor_tank3_cslics06',
-       '20231205_alor_tank4_cslics08']
+run_list = ['100000000029da9b',
+            '100000009c23b5af']
+# 2023 data
+# run_list = ['20231102_aant_tank3_cslics06',
+#        '20231103_aten_tank4_cslics08',
+#        '20231204_alor_tank3_cslics06',
+#        '20231205_alor_tank4_cslics08']
 
 for run in run_list:
     
@@ -75,6 +79,16 @@ for run in run_list:
         dates = ['20231207', '20231208', '20231209', '20231210', '20231211','20231212']
         out_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231205_alor_tank4_cslics08/images'
 
+    elif run == '100000000029da9b':
+        img_dir = '/media/dorian/T2D/cslics_2024_october/20241023_spawning/100000000029da9b'
+        dates = ['2024-10-24', '2024-10-25','2024-10-26','2024-10-27','2024-10-28']
+        out_dir = '/home/dorian/Data/cslilcs_2024_subsurface_dataset/100000000029da9b/images'
+        
+    elif run == '100000009c23b5af':
+        img_dir = '/media/dorian/T2D/cslics_2024_october/20241023_spawning/100000009c23b5af'
+        dates = ['2024-10-25','2024-10-26','2024-10-27','2024-10-28']
+        out_dir = '/home/dorian/Data/cslilcs_2024_subsurface_dataset/100000009c23b5af/images'
+        
     else:
         print('specify run')
 

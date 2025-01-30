@@ -1,7 +1,7 @@
 run:
-  name: 20231102_aant_tank3_cslics06
-  species: aant
-  date: 20231102
+  name: 20231204_alor_tank3_cslics06
+  species: alor
+  date: 20231204
   camera_id: 06
   tank: 3
 class:
@@ -28,20 +28,20 @@ hue:
   max_circularity: 1.0
   hue_min: 0
   hue_max: 30
-  edge_dilation_kernel_size: 1
+  edge_dilation_kernel_size: 11
 sift:
   do: True
-  contrast_threshold: 0.025
-  edge_threshold: 100
-  sigma: 1.2
+  contrast_threshold: 0.01
+  edge_threshold: 200
+  sigma: 1.0
   min_size: 10
-  max_size: 200
-  dilate: 100
+  max_size: 500
   denoise_template_window_size: 7
-  denoise_search_window_size: 21
+  denoise_search_window_size: 31
   denoise_strength: 5
+  dilate: 61
 saturation:
-  do: True
+  do: False
   process_denoise: True
   process_thresh: True
   process_morph: True
@@ -81,19 +81,19 @@ laplacian:
   process_morph: True
   process_fill: True
   process_filter: True
-  denoise_template_window_size: 11
+  denoise_template_window_size: 21
   denoise_search_window_size: 31
-  denoise_strength: 5
+  denoise_strength: 7
   kernel_size: 31
   min_area: 3000
   max_area: 40000
   min_circularity: 0.3
   max_circularity: 1.0  
   laplacian_kernel_size: 5
-  edge_dilation_kernel_size: 101
-  laplacian_threshold: 25
+  edge_dilation_kernel_size: 31
+  laplacian_threshold: 20
 value:
-  do: False
+  do: True
   process_denoise: True
   process_thresh: True
   process_morph: True
