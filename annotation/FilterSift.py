@@ -143,7 +143,8 @@ class FilterSift(FilterCommon):
         
     def get_best_sift_features(self, image):
         kp = self.get_keypoints(image)
-        kp = self.filter_size(kp)
+        # temp hack - trying to figure out why it's missing some very obvious keypoints
+        # kp = self.filter_size(kp)
         kp = self.filter_response(kp)
         return kp
     
@@ -173,26 +174,28 @@ if __name__ == "__main__":
         
     img_pattern = '*.jpg'
     # img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
-    img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
+    # img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
+    img_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/images'
     img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
     
     # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output/hue'
-    save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/sift'
+    # save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/sift'
+    save_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/output/sift'
     os.makedirs(save_dir, exist_ok=True)
     
     config = {}
-    config['denoise_template_window_size'] = 14
+    config['denoise_template_window_size'] = 31
     config['denoise_search_window_size'] = 31
-    config['denoise_strength'] = 5
-    config['min_size'] = 10
-    config['max_size'] = 200
-    config['contrast_threshold'] = 0.01
+    config['denoise_strength'] = 20
+    config['min_size'] = 5
+    config['max_size'] = 100
+    config['contrast_threshold'] = 0.015
     config['edge_threshold'] = 100
-    config['sigma'] = 1.2
+    config['sigma'] = 2.0 # 30 is too much, 2.0 so far seems good
     config['dilate'] = 45
                  
     sift = FilterSift(config=config)
-    max_img = 5
+    max_img = 10
     for i, img_name in enumerate(img_list):
         print()
         print(f'{i}: {img_name}')

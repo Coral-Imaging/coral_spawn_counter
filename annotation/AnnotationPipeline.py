@@ -88,15 +88,15 @@ def save_text_predictions(annotations, imgname, txtsavedir, txtformat='.txt'):
 
 #####################
 img_pattern = '*.jpg'
-img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
+img_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
 # save output images
-save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output'
+save_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/output'
 os.makedirs(save_dir, exist_ok=True)
 
 # save dataset export directory
-save_export_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/export'
+save_export_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/export'
 # save output annotations
 txt_save_dir = os.path.join(save_export_dir, 'obj_train_data')
 os.makedirs(txt_save_dir, exist_ok=True)
@@ -121,7 +121,7 @@ with open(obj_data_file, 'w') as file:
 ######################
 
 # init filters
-config_file = '../data/annotation_cslics_2024_oct_aken_tank2_100000009c23b5af.yaml'
+config_file = '../data_yml_files/annotation_cslics_2024_oct_amag_tank3_10000000f620da42.yaml'
 with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
 

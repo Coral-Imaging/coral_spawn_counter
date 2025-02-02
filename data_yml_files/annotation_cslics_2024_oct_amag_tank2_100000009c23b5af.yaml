@@ -1,6 +1,6 @@
 run:
   name: 100000009c23b5af
-  species: aken
+  species: amag
   date: 20241024
   camera_id: 02
   tank: 2
@@ -31,15 +31,15 @@ hue:
   edge_dilation_kernel_size: 31
 sift:
   do: True
-  contrast_threshold: 0.01
+  contrast_threshold: 0.015
   edge_threshold: 100
-  sigma: 1.2
-  min_size: 10
-  max_size: 200
+  sigma: 2.0
+  min_size: 5
+  max_size: 100
   dilate: 45
-  denoise_template_window_size: 14
+  denoise_template_window_size: 21
   denoise_search_window_size: 31
-  denoise_strength: 5
+  denoise_strength: 20
 saturation:
   do: True
   process_denoise: True
