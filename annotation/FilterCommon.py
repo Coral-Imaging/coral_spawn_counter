@@ -60,8 +60,11 @@ class FilterCommon:
         self.process_filter = process_filter
 
 
-    def filter_components(self, image_filter, num_labels, labels, stats):
-
+    def filter_components(self, mask):
+        
+        image_filter = np.zeros_like(mask)
+        # group blobs into connected components for analysis
+        num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(mask, connectivity=8)
         label_list = []
         circularity = []
         perimeter = []
@@ -70,10 +73,10 @@ class FilterCommon:
             area = stats[i, cv.CC_STAT_AREA] # 4th column of stats
             
             # create mask of current component
-            mask = (labels==i).astype(np.uint8) * 255 # binary mask of label
+            mask_cc = (labels==i).astype(np.uint8) * 255 # binary mask of label
             
             # calculate perimeter
-            p = cv.arcLength(cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE,)[0][0], True)
+            p = cv.arcLength(cv.findContours(mask_cc, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE,)[0][0], True)
             perimeter.append(p)
             
             # calculate circularity
@@ -94,13 +97,22 @@ class FilterCommon:
         return image_filter, label_list
 
 
-    
+    def fill_holes(self, mask):
+        contour, _ = cv.findContours(mask, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
+        for cont in contour:
+            # draw in the holes, making them "255"
+            cv.drawContours(mask, [cont], 0, 255, -1)
+        return mask
+
+    # TODO these should probably just be individual functions, and then an overall function that chains them together
     def process(self, 
                 image, 
                 thresh_min=0, 
                 thresh_max=255, 
                 thresh_meth=cv.THRESH_BINARY + cv.THRESH_OTSU,
-                SAVE_STEPS=False):
+                SAVE_STEPS=False,
+                image_name='image',
+                save_dir='.'):
         # 1) denoise
         # 2) threshold (Otsu's)
         # 3) morphological ops for nicer blobs (maybe should be after fill-in holes?)
@@ -116,13 +128,13 @@ class FilterCommon:
                                             searchWindowSize=self.search_window_size,
                                             h=self.denoise_strength)
             if SAVE_STEPS:
-                self.save_image(image, image_name='01denoise')
+                self.save_image(image, image_name=image_name+'_01denoise.jpg', save_dir=save_dir)
         
         if self.process_thresh:
             # threshold using Otsu's method to automatically get threshold
             thresh_value, mask = cv.threshold(image, thresh_min, thresh_max, thresh_meth)
             if SAVE_STEPS:
-                self.save_image(mask, image_name='02thresh')
+                self.save_image(mask, image_name=image_name + '_02thresh.jpg', save_dir=save_dir)
         else:
             mask = image
             
@@ -133,7 +145,6 @@ class FilterCommon:
         # plt.show()
         # import code
         # code.interact(local=dict(globals(), **locals()))
-
         
         if self.process_morph:
             # apply morphological operations
@@ -143,23 +154,20 @@ class FilterCommon:
             mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
             mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
             if SAVE_STEPS:
-                self.save_image(mask, image_name='03morph')
+                self.save_image(mask, image_name=image_name + '_03morph.jpg',save_dir=save_dir)
         
         if self.process_fill:
             # fill in any holes from original threshold
-            contour, _ = cv.findContours(mask, cv.RETR_CCOMP, cv.CHAIN_APPROX_SIMPLE)
-            for cont in contour:
-                cv.drawContours(mask, [cont], 0, 255, -1)
+            mask = self.fill_holes(mask)
+            
             if SAVE_STEPS:
-                self.save_image(mask, image_name='04fill')
+                self.save_image(mask, image_name=image_name + '_04fill.jpg',save_dir=save_dir)
         
         if self.process_filter:
-            # group blobs into connected components for analysis
-            num_labels, labels, stats, centroids = cv.connectedComponentsWithStats(mask, 
-                                                                                connectivity=8)
-            mask, label_list = self.filter_components(np.zeros_like(mask), num_labels, labels, stats)
+            
+            mask, _ = self.filter_components(mask)
             if SAVE_STEPS:
-                self.save_image(mask, image_name='05filter')       
+                self.save_image(mask, image_name=image_name + '_05filter.jpg',save_dir=save_dir)
         return mask
     
     

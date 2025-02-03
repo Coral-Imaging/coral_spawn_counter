@@ -25,6 +25,8 @@ from FilterSift import FilterSift
 from FilterHue import FilterHue
 from FilterSaturation import FilterSaturation
 from FilterLaplacian import FilterLaplacian
+from FilterValue import FilterValue
+
 
 def save_image_predictions(predictions, img, imgname, imgsavedir, class_colors, quality=50, imgformat='.jpg'):
         """
@@ -86,15 +88,15 @@ def save_text_predictions(annotations, imgname, txtsavedir, txtformat='.txt'):
 
 #####################
 img_pattern = '*.jpg'
-img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
+img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
 img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)))
 
 # save output images
-save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output'
+save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output'
 os.makedirs(save_dir, exist_ok=True)
 
 # save dataset export directory
-save_export_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/export'
+save_export_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/export'
 # save output annotations
 txt_save_dir = os.path.join(save_export_dir, 'obj_train_data')
 os.makedirs(txt_save_dir, exist_ok=True)
@@ -119,7 +121,7 @@ with open(obj_data_file, 'w') as file:
 ######################
 
 # init filters
-config_file = '../data/annotation_20231103_aten_tank4_cslics08.yaml'
+config_file = '../data/annotation_cslics_2024_oct_aken_tank2_100000009c23b5af.yaml'
 with open(config_file, 'r') as file:
     config = yaml.safe_load(file)
 
@@ -141,9 +143,10 @@ sat = FilterSaturation(config=config['saturation'])
 # edge = FilterEdge(config=config['edge'])
 hue = FilterHue(config=config['hue'])
 laplacian = FilterLaplacian(config=config['laplacian'])
+value = FilterValue(config=config['value'])
 
 start_time = time.time()
-max_img = 2
+max_img = 1000
 for i, img_name in enumerate(img_list):
     print()
     print(f'{i}: {img_name}')
@@ -159,44 +162,70 @@ for i, img_name in enumerate(img_list):
     #edge.save_image(mask_edge, img_name, save_dir, '_edge.jpg')
     #edge.save_image(mask_edge_overlay, img_name, save_dir, '_edgeoverlay.jpg')
     
-    # SIFT FILTER:
-    kp = sift.get_best_sift_features(img_bgr)
-    
-    # draw
-    img_ftr = sift.draw_keypoints(img_bgr, kp)
-    sift.save_image(img_ftr, img_name, save_dir, '_sift.jpg')
+    mask_list = []
+    if config['sift']['do']:
+        # SIFT FILTER:
+        kp = sift.get_best_sift_features(img_bgr)
+        
+        # draw
+        img_ftr = sift.draw_keypoints(img_bgr, kp)
+        sift.save_image(img_ftr, img_name, save_dir, '_sift.jpg')
 
-    # draw mask of sift regions
-    mask_sift = sift.create_sift_mask(img_bgr, kp)
-    mask_sift_overlay = sift.display_mask_overlay(img_bgr, mask_sift)
-    sift.save_image(mask_sift_overlay, img_name, save_dir, '_siftoverlay.jpg')
-    
-    # HUE FILTER:
-    mask_hue = hue.create_hue_mask(img_bgr)
-    mask_hue_overlay = hue.display_mask_overlay(img_bgr, mask_hue)
-    
-    hue.save_image(mask_hue, img_name, save_dir, '_hue.jpg')
-    hue.save_image(mask_hue_overlay, img_name, save_dir, '_hueoverlay.jpg')
+        # draw mask of sift regions
+        mask_sift = sift.create_sift_mask(img_bgr, kp)
+        mask_sift_overlay = sift.display_mask_overlay(img_bgr, mask_sift)
+        sift.save_image(mask_sift_overlay, img_name, save_dir, '_siftoverlay.jpg')
+        mask_list.append(mask_sift)
+        
+    if config['hue']['do']:
+        # HUE FILTER:
+        mask_hue = hue.create_hue_mask(img_bgr)
+        mask_hue_overlay = hue.display_mask_overlay(img_bgr, mask_hue)
+        
+        hue.save_image(mask_hue, img_name, save_dir, '_hue.jpg')
+        hue.save_image(mask_hue_overlay, img_name, save_dir, '_hueoverlay.jpg')
+        mask_list.append(mask_hue)
 
-    # SATURATION FILTER:
-    mask_sat = sat.create_saturation_mask(img_bgr)
-    mask_sat_overlay = sat.display_mask_overlay(img_bgr, mask_sat)
- 
-    sat.save_image(mask_sat, img_name, save_dir, '_sat.jpg')
-    sat.save_image(mask_sat_overlay, img_name, save_dir, '_satoverlay.jpg')
-
-    # LAPLACIAN FILTER:
-    mask_lapl = laplacian.create_laplacian_mask(img_bgr)
-    mask_lapl_overlay = laplacian.display_mask_overlay(img_bgr, mask_lapl)
-    laplacian.save_image(mask_lapl, img_name, save_dir, '_lapl.jpg')
-    laplacian.save_image(mask_lapl_overlay, img_name, save_dir, '_laploverlay.jpg')
+    if config['saturation']['do']:
+        # SATURATION FILTER:
+        mask_sat = sat.create_saturation_mask(img_bgr)
+        mask_sat_overlay = sat.display_mask_overlay(img_bgr, mask_sat)
+    
+        sat.save_image(mask_sat, img_name, save_dir, '_sat.jpg')
+        sat.save_image(mask_sat_overlay, img_name, save_dir, '_satoverlay.jpg')
+        mask_list.append(mask_sat)
+        
+    if config['value']['do']:
+        # VALUE FILTER:
+        mask_val = value.create_value_mask(img_bgr)
+        mask_val_overlay = value.display_mask_overlay(img_bgr, mask_val)
+        value.save_image(mask_val, img_name, save_dir, '_val.jpg')
+        value.save_image(mask_val_overlay, img_name, save_dir, '_valoverlay.jpg')
+        mask_list.append(mask_val)
+        
+    if config['laplacian']['do']:
+        # LAPLACIAN FILTER:
+        mask_lapl = laplacian.create_laplacian_mask(img_bgr)
+        mask_lapl_overlay = laplacian.display_mask_overlay(img_bgr, mask_lapl)
+        laplacian.save_image(mask_lapl, img_name, save_dir, '_lapl.jpg')
+        laplacian.save_image(mask_lapl_overlay, img_name, save_dir, '_laploverlay.jpg')
+        mask_list.append(mask_lapl)
     
     # COMBINE MASKS
     # mask_combined = mask_sift & mask_sat & mask_edge & mask_hue
-    mask_combined = mask_sift & mask_sat & mask_hue & mask_lapl
+    # mask_combined = mask_sift & mask_sat & mask_hue & mask_val & mask_lapl
+    mask_combined = mask_list[0]
+    for m in mask_list:
+        mask_combined = mask_combined & m
+    
+    # filter combined mask for small holes and tiny components
+    # using value min/max filters?
+    mask_combined = value.fill_holes(mask_combined)
+    mask_combined, _ = value.filter_components(mask_combined)
+    
     # show respective overlays onto original image
     mask_combined_overlay = hue.display_mask_overlay(img_bgr, mask_combined)
-    
+
     hue.save_image(mask_combined, img_name, save_dir, '_combined.jpg')
     hue.save_image(mask_combined_overlay, img_name, save_dir, '_combinedoverlay.jpg')
     
@@ -221,7 +250,8 @@ for i, img_name in enumerate(img_list):
     save_text_predictions(bb, img_name, txt_save_dir)
     
     # draw exported annotations
-    save_image_predictions(bb, img_bgr, img_name, save_dir, class_color)
+    save_annotated_dir = os.path.join(save_dir, 'annotated')
+    save_image_predictions(bb, img_bgr, img_name, save_annotated_dir, class_color)
         
     # append name to train.txt file
     write_line = os.path.join('data/obj_train_data/', os.path.basename(img_name))
