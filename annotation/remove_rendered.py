@@ -8,7 +8,7 @@ import glob
 from pathlib import Path
 import sys
 
-target_dir = '/media/dtsai/CSLICSOct24/test_compression/10000000f620da42'
+target_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024'
 
 # absolute paths
 img_list = sorted(Path(target_dir).rglob('*_rendered.jpg'))
