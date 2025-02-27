@@ -3,84 +3,154 @@
 """
 read detections from ML model, saved as individual .txt files
 plot them into time history
+re-vamped to read in the json files from nested directories and then generate a plot
 """
 
+import json
 import os
 import matplotlib.pyplot as plt
 from datetime import datetime
-import pickle
+from pathlib import Path
+import numpy as np
 
-from coral_spawn_counter.CoralImage import CoralImage
-
-# read them in line-by-line for each image
-# save each image as list of annotations - maybe we can reuse the Image/Annotations?
-# we can use CoralImage to hold image name and detections
+# specify sampling/aggregate frequency
+# 
+# read json in for each image
 # detectiosn are a list of pred = [x1 y1 x2 y2 conf class]
+
+def convert_to_decimal_days(dates_list, time_zero=None):
+    """from a list of datetime objects, convert to decimal days since time_zero"""
+    if time_zero is None:
+        time_zero = dates_list[0]  # Time zero is the first element date in the list
+    else:
+        time_zero = time_zero
+        
+    decimal_days_list = []
+
+    for date in dates_list:
+        time_difference = date - time_zero
+        decimal_days = time_difference.total_seconds() / (60 * 60 * 24)
+        decimal_days_list.append(decimal_days)
+
+    return decimal_days_list
 
 
 # read in classes
-# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000'
-# root_dir = '/home/agkelpie/Code/cslics_ws/src/datasets/20221114_amtenuis_cslics01'
-# root_dir = "/mnt/c/20221113_amtenuis_cslics04"
-root_dir = '/home/dorian/Data/cslics_2022_datasets/AIMS_2022_Nov_Spawning/20221113_amtenuis_cslics04'
+root_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/10000000f620da42/cslics_subsurface_20250205_640p_yolov8n'
 
-with open(os.path.join(root_dir, 'metadata','obj.names'), 'r') as f:
-    classes = [line.strip() for line in f.readlines()]
+# TODO: link with read_manuala_counts.py to automatically take in the tank_sheet_name
+# 10000000f620da42 --> T3 Amil NOV24
+tank_sheet_name = 'T3 Amil NOV24'
+
+# set output directory
+# save_plot_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/10000000f620da42/cslics_subsurface_20250205_640p_yolov8n'
+save_plot_dir = root_dir
+os.makedirs(save_plot_dir, exist_ok=True)
 
 
-# TODO put this into specific file, similar to agklepie project
-# define class-specific colours
-orange = [255, 128, 0] # four-eight cell stage
-blue = [0, 212, 255] # first cleavage
-purple = [170, 0, 255] # two-cell stage
-yellow = [255, 255, 0] # advanced
-brown = [144, 65, 2] # damaged
-green = [0, 255, 00] # egg
-class_colours = {classes[0]: orange,
-                 classes[1]: blue,
-                 classes[2]: purple,
-                 classes[3]: yellow,
-                 classes[4]: brown,
-                 classes[5]: green}
+# read in all the json files
+# it is assumed that because of the file naming structure, sorting the files by their filename sorts them chronologically
+print(f'Gathering list of detection files (json) in all sub-directories of source directory: {root_dir}')
+sample_list = sorted(Path(root_dir).rglob('*_det.json'))
+print(f'Number of detection files: {len(sample_list)}')
 
-# where images are saved:
-imgsave_dir = os.path.join(root_dir, 'detections', 'detections_images')
+# skipping frequency - mostly for time in development
+skipping_frequency = 2
 
-# where text detections are asaved:
-txtsavedir = os.path.join(root_dir, 'detections', 'detections_textfiles')
+# aggregate into samples - 1 hr chunks, configurable
+aggregate_size = 30
+# so every 100 images, average each image-based detection into a sample
 
-# read in each .txt file
-txt_list = sorted(os.listdir(txtsavedir))
+# edge cases:
+# 1) length of json_list is less than skipping frequency
+# 2) length of json_list is less than aggegate size
+# 3) how to handle last few files that don't fit witihn aggregate? just ignore
 
-# for each txt name, open up and read
-print(f'importing in detections for {root_dir}')
-results = []
-for i, txt in enumerate(txt_list):
-    print(f'importing detections {i+1}/{len(txt_list)}')
-    with open(os.path.join(txtsavedir, txt), 'r') as f:
-        detections = f.readlines() # [x1 y1 x2 y2 conf class_idx class_name] \n
-    detections = [det.rsplit() for det in detections]
-    
-    # corresponding image name:
-    # TODO find corresponding image name in imgsave_dir
-    # HACK for now, just truncate the detections name
-    img_name = txt[:-8] + '.jpg' # + '.png' # NOTE only png has the metadata, jpgs were unable to carry over metadata?\
-    img_name = os.path.join(root_dir, 'images_jpg', img_name)
+if len(sample_list) < skipping_frequency:
+    print(f'ERROR: json_list {len(sample_list)} is less than skipping frequency {skipping_frequency}. Choose a smaller skipping frequency.')
+    exit
+if len(sample_list) < aggregate_size:
+    print(f'ERROR: json_list {len(sample_list)} is less than aggregate size {aggregate_size}. Choose a smaller aggregate size.')
+    exit
 
-    CImage = CoralImage(img_name=img_name, # TODO absolute vs relative? # want to grab the metadata
-                        txt_name=txt,
-                        detections=detections)
-    # create CoralImage object for each set of detections
-    # ultimately, will have a list of CoralImages
-    results.append(CImage)
-    
-# sort results based on metadata capture time
-results.sort(key=lambda x: x.metadata['capture_time'])
+# skip every X images
+downsampled_list = sample_list[::skipping_frequency]
 
-# save all variables to a file using pickle
-savefile = os.path.join(root_dir, 'detection_results.pkl')
-with open(savefile, 'wb') as f:
-    pickle.dump(results, f)
+# rather than using a big for loop, we can just use list comprehension to aggreate into samples
+batched_samples = [downsampled_list[i:i+aggregate_size] for i in range(0, len(downsampled_list), aggregate_size)]
+
+# for each batch, compute relevant data:
+# read in jsons
+# simple approach:sum the counts, taking note of confidences 
+# more nuanced: every detection has a confidence associated with it. How do the counts change wrt confidence value?
+# for now, I just have to re-run the code for a diff value
+confidence_threshold = 0.5
+
+batched_image_count = []
+batched_std = []
+batched_time = []
+MAX_SAMPLE = 1000
+# iterate over all the batched samples
+for i, sample in enumerate(batched_samples):
+    print(f'batched sample: {i}/{len(batched_samples)}')
+
+    if i >= MAX_SAMPLE:
+        print(f'Hit MAX SAMPLE limit for debugging purposes')
+        break
+    sample_count = []
+    # iterate for each sample, there are multiple detection files
+    for detection_file in sample:
+        try:
+            with open(detection_file, 'r') as f:
+                data = json.load(f)           
+
+            # GET COUNTS
+            detections = data['data [xn1, yn1, xn2, yn2, cls, conf]'] # TODO it's actually conf then class - fix key
+
+            # only take those detections that are greater than confidence threshold:
+            select_detections = [d for d in detections if d[4] >= confidence_threshold]
+
+            # if there was class-based filtering/selection, here would be the place to use it
+            # though current CSLICS is single-class object detector 
+            sample_count.append(len(select_detections))
+
+        except json.JSONDecodeError as e:
+            print("Error loading JSON:", e)
+        except FileNotFoundError:
+            print("Error: File not found.")
+
+    # TODO there is some suggestion on alternate methods instead of taking the mean - e.g. median to smooth out the data
+    sample_mean = np.mean(sample_count)
+    sample_std = np.std(sample_count)
+
+    # GET CAPTURE TIME OF MIDDLE CAPTURE
+    # obtain via filename, or take min/max and then assume middle, can turn this into function later on
+    capture_time_str = Path(sample[int(aggregate_size/2)]).stem[:-10] # capture time minus '_clean_det' characters
+    capture_time = datetime.strptime(capture_time_str, "%Y-%m-%d_%H-%M-%S")
+
+    batched_image_count.append(sample_mean)
+    batched_std.append(sample_std)
+    batched_time.append(capture_time)
+
+# convert batched_time to decimal days and 0 the time since spawning
+decimal_capture_times = convert_to_decimal_days(batched_time)
+# plot sample points over time
+
+# convert from list to np array because matplotlib's fill_between cannot handle list input
+decimal_capture_times = np.array(decimal_capture_times)
+batched_image_count = np.array(batched_image_count)
+batched_std = np.array(batched_std)
+
+n = 1
+fig0, ax = plt.subplots()
+plt.plot(decimal_capture_times, batched_image_count)
+plt.fill_between(decimal_capture_times, batched_image_count-n*batched_std, batched_image_count+n*batched_std,
+            alpha=0.2)
+plt.grid(True)
+plt.xlabel('Days since spawning')
+plt.ylabel(f'Image count (batched {aggregate_size} images)')
+plt.title(f'CSLICS AI Count: {tank_sheet_name}')
+plt.savefig(os.path.join(save_plot_dir, 'Image counts' + tank_sheet_name + '.png'))
 
 print('done')
         
