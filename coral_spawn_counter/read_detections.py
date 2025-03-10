@@ -105,7 +105,7 @@ for i, sample in enumerate(batched_samples):
                 data = json.load(f)           
 
             # GET COUNTS
-            detections = data['data [xn1, yn1, xn2, yn2, cls, conf]'] # TODO it's actually conf then class - fix key
+            detections = data['detections [xn1, yn1, xn2, yn2, conf, cls]'] # TODO it's actually conf then class - fix key
 
             # only take those detections that are greater than confidence threshold:
             select_detections = [d for d in detections if d[4] >= confidence_threshold]
