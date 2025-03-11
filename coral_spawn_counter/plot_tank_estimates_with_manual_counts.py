@@ -12,10 +12,12 @@ General pipeline so far:
 - in a nutshell, this is a script to combine read_detections.py and read_manual_counts.py
 - adds tank-scaling for the predictions and option for calibration wrt a specified manual count
 
+# TODO shift the manual counts to start at the appropriate time - first time point?
 # TODO this should all take the form of an object-based approach for code-resuability and readability
 # TODO single point of linking uuid folders to tank installations (currently two steps)
 # TODO config files for the different runs/tanks
 # TODO script-able for running overnight? (related to config file)
+
 """
 
 import os
@@ -62,38 +64,56 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
     return decimal_days_list
 
-def read_manual_count_sheet_correspondence(file, sheet_name):
+def read_cslics_uuid_tank_association(file, spawning_sheet_name, tank_sheet_name):
     """read the manual counts from the excel file and return the datetime objects and counts"""
     try:
-        df = pd.read_excel(os.path.join(file), sheet_name=sheet_name, engine='openpyxl', header=2) 
+        df = pd.read_excel(os.path.join(file), sheet_name=spawning_sheet_name, engine='openpyxl', header=2) 
         tank_sheet_column = df['manual count sheet name']
         camera_uuid_column = df['camera uuid']
         species_column = df['species']
-
-        return tank_sheet_column, camera_uuid_column, species_column
+        # TODO ensure each column is of the same length
+        
+        idx = []
+        try:
+            idx = list(tank_sheet_column).index(tank_sheet_name)
+            print(f'Index of {tank_sheet_name}: {idx}')
+        except ValueError:
+            print(f'Item {tank_sheet_name} not found in listof tank_sheet_column.')
+        
+        cslics_uuid = camera_uuid_column[idx]
+        species = species_column[idx]
+        return cslics_uuid, species
     except:
-        print('ERROR: reading the manual counts file, check the sheet name is correct and headings are as expected')
+        print('ERROR: reading the read_cslics_uuid_tank_association file, check the sheet name is correct and headings are as expected')
 
 
 #######################################
 # CONFIGURATION
 
 # TODO this should take the form of a config file input
-manual_counts_file = '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx'
-spawning_sheet_name = '2024 nov'
-cslics_associations_file = '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx'
+manual_counts_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx'
 
-# TODO specify which cslics or run we want to do:
-# specify uuid (NOTE would make more sense to specify tank_sheet_name and then use the cslics_associations_file to determine the relevant uuid and folder)
-# for now, I just have to manually ensure the correct folder vs manual counts are done
-tank_sheet_name = 'T4 Pdae NOV24'
+spawning_sheet_name = '2024 nov'
+tank_sheet_name = 'NOV24 T3 Amil'
+cslics_associations_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx'
+
+# specify tank_sheet_name, which determines which tank/installation and thus cslics uuid we want to run
+# given the tank sheet name, determine the corresponding uuid & therefore folder:
+cslics_uuid, coral_species = read_cslics_uuid_tank_association(cslics_associations_file, spawning_sheet_name, tank_sheet_name)
 
 # saving manual counts output
-save_manual_plot_dir = '/home/dtsai/Data/cslics_datasets/manual_counts/plots'
+save_manual_plot_dir = '/home/dorian/Data/cslics_datasets/manual_counts/plots'
 os.makedirs(save_manual_plot_dir, exist_ok=True)
 
 # specify directory of detections after running inference on all the images, such that the detection json files are available
-det_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/100000001ab0438d/cslics_subsurface_20250205_640p_yolov8n'
+search_str = "nov"
+model_name = 'cslics_subsurface_20250205_640p_yolov8n'
+if search_str.lower() in tank_sheet_name.lower():
+    det_dir = '/media/dorian/CSLICSNov24/cslics_november_2024/detections/' + str(cslics_uuid) + '/' + model_name
+else:
+    # OCT
+    det_dir = '/media/dorian/CSLICSOct24/cslics_october_2024/detections/' + str(cslics_uuid) + '/' + model_name
+
 
 # saving detection plots
 save_det_dir = det_dir
@@ -107,7 +127,7 @@ aggregate_size = 100
 # so every 100 images, average each image-based detection into a sample
 
 # for each batch, only select detections above certain confidence threshold 
-confidence_threshold = 0.3
+confidence_threshold = 0.5
 
 # for dev purposes, max images to prevent run-away
 MAX_SAMPLE = 1000
@@ -119,12 +139,7 @@ MAX_SAMPLE = 1000
 def read_manual_counts(cslics_associations_file, manual_counts_file, tank_sheet_name=None):
     # read manual counts from spreadsheet file
 
-    df = pd.read_excel(cslics_associations_file, sheet_name=spawning_sheet_name, engine='openpyxl', header=2) 
-    tank_sheet_column, camera_uuid_column, species_column = read_manual_count_sheet_correspondence(cslics_associations_file, spawning_sheet_name)
-    if tank_sheet_name is None:
-        tank_sheet_name = tank_sheet_column[0]
-    else:
-        tank_sheet_name = tank_sheet_name
+    
 
     # extract the relevant columns from the spreadsheet
     df = pd.read_excel(manual_counts_file, sheet_name = tank_sheet_name, engine='openpyxl',header=5)
