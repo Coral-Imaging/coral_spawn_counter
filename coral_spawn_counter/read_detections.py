@@ -36,11 +36,12 @@ def convert_to_decimal_days(dates_list, time_zero=None):
 
 
 # read in classes
-root_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/10000000f620da42/cslics_subsurface_20250205_640p_yolov8n'
+root_dir = '/media/dorian/CSLICSNov24/cslics_november_2024/detections/100000000846a7ff/cslics_subsurface_20250205_640p_yolov8n'
 
 # TODO: link with read_manuala_counts.py to automatically take in the tank_sheet_name
 # 10000000f620da42 --> T3 Amil NOV24
-tank_sheet_name = 'T3 Amil NOV24'
+
+tank_sheet_name = 'NOV24 T5 Pdae'
 
 # set output directory
 # save_plot_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/10000000f620da42/cslics_subsurface_20250205_640p_yolov8n'
@@ -125,7 +126,7 @@ for i, sample in enumerate(batched_samples):
 
     # GET CAPTURE TIME OF MIDDLE CAPTURE
     # obtain via filename, or take min/max and then assume middle, can turn this into function later on
-    capture_time_str = Path(sample[int(aggregate_size/2)]).stem[:-10] # capture time minus '_clean_det' characters
+    capture_time_str = Path(sample[int(len(sample)/2)]).stem[:-10] # capture time minus '_clean_det' characters
     capture_time = datetime.strptime(capture_time_str, "%Y-%m-%d_%H-%M-%S")
 
     batched_image_count.append(sample_mean)

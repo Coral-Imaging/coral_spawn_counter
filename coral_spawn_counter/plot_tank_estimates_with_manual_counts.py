@@ -14,7 +14,6 @@ General pipeline so far:
 
 # TODO shift the manual counts to start at the appropriate time - first time point?
 # TODO this should all take the form of an object-based approach for code-resuability and readability
-# TODO single point of linking uuid folders to tank installations (currently two steps)
 # TODO config files for the different runs/tanks
 # TODO script-able for running overnight? (related to config file)
 
@@ -23,7 +22,7 @@ General pipeline so far:
 import os
 import json
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -93,8 +92,21 @@ def read_cslics_uuid_tank_association(file, spawning_sheet_name, tank_sheet_name
 # TODO this should take the form of a config file input
 manual_counts_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx'
 
-spawning_sheet_name = '2024 nov'
-tank_sheet_name = 'NOV24 T3 Amil'
+spawning_sheet_name = '2024 oct'
+# tank_sheet_name = 'OCT24 T1 Amag'
+# tank_sheet_name = 'OCT24 T2 Amag'
+# tank_sheet_name = 'OCT24 T3 Amag'
+# tank_sheet_name = 'OCT24 T4 Maeq'
+# tank_sheet_name = 'OCT24 T5 Maeq'
+tank_sheet_name = 'OCT24 T6 Aant'
+
+# spawning_sheet_name = '2024 nov'
+# tank_sheet_name = 'NOV24 T1 Amil'
+# tank_sheet_name = 'NOV24 T2 Amil'
+# tank_sheet_name = 'NOV24 T3 Amil'
+# tank_sheet_name = 'NOV24 T4 Pdae'
+# tank_sheet_name = 'NOV24 T5 Pdae'
+# tank_sheet_name = 'NOV24 T6 Lcor'
 cslics_associations_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx'
 
 # specify tank_sheet_name, which determines which tank/installation and thus cslics uuid we want to run
@@ -132,6 +144,18 @@ confidence_threshold = 0.5
 # for dev purposes, max images to prevent run-away
 MAX_SAMPLE = 1000
 
+# manual calibration window sample size - how many aggregated samples should be used to average the calibration
+calibration_window_size = 1 # choose one for now, just to confirm scaling is working
+
+# index of manual count list that should be used for scaling ai counts
+# typically first (0'th) is the initial stocking date
+# second (1st) is the first date for counting cslics
+# 2nd might also be valid, if suspension is not yet achieved
+calibration_idx = 1
+calibration_window_shift = 0 # time shift for selecting calibration samples
+
+# boolean to plot focus volume in final combined figure
+PLOT_FOCUS_VOLUME = False 
 
 ##############################################
 # READ MANUAL COUNTS
@@ -151,9 +175,12 @@ def read_manual_counts(cslics_associations_file, manual_counts_file, tank_sheet_
     # combine date and time into single datetime object
     # convert to decimal-based days format for easier plotting
     counts_time = pd.to_datetime(date_column.astype(str) + " " + time_collected.astype(str), dayfirst=True)
-    decimal_days = convert_to_decimal_days(counts_time)
+    # TEST: find nearest new day to counts_time[0]
+    nearest_day = counts_time[0].replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    # decimal_days = convert_to_decimal_days(counts_time, counts_time[0])
+    decimal_days = convert_to_decimal_days(counts_time, nearest_day)
 
-    return count_column, std_column, decimal_days
+    return count_column, std_column, decimal_days, counts_time
 
 
 def plot_manual_counts(counts, std, days):
@@ -173,7 +200,7 @@ def plot_manual_counts(counts, std, days):
     plt.savefig(os.path.join(save_manual_plot_dir, 'Manual counts' + tank_sheet_name + '.png')) 
 
 # read manual counts from spreadsheet
-manual_counts, manual_std, manual_times = read_manual_counts(cslics_associations_file, manual_counts_file, tank_sheet_name)
+manual_counts, manual_std, manual_times, manual_times_dt = read_manual_counts(cslics_associations_file, manual_counts_file, tank_sheet_name)
 
 # optionally: generate manual count plots
 plot_manual_counts(manual_counts, manual_std, manual_times)
@@ -201,7 +228,6 @@ def read_detections(det_dir):
 
     # rather than using a big for loop, we can just use list comprehension to aggreate into samples
     batched_samples = [downsampled_list[i:i+aggregate_size] for i in range(0, len(downsampled_list), aggregate_size)]
-
 
     batched_image_count = []
     batched_std = []
@@ -253,7 +279,8 @@ def read_detections(det_dir):
         batched_time.append(capture_time)
 
     # convert batched_time to decimal days and 0 the time since spawning
-    decimal_capture_times = convert_to_decimal_days(batched_time)
+    nearest_day = manual_times_dt[0].replace(hour=0, minute=0, second=0, microsecond=0)  + timedelta(days=1) # NOTE replicated code
+    decimal_capture_times = convert_to_decimal_days(batched_time, nearest_day)
     # plot sample points over time
 
     # convert from list to np array because matplotlib's fill_between cannot handle list input
@@ -302,7 +329,7 @@ def scale_by_focus_volume():
     sensor_height = height_pix * pix_size # mm
     f = 12 # mm, focal length
     aperture = 2.8 # f-stop number of the lens
-    c = 0.15 # mm, circle of confusion, def 0.1, increase to 0.2 to double (linear) the sample volume
+    c = 0.1 # mm, circle of confusion, def 0.1, increase to 0.2 to double (linear) the sample volume
     hyp_dist = get_hyper_focal_dist(f, c, aperture) # hyper-focal distance = max depth of field of camera
     focus_dist = 75 #mm focusing distance, practically the working distance of the camera
     # NOTE: focus distance was kept to ~ the same in the CSLICS 2023, but may differ between CSLICS (see CSLICS tank setup notes)
@@ -330,42 +357,103 @@ def scale_by_focus_volume():
     volume_tank = 475 * 1000 # 500 L = 500000 ml
     
     scale_factor = volume_tank / volume_image # thus, how many cslics images will fill the whole volume of the tank
-    print(f'scale factor = {scale_factor}')
+    print(f'default scale factor = {scale_factor}')
 
     return scale_factor
 
-scale_factor = scale_by_focus_volume()
+scale_factor_def = scale_by_focus_volume()
 
 # apply scale factor to image counts
-tank_counts = image_counts * scale_factor
-tank_std = image_std * scale_factor
+tank_counts_def = image_counts * scale_factor_def
+tank_std_def = image_std * scale_factor_def
 
+# manual scaling based on calibration index (see config)
+def find_closest_time(image_time, manual_time, manual_idx):
+    """ assuming both image_time, and manual_time are datetime objects"""
+    t_diff = abs(image_time - manual_time[manual_idx])
+    return np.argmin(t_diff), np.min(t_diff)
 
-# TODO later - incorporate manual scaling from Plot_Detectors_Results_2024.py
+closest_idx, __ = find_closest_time(image_times, manual_times, calibration_idx)
+
+# manual_counts, manual_std, manual_times
+def scale_by_manual_calibration_idx(manual_count, image_counts, closest_idx, calibration_window_size=1, shift=0):
+    """ determine scale factor for image_counts based on manual_counts and calibration_idx """
+    scale_factor = []
+    
+    # added due to some potential calibration times lining up with "night" conditions
+    idx_select = closest_idx + shift
+    
+    # find the idx for the nearest time to the specified calibration manual time
+    # accounting for min/max sizes of image_counts
+    idx_min = []
+    idx_max = []
+    idx_min = int(idx_select - calibration_window_size/2)
+    if idx_min < 0:
+        idx_min = int(0)
+        if len(image_counts) <= calibration_window_size:
+            idx_max = int(len(image_counts)-1)
+        else:
+            idx_max = int(calibration_window_size)
+    else:
+        idx_max = int(idx_min + calibration_window_size)
+    if idx_max >= len(image_counts):
+        idx_max = int(len(image_counts)-1)
+    image_count_window = image_counts[idx_min:idx_max]
+    # compute the scale factor over specified average (based on aggregate size?)
+    image_sample_average = np.mean(image_count_window)
+    # TODO handle the divide by zero case 
+    if image_sample_average == 0:
+        scale_factor = 1
+    else:
+        scale_factor = manual_count / image_sample_average
+    print(f'calibration scale factor = {scale_factor}')
+    return scale_factor, idx_select
+
+scale_factor_manual, scaling_idx = scale_by_manual_calibration_idx(manual_counts[calibration_idx], 
+                                                                   image_counts, 
+                                                                   closest_idx, 
+                                                                   calibration_window_size,
+                                                                   calibration_window_shift)
+
+# apply scale factor to image counts
+tank_counts_cal = image_counts * scale_factor_manual
+tank_std_cal = image_std * scale_factor_manual
+
 
 #############################################################
 # PLOT RESULTS 
 
-n = 1
+n = 0.5
 fig, ax = plt.subplots()
 
 # AI counts
-ax.plot(image_times, tank_counts)
-ax.fill_between(image_times, tank_counts-n*tank_std, tank_counts+n*tank_std, alpha=0.2)
+if PLOT_FOCUS_VOLUME:
+    ax.plot(image_times, tank_counts_def, label='focus-volume scaled')
+    ax.fill_between(image_times, tank_counts_def-n*tank_std_def, tank_counts_def+n*tank_std_def, alpha=0.2)
+
+ax.plot(image_times, tank_counts_cal, label='manually scaled')
+ax.fill_between(image_times, tank_counts_cal-n*tank_std_cal, tank_counts_cal+n*tank_std_cal, alpha=0.2)
+
 
 # manual counts
-ax.plot(manual_times, manual_counts, marker='o', color='orange')
+ax.plot(manual_times, manual_counts, marker='o', color='green', label='manual count')
 ax.errorbar(manual_times, manual_counts, yerr= n*manual_std, fmt='o', color='orange', alpha=0.5)
 
+ax.plot(manual_times[calibration_idx], manual_counts[calibration_idx], marker='*', markersize=10, color='red', label='calibration')
+ax.plot(image_times[scaling_idx-1], tank_counts_cal[scaling_idx-1], marker='*', markersize=10, color='black', label='shifted calibration')
+
+plt.legend()
 plt.grid(True)
 plt.xlabel('Days since spawning')
 plt.ylabel(f'Tank count (batched {aggregate_size} images)')
 plt.title(f'CSLICS AI Count: {tank_sheet_name}')
-plt.savefig(os.path.join(save_det_dir, 'Combined tank counts' + tank_sheet_name + '.png'))
-
+plt.savefig(os.path.join(save_det_dir, 'Combined tank counts' + tank_sheet_name + '.png'), dpi=600)
+plt.show()
 
 
 print('done')
+print(f'cslics uuid: {cslics_uuid}')
+
 
 import code
 code.interact(local=dict(globals(), **locals()))
