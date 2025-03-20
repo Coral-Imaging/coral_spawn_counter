@@ -163,8 +163,6 @@ PLOT_FOCUS_VOLUME = False
 def read_manual_counts(cslics_associations_file, manual_counts_file, tank_sheet_name=None):
     # read manual counts from spreadsheet file
 
-    
-
     # extract the relevant columns from the spreadsheet
     df = pd.read_excel(manual_counts_file, sheet_name = tank_sheet_name, engine='openpyxl',header=5)
     date_column = df['Date']
