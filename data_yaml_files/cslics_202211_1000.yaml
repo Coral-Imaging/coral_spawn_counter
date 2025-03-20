@@ -1,0 +1,18 @@
+# data config file that defines:
+# the dataset root directory "path"
+# the relative paths to train/val/test image directories (or text files with image paths)
+# a class "names" dictionary
+
+path: /home/agkelpie/Code/cslics_ws/src/datasets/202211_amtenuis_1000
+train: images/train # training images relative to 'path', 100 images
+val: images/val # validation images relative to 'path', 100 images - set to same as train to verify overfitting
+test: images/test # test images (optional)
+
+# Classes
+names:
+  0: FourEightCell
+  1: FirstCleavage
+  2: TwoCell
+  3: Advanced
+  4: Damaged
+  5: Egg

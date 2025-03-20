@@ -132,3 +132,6 @@ weights/yolov8m.pt
 weights/yolov8x.pt
 subsubfacecounts.png
 coral_spawn_counter/config.yaml
+
+test_script.e*
+test_script.o*

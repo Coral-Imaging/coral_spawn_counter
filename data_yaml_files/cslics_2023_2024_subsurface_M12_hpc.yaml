@@ -1,0 +1,25 @@
+# data config file that defines:
+# the dataset root directory "path"
+# the relative paths to train/val/test image directories (or text files with image paths)
+# a class "names" dictionary
+
+path: /home/tsaid/data/cslics_datasets/
+train: 
+  - cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/split/images/train # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/split/images/train # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/split/images/train # training images relative to 'path'
+  - cslics_2024_october_subsurface_dataset/100000009c23b5af/split/images/train # training images relative to 'path'
+val: 
+  - cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/split/images/val # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/split/images/val # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/split/images/val # training images relative to 'path'
+  - cslics_2024_october_subsurface_dataset/100000009c23b5af/split/images/val # training images relative to 'path'
+test: 
+  - cslics_2023_subsurface_dataset/runs/20231102_aant_tank3_cslics06/split/images/test # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/split/images/test # training images relative to 'path'
+  - cslics_2023_subsurface_dataset/runs/20231204_alor_tank3_cslics06/split/images/test # training images relative to 'path'
+  - cslics_2024_october_subsurface_dataset/100000009c23b5af/split/images/test # training images relative to 'path'
+
+# Classes
+names:
+  0: Coral
