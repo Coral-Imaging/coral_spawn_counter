@@ -14,42 +14,73 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 class CSLICSDataProcessor:
-    def __init__(self, config):
+    def __init__(self, config_file):
         """
-        Initialize the CSLICS Data Processor.
+        Initialize the CSLICS Data Processor using a JSON configuration file.
+
+        Args:
+            config_file (str): Path to the JSON configuration file.
         """
-        self.manual_counts_file = config['manual_counts_file']
-        self.spawning_sheet_name = config['spawning_sheet_name']
-        self.tank_sheet_name = config['tank_sheet_name']
-        self.cslics_associations_file = config['cslics_associations_file']
-        self.cslics_invalid_times_file = config['invalid_ranges_file']
-        self.cslics_uuid, self.coral_species = self.read_cslics_uuid_tank_association()
-        print(f'CSLICS UUID: {self.cslics_uuid}, Coral Species: {self.coral_species}')
+        # Load configuration from the JSON file
+        self.config = self.load_config_from_json(config_file)
+
+        self.manual_counts_file = self.config['manual_counts_file']
+        self.spawning_sheet_name = self.config['spawning_sheet_name']
+        self.tank_sheet_name = self.config['tank_sheet_name']
+        self.cslics_associations_file = self.config['cslics_associations_file']
+        self.cslics_invalid_times_file = self.config['invalid_ranges_file']
+        self.cslics_uuid = self.config['cslics_uuid']
+        self.coral_species = self.config['coral_species']
+        # self.cslics_uuid, self.coral_species = self.read_cslics_uuid_tank_association()
+        # print(f'CSLICS UUID: {self.cslics_uuid}, Coral Species: {self.coral_species}')
         
-        self.model_name = config['model_name']
-        self.base_det_dir = config['base_detection_dir']
-        self.model_det_dir = self._determine_detection_directory()
-        self.save_manual_plot_dir = config['save_manual_plot_dir']
-        self.save_det_dir = self.model_det_dir
+        self.model_name = self.config['model_name']
+        self.base_det_dir = self.config['base_detection_dir']
+        self.save_det_dir = self._determine_detection_directory()
+        
+        self.save_manual_plot_dir = self.config['save_manual_plot_dir']
 
         # Additional configuration parameters
-        self.skipping_frequency = config.get('skipping_frequency', 1)
-        self.aggregate_size = config.get('aggregate_size', 100)
-        self.confidence_threshold = config.get('confidence_threshold', 0.5)
-        self.MAX_SAMPLE = config.get('MAX_SAMPLE', 1000)
-        self.calibration_window_size = config.get('calibration_window_size', 1)
-        self.calibration_idx = config.get('calibration_idx', 1)
-        self.calibration_window_shift = config.get('calibration_window_shift', 0)
-        self.PLOT_FOCUS_VOLUME = config.get('PLOT_FOCUS_VOLUME', False)
+        self.skipping_frequency = self.config.get('skipping_frequency', 1)
+        self.aggregate_size = self.config.get('aggregate_size', 100)
+        self.confidence_threshold = self.config.get('confidence_threshold', 0.5)
+        self.MAX_SAMPLE = self.config.get('MAX_SAMPLE', 1000)
+        self.calibration_window_size = self.config.get('calibration_window_size', 1)
+        self.calibration_idx = self.config.get('calibration_idx', 1)
+        self.calibration_window_shift = self.config.get('calibration_window_shift', 0)
+        self.PLOT_FOCUS_VOLUME = self.config.get('PLOT_FOCUS_VOLUME', False)
+
         
         os.makedirs(self.save_manual_plot_dir, exist_ok=True)
         os.makedirs(self.save_det_dir, exist_ok=True)
-    
+        print(f'CSLICS UUID: {self.cslics_uuid}, Coral Species: {self.coral_species}')
     
     def _determine_detection_directory(self):
         return f'{self.base_det_dir}/{self.cslics_uuid}/{self.model_name}'    
         
         
+    @staticmethod
+    def load_config_from_json(config_file):
+        """
+        Load configuration from a JSON file.
+
+        Args:
+            config_file (str): Path to the JSON configuration file.
+
+        Returns:
+            dict: Configuration dictionary.
+        """
+        try:
+            with open(config_file, 'r') as file:
+                config = json.load(file)
+            print(f"Configuration loaded successfully from {config_file}")
+            return config
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Error: Configuration file {config_file} not found.")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Error: Failed to parse JSON file {config_file}. Details: {e}")
+
+
     def read_manual_counts(self):
         """
         Reads manual count data from an Excel file and processes it.
@@ -107,6 +138,7 @@ class CSLICSDataProcessor:
         # Return None values if an error occurs
         return None, None
     
+    
     def plot_manual_counts(self, counts, std, days, SHOW=False):
         scaled_counts = counts/1000 # for readability
         scaled_std = std/1000
@@ -122,6 +154,7 @@ class CSLICSDataProcessor:
         plt.savefig(os.path.join(self.save_manual_plot_dir, f'Manual_counts_{self.tank_sheet_name}.png'))
         if SHOW:
             plt.show()
+        
         
     def read_invalid_times(self):
         """
@@ -144,17 +177,27 @@ class CSLICSDataProcessor:
         """
         Filter out invalid image names from the list of image detection names (json files).
 
-        :param image_names: List of image filenames, chronologically ordered.
-        :param invalid_ranges: List of dictionaries with 'start' and 'end' keys specifying invalid ranges.
-        :return: Tuple containing two lists:
-                 - invalid_names: List of invalid image filenames.
-                 - valid_names: List of valid image filenames.
+        Args:
+            detection_names: List of image filenames, chronologically ordered.
+            invalid_ranges: List of dictionaries with 'start' and 'end' keys specifying invalid ranges.
+
+        Returns:
+            Tuple containing two lists:
+                - invalid_names: List of invalid image filenames.
+                - invalid_indices: List of indices of invalid image filenames.
+                - valid_names: List of valid image filenames.
+                - valid_indices: List of indices of valid image filenames.
         """
+        # Handle the case where invalid_ranges is empty or None
+        if not invalid_ranges:
+            print("No invalid ranges provided. All detection names are considered valid.")
+            return [], [], detection_names, list(range(len(detection_names)))
+
         invalid_names = set()
 
         # Iterate through each invalid range and collect invalid image names
         for range_ in invalid_ranges:
-            start = range_['start'].replace(".jpg", "_det") 
+            start = range_['start'].replace(".jpg", "_det")
             end = range_['end'].replace(".jpg", "_det")
             # Add all image names within the range (inclusive) to the invalid set
             invalid_names.update(
@@ -175,8 +218,8 @@ class CSLICSDataProcessor:
     def read_detections(self):
                 # read in all the json files
         # it is assumed that because of the file naming structure, sorting the files by their filename sorts them chronologically
-        print(f'Gathering detection files from: {self.model_det_dir}')
-        sample_list = sorted(Path(self.model_det_dir).rglob('*_det.json'))
+        print(f'Gathering detection files from: {self.save_det_dir}')
+        sample_list = sorted(Path(self.save_det_dir).rglob('*_det.json'))
         print(f'Found {len(sample_list)} detection files.')
 
         if len(sample_list) < self.skipping_frequency:
@@ -500,6 +543,10 @@ class CSLICSDataProcessor:
         plt.title(f'Error Between AI and Manual Counts: {self.tank_sheet_name}')
         plt.legend()
 
+        # Adjust y-axis label formatting for better readability
+        ax.ticklabel_format(axis='y', style='sci', scilimits=(-2, 2))  # Use scientific notation if needed
+        plt.tight_layout()  # Ensure labels and titles fit within the figure
+
         # Save the plot
         output_path = os.path.join(self.save_det_dir, f'Error_plot_{self.tank_sheet_name}.png')
         plt.savefig(output_path, dpi=600)
@@ -520,15 +567,25 @@ class CSLICSDataProcessor:
         self.plot_manual_counts(manual_counts, manual_std, manual_times)
 
         # First, read model detections from all JSON files
-        print(f'Reading detections from {self.model_det_dir}...')
+        print(f'Reading detections from {self.save_det_dir}...')
         nearest_day = manual_times_dt[0].replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
         samples = self.read_detections()
         
         # read valid/invalid times from JSON, then re-run batch_detections to get a new set of image_counts
         print(f'Filtering invalid times...')
         image_exclusion_data = self.read_invalid_times()
-        image_names = [Path(sample).stem for sample in sorted(Path(self.model_det_dir).rglob('*_det.json'))]
-        invalid_names, invalid_indices, valid_names, valid_indices = self.filter_invalid_times(image_names, image_exclusion_data['invalid_ranges'])
+        image_names = [Path(sample).stem for sample in sorted(Path(self.save_det_dir).rglob('*_det.json'))]
+        if not image_exclusion_data or 'invalid_ranges' not in image_exclusion_data:
+            print("No invalid ranges provided. Proceeding with all detection names as valid.")
+            invalid_names, invalid_indices, valid_names, valid_indices = [], [], [
+                Path(sample).stem for sample in samples
+            ], list(range(len(samples)))
+        else:
+            image_names = [Path(sample).stem for sample in sorted(Path(self.save_det_dir).rglob('*_det.json'))]
+            invalid_names, invalid_indices, valid_names, valid_indices = self.filter_invalid_times(
+                image_names, image_exclusion_data['invalid_ranges']
+            )
+        # Filter samples to include only valid ones
         samples_valid = [sample for sample in samples if Path(sample).stem in valid_names]
         
         # Batch detections with invalid indices
@@ -578,98 +635,8 @@ class CSLICSDataProcessor:
 # Example usage:
 if __name__ == "__main__":
     
-    # spawning_sheet_name = '2024 oct'
-    # tank_sheet_name = 'OCT24 T1 Amag'
-    # tank_sheet_name = 'OCT24 T2 Amag'
-    # tank_sheet_name = 'OCT24 T3 Amag'
-    # tank_sheet_name = 'OCT24 T4 Maeq'
-    # tank_sheet_name = 'OCT24 T5 Maeq'
-    # tank_sheet_name = 'OCT24 T6 Aant'
+      
 
-    # spawning_sheet_name = '2024 nov'
-    # tank_sheet_name = 'NOV24 T1 Amil'
-    # tank_sheet_name = 'NOV24 T2 Amil'
-    # tank_sheet_name = 'NOV24 T3 Amil'
-    # tank_sheet_name = 'NOV24 T4 Pdae'
-    # tank_sheet_name = 'NOV24 T5 Pdae'
-    # tank_sheet_name = 'NOV24 T6 Lcor'
-    # config = {
-    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
-    #     'spawning_sheet_name': '2024 oct',
-    #     'tank_sheet_name': 'OCT24 T1 Amag',
-    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
-    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
-    #     'base_detection_dir': '/media/dtsai/CSLICSOct24/cslics_october_2024/detections',
-    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
-    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_oct_10000000f620da42.json',
-    #     'skipping_frequency': 2,
-    #     'aggregate_size': 100,
-    #     'confidence_threshold': 0.5,
-    #     'MAX_SAMPLE': 1000,
-    #     'calibration_window_size': 1,
-    #     'calibration_idx': 2,
-    #     'calibration_window_shift': 0,
-    #     'PLOT_FOCUS_VOLUME': False
-    # }
-    
-    # TODO should get tank_sheet name, etc from the json file!
-    # config = {
-    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
-    #     'spawning_sheet_name': '2024 nov',
-    #     'tank_sheet_name': 'NOV24 T1 Amil',
-    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
-    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
-    #     'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
-    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
-    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_100000000029da9b.json',
-    #     'skipping_frequency': 1,
-    #     'aggregate_size': 100,
-    #     'confidence_threshold': 0.5,
-    #     'MAX_SAMPLE': 1000,
-    #     'calibration_window_size': 1,
-    #     'calibration_idx': 1,
-    #     'calibration_window_shift': 0,
-    #     'PLOT_FOCUS_VOLUME': False
-    # }
-    
-    # config = {
-    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
-    #     'spawning_sheet_name': '2024 nov',
-    #     'tank_sheet_name': 'NOV24 T2 Amil',
-    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
-    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
-    #     'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
-    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
-    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_100000009c23b5af.json',
-    #     'skipping_frequency': 1,
-    #     'aggregate_size': 100,
-    #     'confidence_threshold': 0.5,
-    #     'MAX_SAMPLE': 1000,
-    #     'calibration_window_size': 1,
-    #     'calibration_idx': 1,
-    #     'calibration_window_shift': 0,
-    #     'PLOT_FOCUS_VOLUME': False
-    # }
-    
-    config = {
-        'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
-        'spawning_sheet_name': '2024 nov',
-        'tank_sheet_name': 'NOV24 T3 Amil',
-        'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
-        'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
-        'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
-        'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
-        'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_10000000f620da42.json',
-        'skipping_frequency': 1,
-        'aggregate_size': 100,
-        'confidence_threshold': 0.5,
-        'MAX_SAMPLE': 1000,
-        'calibration_window_size': 1,
-        'calibration_idx': 1,
-        'calibration_window_shift': 10,
-        'PLOT_FOCUS_VOLUME': False
-    }
-    
     # config = {
     #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
     #     'spawning_sheet_name': '2024 oct',
@@ -689,8 +656,8 @@ if __name__ == "__main__":
     #     'PLOT_FOCUS_VOLUME': False
     # }
     
-    
-    processor = CSLICSDataProcessor(config)
+    config_file = "../data_yaml_files/config_202410_t1_amag_100000000029da9b.json"  # Replace with the actual path to your JSON file
+    processor = CSLICSDataProcessor(config_file)
     # (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), (manual_counts, manual_std), manual_times_dt
     results = processor.run()
     print(f'cslics uuid: {processor.cslics_uuid}, coral species: {processor.coral_species}')
