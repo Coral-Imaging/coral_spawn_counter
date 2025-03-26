@@ -90,7 +90,7 @@ def read_cslics_uuid_tank_association(file, spawning_sheet_name, tank_sheet_name
 # CONFIGURATION
 
 # TODO this should take the form of a config file input
-manual_counts_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx'
+manual_counts_file = '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx'
 
 spawning_sheet_name = '2024 oct'
 # tank_sheet_name = 'OCT24 T1 Amag'
@@ -107,24 +107,24 @@ tank_sheet_name = 'OCT24 T6 Aant'
 # tank_sheet_name = 'NOV24 T4 Pdae'
 # tank_sheet_name = 'NOV24 T5 Pdae'
 # tank_sheet_name = 'NOV24 T6 Lcor'
-cslics_associations_file = '/home/dorian/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx'
+cslics_associations_file = '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx'
 
 # specify tank_sheet_name, which determines which tank/installation and thus cslics uuid we want to run
 # given the tank sheet name, determine the corresponding uuid & therefore folder:
 cslics_uuid, coral_species = read_cslics_uuid_tank_association(cslics_associations_file, spawning_sheet_name, tank_sheet_name)
 
 # saving manual counts output
-save_manual_plot_dir = '/home/dorian/Data/cslics_datasets/manual_counts/plots'
+save_manual_plot_dir = '/home/dtsai/Data/cslics_datasets/manual_counts/plots'
 os.makedirs(save_manual_plot_dir, exist_ok=True)
 
 # specify directory of detections after running inference on all the images, such that the detection json files are available
 search_str = "nov"
 model_name = 'cslics_subsurface_20250205_640p_yolov8n'
 if search_str.lower() in tank_sheet_name.lower():
-    det_dir = '/media/dorian/CSLICSNov24/cslics_november_2024/detections/' + str(cslics_uuid) + '/' + model_name
+    det_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/detections/' + str(cslics_uuid) + '/' + model_name
 else:
     # OCT
-    det_dir = '/media/dorian/CSLICSOct24/cslics_october_2024/detections/' + str(cslics_uuid) + '/' + model_name
+    det_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024/detections/' + str(cslics_uuid) + '/' + model_name
 
 
 # saving detection plots

@@ -434,7 +434,7 @@ class CSLICSDataProcessor:
         plt.title(f'CSLICS AI Count: {self.tank_sheet_name} - ({plot_label})')
         output_path = os.path.join(self.save_det_dir, f'Combined_tank_counts_{self.tank_sheet_name}_{plot_label}.png')
         plt.savefig(output_path, dpi=600)
-        plt.show()
+        # plt.show()
         print(f'Plot saved to {output_path}')
         
 
@@ -470,6 +470,43 @@ class CSLICSDataProcessor:
         tank_std_cal = image_std * scale_factor_manual
 
         return (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), scaling_idx
+        
+    
+    def plot_error_between_manual_and_ai(self, image_times, tank_counts_cal, manual_times, manual_counts):
+        """
+        Compute and plot the error between manual counts and AI-calibrated tank counts.
+
+        Args:
+            image_times (array-like): Array of image times (in decimal days).
+            tank_counts_cal (array-like): Array of AI-calibrated tank counts.
+            manual_times (array-like): Array of manual times (in decimal days).
+            manual_counts (array-like): Array of manual counts.
+        """
+        # Find the closest image time for each manual time
+        closest_indices = [np.argmin(np.abs(image_times - manual_time)) for manual_time in manual_times]
+        closest_image_times = [image_times[idx] for idx in closest_indices]
+        closest_tank_counts = [tank_counts_cal[idx] for idx in closest_indices]
+
+        # Compute the error (difference) between manual counts and AI-calibrated counts
+        errors = np.array(closest_tank_counts) - np.array(manual_counts)
+
+        # Plot the error
+        __, ax = plt.subplots()
+        ax.plot(manual_times, errors, marker='o', color='red', label='Error (AI - Manual)')
+        plt.axhline(0, color='black', linestyle='--', linewidth=0.8, label='Zero Error')
+        plt.grid(True)
+        plt.xlabel('Days since spawning')
+        plt.ylabel('Error (Tank Counts)')
+        plt.title(f'Error Between AI and Manual Counts: {self.tank_sheet_name}')
+        plt.legend()
+
+        # Save the plot
+        output_path = os.path.join(self.save_det_dir, f'Error_plot_{self.tank_sheet_name}.png')
+        plt.savefig(output_path, dpi=600)
+        plt.show()
+        print(f"Error plot saved to {output_path}")
+        
+        return errors
         
         
     def run(self):
@@ -520,6 +557,16 @@ class CSLICSDataProcessor:
             plot_label="All_Images"
         )
 
+
+        # plot error:
+        print(f'Plotting error between manual and AI counts...')
+        self.plot_error_between_manual_and_ai(
+            image_times=image_times,
+            tank_counts_cal=tank_counts_cal,
+            manual_times=manual_times,
+            manual_counts=manual_counts
+        )
+        
         return (
             (tank_counts_def, tank_std_def),
             (tank_counts_cal, tank_std_cal),
@@ -546,24 +593,102 @@ if __name__ == "__main__":
     # tank_sheet_name = 'NOV24 T4 Pdae'
     # tank_sheet_name = 'NOV24 T5 Pdae'
     # tank_sheet_name = 'NOV24 T6 Lcor'
+    # config = {
+    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
+    #     'spawning_sheet_name': '2024 oct',
+    #     'tank_sheet_name': 'OCT24 T1 Amag',
+    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
+    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
+    #     'base_detection_dir': '/media/dtsai/CSLICSOct24/cslics_october_2024/detections',
+    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
+    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_oct_10000000f620da42.json',
+    #     'skipping_frequency': 2,
+    #     'aggregate_size': 100,
+    #     'confidence_threshold': 0.5,
+    #     'MAX_SAMPLE': 1000,
+    #     'calibration_window_size': 1,
+    #     'calibration_idx': 2,
+    #     'calibration_window_shift': 0,
+    #     'PLOT_FOCUS_VOLUME': False
+    # }
+    
+    # TODO should get tank_sheet name, etc from the json file!
+    # config = {
+    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
+    #     'spawning_sheet_name': '2024 nov',
+    #     'tank_sheet_name': 'NOV24 T1 Amil',
+    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
+    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
+    #     'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
+    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
+    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_100000000029da9b.json',
+    #     'skipping_frequency': 1,
+    #     'aggregate_size': 100,
+    #     'confidence_threshold': 0.5,
+    #     'MAX_SAMPLE': 1000,
+    #     'calibration_window_size': 1,
+    #     'calibration_idx': 1,
+    #     'calibration_window_shift': 0,
+    #     'PLOT_FOCUS_VOLUME': False
+    # }
+    
+    # config = {
+    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
+    #     'spawning_sheet_name': '2024 nov',
+    #     'tank_sheet_name': 'NOV24 T2 Amil',
+    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
+    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
+    #     'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
+    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
+    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_100000009c23b5af.json',
+    #     'skipping_frequency': 1,
+    #     'aggregate_size': 100,
+    #     'confidence_threshold': 0.5,
+    #     'MAX_SAMPLE': 1000,
+    #     'calibration_window_size': 1,
+    #     'calibration_idx': 1,
+    #     'calibration_window_shift': 0,
+    #     'PLOT_FOCUS_VOLUME': False
+    # }
+    
     config = {
         'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
-        'spawning_sheet_name': '2024 oct',
-        'tank_sheet_name': 'OCT24 T1 Amag',
+        'spawning_sheet_name': '2024 nov',
+        'tank_sheet_name': 'NOV24 T3 Amil',
         'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
         'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
-        'base_detection_dir': '/media/dtsai/CSLICSOct24/cslics_october_2024/detections',
+        'base_detection_dir': '/media/dtsai/CSLICSNov24/cslics_november_2024/detections',
         'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
-        'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_oct_10000000f620da42.json',
-        'skipping_frequency': 2,
+        'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_nov_10000000f620da42.json',
+        'skipping_frequency': 1,
         'aggregate_size': 100,
         'confidence_threshold': 0.5,
         'MAX_SAMPLE': 1000,
         'calibration_window_size': 1,
-        'calibration_idx': 2,
-        'calibration_window_shift': 0,
+        'calibration_idx': 1,
+        'calibration_window_shift': 10,
         'PLOT_FOCUS_VOLUME': False
     }
+    
+    # config = {
+    #     'manual_counts_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx',
+    #     'spawning_sheet_name': '2024 oct',
+    #     'tank_sheet_name': 'OCT24 T2 Amag',
+    #     'cslics_associations_file': '/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx',
+    #     'model_name': 'cslics_subsurface_20250205_640p_yolov8n',
+    #     'base_detection_dir': '/media/dtsai/CSLICSOct24/cslics_october_2024/detections',
+    #     'save_manual_plot_dir': '/home/dtsai/Data/cslics_datasets/manual_counts/plots',
+    #     'invalid_ranges_file': '/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/cslics_2024_oct_100000009c23b5af.json',
+    #     'skipping_frequency': 1,
+    #     'aggregate_size': 100,
+    #     'confidence_threshold': 0.5,
+    #     'MAX_SAMPLE': 1000,
+    #     'calibration_window_size': 1,
+    #     'calibration_idx': 1,
+    #     'calibration_window_shift': 10,
+    #     'PLOT_FOCUS_VOLUME': False
+    # }
+    
     
     processor = CSLICSDataProcessor(config)
     # (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), (manual_counts, manual_std), manual_times_dt
