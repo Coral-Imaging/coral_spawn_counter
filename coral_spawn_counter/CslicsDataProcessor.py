@@ -205,6 +205,7 @@ class CSLICSDataProcessor:
             )
 
         # Convert invalid_names to a list and sort it
+
         invalid_names = sorted(invalid_names)
 
         # Determine valid names by subtracting invalid names from the full list
@@ -272,6 +273,9 @@ class CSLICSDataProcessor:
                 except (json.JSONDecodeError, FileNotFoundError) as e:
                     print(f'Error reading {detection_file}: {e}')
 
+            # get plot of batch:
+            self.plot_batch_histogram(sample_count, batch_idx, SHOW=False)
+            
             # Average stats over the batch
             batched_image_count.append(np.mean(sample_count))
             batched_std.append(np.std(sample_count))
@@ -284,6 +288,36 @@ class CSLICSDataProcessor:
         return np.array(batched_image_count), np.array(batched_std), np.array(decimal_capture_times), batched_invalid_indices
 
 
+    def plot_batch_histogram(self, batch_counts, batch_idx, x_range=(0,60), y_max=50, SHOW=False):
+        """
+        Plot a histogram of the counts in a single batch with consistent x and y axes.
+
+        Args:
+            batch_counts (list): List of detection counts in the batch.
+            batch_idx (int): Index of the batch (used for labeling the plot).
+            x_range (tuple): Tuple specifying the global x-axis range (min, max).
+            y_max (int): Maximum value for the y-axis (frequency).
+            SHOW (bool): Whether to display the plot interactively. Default is False.
+        """
+        __, ax = plt.subplots()
+        ax.hist(batch_counts, bins=10, range=x_range, color='blue', alpha=0.9, edgecolor='black')
+        ax.set_xlim(x_range)  # Set consistent x-axis range
+        ax.set_ylim(0, y_max)  # Set consistent y-axis range
+        plt.xlabel('Detection Counts')
+        plt.ylabel('Frequency')
+        plt.title(f'Histogram of Batch Counts (Batch {batch_idx + 1})')
+        plt.grid(True)
+
+        # Save the plot
+        output_path = os.path.join(self.save_det_dir, f'Batch_{batch_idx + 1}_Histogram.png')
+        plt.savefig(output_path, dpi=600)
+        print(f"Histogram for Batch {batch_idx + 1} saved to {output_path}")
+
+        if SHOW:
+            plt.show()
+        plt.close()
+            
+            
     def plot_image_detections(self, counts, std, times, SHOW=False):
         """
         Plot image-based detections with error bands.
@@ -436,7 +470,7 @@ class CSLICSDataProcessor:
             plot_label: A string to differentiate the plot (used in title and filename).
         """
         n = 0.5
-        __, ax = plt.subplots()
+        fig, ax = plt.subplots()
 
         # AI counts (focus-volume scaled)
         if self.PLOT_FOCUS_VOLUME:
@@ -469,6 +503,24 @@ class CSLICSDataProcessor:
         ax.plot(manual_times[self.calibration_idx], manual_counts[self.calibration_idx], marker='*', markersize=10, color='red', label='calibration')
         ax.plot(image_times[scaling_idx - 1], tank_counts_cal[scaling_idx - 1], marker='*', markersize=10, color='black', label='shifted calibration')
 
+        # Add day labels underneath the existing x-axis numbers
+        # def decimal_days_to_date(decimal_days, base_date):
+        #     """Convert decimal days to datetime objects."""
+        #     # base_date = datetime(2024, 10, 23)  # Replace with the actual base date
+        #     return [base_date + timedelta(days=dd) for dd in decimal_days]
+
+        # import code
+        # code.interact(local=dict(globals(), **locals()))
+        
+        # date_labels = decimal_days_to_date(image_times, image_times[0])
+        # day_labels = [dt.strftime('%d') for dt in date_labels]  # Extract only the day
+
+        
+        
+        # Set custom x-axis labels
+        # ax.set_xticks(image_times)
+        # ax.set_xticklabels([f"{int(day)}\n{label}" for day, label in zip(image_times, day_labels)], rotation=0, ha='center')
+
         # Finalize plot
         plt.legend()
         plt.grid(True)
@@ -479,7 +531,7 @@ class CSLICSDataProcessor:
         plt.savefig(output_path, dpi=600)
         # plt.show()
         print(f'Plot saved to {output_path}')
-        
+
 
     def process_and_scale_counts(self, image_counts, image_std, image_times, manual_counts, manual_std, manual_times):
         """
@@ -656,7 +708,20 @@ if __name__ == "__main__":
     #     'PLOT_FOCUS_VOLUME': False
     # }
     
-    config_file = "../data_yaml_files/config_202410_t1_amag_100000000029da9b.json"  # Replace with the actual path to your JSON file
+    # config_file = "../data_yaml_files/config_202410_t1_amag_100000000029da9b.json"
+    # config_file = "../data_yaml_files/config_202410_t2_amag_100000009c23b5af.json"
+    # config_file = "../data_yaml_files/config_202410_t3_amag_10000000f620da42.json"
+    # config_file = "../data_yaml_files/config_202410_t4_maeq_100000001ab0438d.json"
+    # config_file = "../data_yaml_files/config_202410_t5_maeq_100000000846a7ff.json"
+    # config_file = "../data_yaml_files/config_202410_t6_aant_10000000570f9d9c.json"
+    
+    # config_file = "../data_yaml_files/config_202411_t1_amil_100000000029da9b.json"
+    # config_file = "../data_yaml_files/config_202411_t2_amil_100000009c23b5af.json"
+    config_file = "../data_yaml_files/config_202411_t3_amil_10000000f620da42.json"
+    # config_file = "../data_yaml_files/config_202411_t4_pdae_100000001ab0438d.json"
+    # config_file = "../data_yaml_files/config_202411_t5_pdae_100000000846a7ff.json"
+    # config_file = "../data_yaml_files/config_202411_t6_lcor_10000000570f9d9c.json"
+    
     processor = CSLICSDataProcessor(config_file)
     # (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), (manual_counts, manual_std), manual_times_dt
     results = processor.run()
@@ -664,42 +729,6 @@ if __name__ == "__main__":
     
     import code
     code.interact(local=dict(globals(), **locals()))
-    # manual_counts, manual_std, manual_times, manual_times_dt = processor.read_manual_counts()
-    # processor.plot_manual_counts(manual_counts, manual_std, manual_times)
 
-
-    # test script for valid/invalid times
-    # image_names = [
-    #     "2024-10-23_19-59-00_clean.jpg",
-    #     "2024-10-23_20-00-19_clean.jpg",
-    #     "2024-10-24_11-47-25_clean.jpg",
-    #     "2024-10-24_12-00-00_clean.jpg",
-    #     "2024-10-25_22-18-37_clean.jpg",
-    #     "2024-10-26_15-19-54_clean.jpg",
-    #     "2024-10-26_16-00-00_clean.jpg"
-    # ]
-    # invalid_ranges = [
-    #     {
-    #         "start": "2024-10-23_20-00-19_clean.jpg",
-    #         "end": "2024-10-24_11-47-25_clean.jpg"
-    #     },
-    #     {
-    #         "start": "2024-10-25_22-18-37_clean.jpg",
-    #         "end": "2024-10-26_15-19-54_clean.jpg"
-    #     }
-    # ]
-    # invalid_names, valid_names = processor.filter_invalid_times(image_names, invalid_ranges)
-    # # Output
-    # print('all names')
-    # for name in image_names:
-    #     print(name)
-        
-    # print('invalid names:')
-    # for inv in invalid_names:
-    #     print(inv)
-        
-    # print('valid names:')  
-    # for val in valid_names:
-    #     print(val)
    
     print('Done.')
