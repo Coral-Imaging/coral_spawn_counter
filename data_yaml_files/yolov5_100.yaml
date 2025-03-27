@@ -1,0 +1,18 @@
+# data config file that defines:
+# the dataset root directory "path"
+# the relative paths to train/val/test image directories (or text files with image paths)
+# a class "names" dictionary
+
+path: /home/dorian/Data/202211_atenuis_100
+train: images # training images relative to 'path', 100 images
+val: images # validation images relative to 'path', 100 images - set to same as train to verify overfitting
+test: # test images (optional)
+
+# classes
+names:
+0: Egg
+1: First Cleavage
+2: Two-Cell Stage
+3: Four-Eight Cell Stage
+4: Advanced
+5: Damaged

@@ -1,0 +1,20 @@
+{
+    "manual_counts_file": "/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_manual_counts.xlsx",
+    "spawning_sheet_name": "2024 nov",
+    "tank_sheet_name": "NOV24 T1 Amil",
+    "cslics_uuid": "100000000029da9b",
+    "coral_species": "Acropora millepora",
+    "cslics_associations_file": "/home/dtsai/Data/cslics_datasets/manual_counts/cslics_2024_spawning_setup.xlsx",
+    "model_name": "cslics_subsurface_20250205_640p_yolov8n",
+    "base_detection_dir": "/media/dtsai/CSLICSNov24/cslics_november_2024/detections",
+    "save_manual_plot_dir": "/home/dtsai/Data/cslics_datasets/manual_counts/plots",
+    "invalid_ranges_file": "/home/dtsai/Data/cslics_datasets/manual_counts/invalid_image_times/invalid_times_202411_t1_amil_100000000029da9b.json",
+    "skipping_frequency": 1,
+    "aggregate_size": 100,
+    "confidence_threshold": 0.5,
+    "MAX_SAMPLE": 1000,
+    "calibration_window_size": 1,
+    "calibration_idx": 1,
+    "calibration_window_shift": 20,
+    "PLOT_FOCUS_VOLUME": false
+}

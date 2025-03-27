@@ -119,17 +119,19 @@ if __name__ == "__main__":
     img_pattern = '*.jpg'
     # root_dir = 
     # img_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/images'
-    img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
-    img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)), reverse=True)
+    # img_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/images'
+    img_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/images'
+    img_list = sorted(glob.glob(os.path.join(img_dir, img_pattern)), reverse=False)
     
     # save_dir = '/home/dorian/Data/cslics_2023_subsurface_dataset/runs/20231103_aten_tank4_cslics08/output/hue'
-    save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/laplacian'
+    # save_dir = '/home/dorian/Data/cslilcs_2024_october_subsurface_dataset/100000009c23b5af/output/laplacian'
+    save_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/output/laplacian'
     os.makedirs(save_dir, exist_ok=True)
     
     config = {}
-    config['denoise_template_window_size'] = 14
+    config['denoise_template_window_size'] =15
     config['denoise_search_window_size'] = 31
-    config['denoise_strength'] = 7
+    config['denoise_strength'] = 11
     config['min_area'] = 400
     config['max_area'] = 10000
     config['min_circularity'] = 0.2
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     config['process_fill'] = True
     config['process_filter'] = True
     config['laplacian_kernel_size'] = 5
-    config['laplacian_threshold'] = 20
+    config['laplacian_threshold'] = 20 # was 35
     config['edge_dilation_kernel_size'] = 40
     
     lap = FilterLaplacian(config=config)
