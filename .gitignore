@@ -135,3 +135,5 @@ coral_spawn_counter/config.yaml
 
 test_script.e*
 test_script.o*
+
+runs/
