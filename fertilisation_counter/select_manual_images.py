@@ -4,6 +4,7 @@ import os
 import glob
 import shutil
 import zipfile
+from datetime import datetime, timedelta
 
 # script to help get images from folder
 # take every X images and put them in a new folder
@@ -25,11 +26,32 @@ def find_folders_with_images(directory, folders):
             cslics_image_folders.append(folder)
     return cslics_image_folders
 
-def get_image_names(directory, skip):
-    """Get all .jpg file names in the directory, skipping based on the given value."""
+def extract_datetime_from_filename(filename):
+    """Extract the datetime object from the filename."""
+    try:
+        # Extract the timestamp from the filename (e.g., "cslics08_20231103_205449_514797_img.jpg")
+        timestamp_str = filename.split('_')[1] + filename.split('_')[2][:6]  # "20231103_205449"
+        return datetime.strptime(timestamp_str, "%Y%m%d%H%M%S")
+    except (IndexError, ValueError):
+        return None
+
+def get_images_by_time_interval(directory, time_interval_minutes):
+    """Get image names based on a time interval."""
     image_paths = sorted(glob.glob(os.path.join(directory, '*.jpg'), recursive=True))
-    # Skip images based on the manual_image_skip value
-    return image_paths[::skip]
+    selected_images = []
+    last_selected_time = None
+
+    for image_path in image_paths:
+        filename = os.path.basename(image_path)
+        image_time = extract_datetime_from_filename(filename)
+        if image_time is None:
+            continue  # Skip files with invalid or missing timestamps
+
+        if last_selected_time is None or image_time >= last_selected_time + timedelta(minutes=time_interval_minutes):
+            selected_images.append(image_path)
+            last_selected_time = image_time
+
+    return selected_images
 
 def prepare_output_directory(output_dir):
     """Create the output directory and clean up any existing files."""
@@ -69,12 +91,12 @@ if __name__ == "__main__":
     for folder in cslics_image_folders:
         print(folder)
     
-    manual_image_skip = 100
+    time_interval_minutes = 12
     total_images = 0
-    print("\nNumber of images (skipping every {} images):".format(manual_image_skip))
+    print("\nNumber of images (skipping every {} minutes):".format(time_interval_minutes))
     for folder in cslics_image_folders:
         images_path = os.path.join(root_dir, folder, 'images')
-        image_names = get_image_names(images_path, manual_image_skip)
+        image_names = get_images_by_time_interval(images_path, time_interval_minutes)
         print(f"Folder: {folder}, number of images after skip: {len(image_names)}")
         total_images += len(image_names)
         
