@@ -17,15 +17,25 @@ import torchvision
 from tqdm import tqdm 
 from datetime import datetime, timedelta
 import json
+from scipy.interpolate import interp1d
+import pandas as pd
 
 class FertilisationCounter:
-    def __init__(self, root_dir, model_path, output_dir=None, use_cached_detections=False):
+    def __init__(self, 
+                 root_dir, 
+                 model_path, 
+                 output_dir=None, 
+                 use_cached_detections=False,
+                 manual_count_path=None,
+                 sheet_name=None):
         """Initialize the FertilisationCounter class with paths and model"""
         self.root_dir = root_dir
         self.model_path = model_path
         self.output_dir = output_dir if output_dir else os.path.join(root_dir, '../predictions')
         self.json_dir = os.path.join(self.output_dir, 'predictions_json')
         self.use_cached_detections = use_cached_detections
+        self.manual_count_path = manual_count_path
+        self.sheet_name = sheet_name
         
         # Create JSON directory if it doesn't exist
         if self.use_cached_detections or not os.path.exists(self.json_dir):
@@ -281,12 +291,15 @@ class FertilisationCounter:
             print(f"Error extracting datetime from {filename}: {e}")
             return None
         
-    def plot_fertilisation(self, results):
+    def plot_fertilisation(self, results, manual_times=None, manual_ratios=None, time_limit_minutes=120):
         """
         Plot fertilisation rate vs time since first capture
         
         Args:
             results: List of dictionaries containing capture_time and fertilisation_rate
+            manual_times: List of datetime objects for manual counts
+            manual_ratios: List of manual fertilisation ratios
+            time_limit_minutes: Maximum time in minutes to display on the plot
         """
         # Filter out results with None capture time
         valid_results = [r for r in results if r['capture_time'] is not None]
@@ -303,19 +316,65 @@ class FertilisationCounter:
                         for result in valid_results]
         fert_rates = [result['fertilisation_rate'] for result in valid_results]
         
-        # create running average of fertilisation rates
-        window_size = 20
-        fert_rate_avg = np.convolve(fert_rates, np.ones(window_size)/window_size, mode='valid')
-        # Adjust times for running average
-        time_avg = times_minutes[window_size-1:]
+        # Apply time limit: filter data to only include times <= time_limit_minutes
+        time_limited_indices = [i for i, t in enumerate(times_minutes) if t <= time_limit_minutes]
+        times_minutes = [times_minutes[i] for i in time_limited_indices]
+        fert_rates = [fert_rates[i] for i in time_limited_indices]
         
+        # Check if we have any data within the time limit
+        if not times_minutes:
+            print(f"No data points within the {time_limit_minutes} minute time limit")
+            return
+        
+        # create running average of fertilisation rates
+        window_size = min(20, len(times_minutes))  # Ensure window isn't larger than our data
+        if window_size > 1:  # Only compute average if we have enough data points
+            fert_rate_avg = np.convolve(fert_rates, np.ones(window_size)/window_size, mode='valid')
+            # Adjust times for running average
+            time_avg = times_minutes[window_size-1:]
+        else:
+            time_avg = []
+            fert_rate_avg = []
         
         # Create the plot
         label_font_size = 10
         title_font_size = 12
+        
         plt.figure(figsize=(6, 5))
-        plt.plot(times_minutes, fert_rates, '-', linewidth=2, color='blue', label='Fertilisation Rate Per Image')
-        plt.plot(time_avg, fert_rate_avg, '-', linewidth=2, color='orange', label=f'Running Average ({window_size} images)')
+        
+        # Plot the per-image data with transparency to give a light background
+        plt.plot(times_minutes, fert_rates, '.', alpha=0.3, color='blue', markersize=3, label='Per Image')
+        
+        # Plot a semi-transparent area showing variance from running average
+        if len(time_avg) > 1:  # Need at least 2 points for interpolation
+            f_interp = interp1d(time_avg, fert_rate_avg, bounds_error=False, fill_value=(fert_rate_avg[0], fert_rate_avg[-1]))
+            interp_avg = f_interp(times_minutes)
+            
+            # Plot the variance as a semi-transparent fill
+            plt.fill_between(times_minutes, fert_rates, interp_avg, alpha=0.15, color='blue', label='Variance')
+        
+            # Plot running average as a solid line on top
+            plt.plot(time_avg, fert_rate_avg, '-', linewidth=2, color='red', label=f'Running Average ({window_size} images)')
+        
+        # Add manual counts if available
+        if manual_times and manual_ratios and len(manual_times) > 0:
+            # Convert manual times to minutes since first capture (same zero point)
+            manual_minutes = [(t - first_capture).total_seconds() / 60.0 for t in manual_times]
+            
+            # Filter manual times by time limit
+            limited_manual_data = [(t, r) for t, r in zip(manual_minutes, manual_ratios) if t <= time_limit_minutes]
+            if limited_manual_data:
+                limited_manual_minutes, limited_manual_ratios = zip(*limited_manual_data)
+                
+                # Add manual counts as green squares with black edges
+                plt.scatter(limited_manual_minutes, limited_manual_ratios, marker='s', color='green', s=40, 
+                        edgecolor='black', linewidth=1.5, alpha=0.8, label='Manual Counts')
+                
+                # Add annotations for the manual count values
+                for i, (x, y) in enumerate(zip(limited_manual_minutes, limited_manual_ratios)):
+                    plt.annotate(f'{y:.2f}', (x, y), textcoords="offset points", 
+                                xytext=(0, 10), ha='center', fontsize=9)
+        
         plt.legend(loc='lower right', fontsize=label_font_size)
         plt.grid(True, alpha=0.3)
         plt.xlabel('Time since stocking [minutes]', fontsize=label_font_size)
@@ -325,15 +384,8 @@ class FertilisationCounter:
         # Add 0-1 range for y-axis and set reasonable limits
         plt.ylim(-0.05, 1.05)
         
-        # Compute time range and set reasonable x-axis
-        if len(times_minutes) > 1:
-            plt.xlim(-5, max(times_minutes) * 1.05)
-        
-        # Add annotations with actual values
-        # for i, (x, y) in enumerate(zip(times_minutes, fert_rates)):
-        #     if i % 5 == 0 or i == len(times_minutes) - 1:  # Annotate every 5th point and the last point
-        #         plt.annotate(f'{y:.2f}', (x, y), textcoords="offset points", 
-        #                     xytext=(0,10), ha='center', fontsize=9)
+        # Set x-axis limits to show from -5 minutes to time_limit_minutes
+        plt.xlim(-5, time_limit_minutes)
         
         # Save the plot
         plot_filename = f"fertilisation_plot_{Path(self.root_dir).parts[-2]}.png"
@@ -341,9 +393,6 @@ class FertilisationCounter:
         plt.tight_layout()
         plt.savefig(plot_path, dpi=300)
         print(f"Fertilisation plot saved to {plot_path}")
-        
-        # Show the plot
-        # plt.show()
         
         return plot_path
     
@@ -443,6 +492,65 @@ class FertilisationCounter:
             'predictions': predictions
         }
     
+    def read_manual_counts(self):
+        """
+        Read manual counts from an Excel file
+        
+        Args:
+            manual_count_path: Path to the Excel file
+            sheet_name: Name of the sheet to read
+            
+        Returns:
+            Tuple of manual count times and fertilisation ratios
+        """
+        
+        
+        try:
+            # Read the Excel file, skipping the first 7 rows, using row 8 as header
+            print(f"Reading manual counts from {self.manual_count_path}, sheet '{self.sheet_name}'")
+            df = pd.read_excel(
+                self.manual_count_path,
+                sheet_name=self.sheet_name,
+                header=7,  # 0-indexed, so row 8 becomes header
+                nrows=10   # Read only 10 rows of data
+            )
+            
+            # Check if data was found
+            if df.empty:
+                print(f"Warning: No data found in sheet '{self.sheet_name}'")
+                return None, None
+                    
+            # Basic validation and cleaning
+            print(f"Found {len(df)} manual count records")
+            
+            # Extract datetime objects from filenames
+            manual_times = []
+            image_names = df['Image Name'].tolist()
+            for filename in image_names:
+                manual_times.append(self.extract_datetime_from_filename(filename))
+            
+            # Get fertilization ratios
+            fert_ratio_manual = df['fert ratio'].tolist()
+            
+            # Filter out None values
+            valid_data = [(t, r) for t, r in zip(manual_times, fert_ratio_manual) if t is not None]
+            if valid_data:
+                valid_times, valid_ratios = zip(*valid_data)
+                return valid_times, valid_ratios
+            return None, None
+                
+        except Exception as e:
+            print(f"Error reading manual counts: {e}")
+            # Check if sheet exists in the Excel file
+            try:
+                all_sheets = pd.ExcelFile(self.manual_count_path).sheet_names
+                print(f"Available sheets: {all_sheets}")
+                if self.sheet_name not in all_sheets:
+                    print(f"Sheet '{self.sheet_name}' not found. Please check the sheet name.")
+            except:
+                pass
+            return None, None
+        
     def run(self):
         """Process all images in the root directory"""
         # Get all images
@@ -461,8 +569,14 @@ class FertilisationCounter:
             
         print('Processing complete')
         
+        # read manual counts
+        manual_times, manual_ratios = None, None
+        if self.manual_count_path and self.sheet_name:
+            manual_times, manual_ratios = self.read_manual_counts()
+    
+    
         # Plot fertilisation results
-        self.plot_fertilisation(results)
+        self.plot_fertilisation(results, manual_times, manual_ratios)
         
         return results
 
@@ -470,15 +584,23 @@ def main():
     # Configuration
     root_dir = '/home/dtsai/Data/cslics_datasets/cslics_2022_fert_dataset/20221214_alor_tank4_cslics02/images'
     model_path = '/home/dtsai/Data/cslics_datasets/models/fertilisation/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
+    
+    sheet_name = Path(root_dir).parts[-2]
+    manual_count_path = '/home/dtsai/Data/cslics_datasets/cslics_2022_fert_dataset_manual_counts/cslics_2022_fert_dataset_manual_counts.xlsx'
     output_dir = os.path.join(os.path.dirname(root_dir), 'predictions')
     os.makedirs(output_dir, exist_ok=True)
     
     # Create counter and run
     counter = FertilisationCounter(
-        root_dir, 
-        model_path, 
-        output_dir,
-        use_cached_detections=False)
+        root_dir=root_dir, 
+        model_path=model_path, 
+        output_dir=output_dir,
+        manual_count_path=manual_count_path,
+        sheet_name=sheet_name,
+        use_cached_detections=True)
+    
+    
+    
     counter.run()
     
 if __name__ == "__main__":
