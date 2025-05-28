@@ -49,8 +49,12 @@ img_pattern = '*/*clean.jpg'
 num_images_get = 25 # only take 1% for training? ~15k images/day
 # for quicker turn-around, we'll say 50/day
 
-run_list = ['100000000029da9b',
-            '100000009c23b5af']
+# 2024 november data (pdae)
+run_list = ['202411_t5_pdae_100000000846a7ff']
+
+# 2024 october data
+# run_list = ['100000000029da9b',
+#             '100000009c23b5af']
 # 2023 data
 # run_list = ['20231102_aant_tank3_cslics06',
 #        '20231103_aten_tank4_cslics08',
@@ -82,12 +86,22 @@ for run in run_list:
     elif run == '100000000029da9b':
         img_dir = '/media/dorian/T2D/cslics_2024_october/20241023_spawning/100000000029da9b'
         dates = ['2024-10-24', '2024-10-25','2024-10-26','2024-10-27','2024-10-28']
-        out_dir = '/home/dorian/Data/cslilcs_2024_subsurface_dataset/100000000029da9b/images'
+        out_dir = '/home/dorian/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/100000000029da9b/images'
         
     elif run == '100000009c23b5af':
         img_dir = '/media/dorian/T2D/cslics_2024_october/20241023_spawning/100000009c23b5af'
         dates = ['2024-10-25','2024-10-26','2024-10-27','2024-10-28']
-        out_dir = '/home/dorian/Data/cslilcs_2024_subsurface_dataset/100000009c23b5af/images'
+        out_dir = '/home/dorian/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/100000009c23b5af/images'
+    
+    elif run == '202411_t4_pdae_100000001ab0438d':
+        img_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/100000001ab0438d'
+        dates = ['2024-11-23','2024-11-24','2024-11-25','2024-11-26', '2024-11-27','2024-11-28']
+        out_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_november_subsurface_dataset/100000001ab0438d/images'
+        
+    elif run == '202411_t5_pdae_100000000846a7ff':
+        img_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024/100000000846a7ff'
+        dates = ['2024-11-20', '2024-11-21', '2024-11-22', '2024-11-23','2024-11-24']
+        out_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_november_subsurface_dataset/100000000846a7ff/images'
         
     else:
         print('specify run')
