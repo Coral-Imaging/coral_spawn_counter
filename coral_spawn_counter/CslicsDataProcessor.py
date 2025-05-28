@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm 
 
 class CSLICSDataProcessor:
     def __init__(self, config_file):
@@ -49,7 +50,7 @@ class CSLICSDataProcessor:
         self.calibration_idx = self.config.get('calibration_idx', 1)
         self.calibration_window_shift = self.config.get('calibration_window_shift', 0)
         self.PLOT_FOCUS_VOLUME = self.config.get('PLOT_FOCUS_VOLUME', False)
-
+        self.SHOW_INVALID_POINTS = self.config.get('SHOW_INVALID_POINTS', True)  
         
         os.makedirs(self.save_manual_plot_dir, exist_ok=True)
         os.makedirs(self.save_det_dir, exist_ok=True)
@@ -217,7 +218,7 @@ class CSLICSDataProcessor:
     
     
     def read_detections(self):
-                # read in all the json files
+        # read in all the json files
         # it is assumed that because of the file naming structure, sorting the files by their filename sorts them chronologically
         print(f'Gathering detection files from: {self.save_det_dir}')
         sample_list = sorted(Path(self.save_det_dir).rglob('*_det.json'))
@@ -252,13 +253,15 @@ class CSLICSDataProcessor:
 
         batched_image_count, batched_std, batched_time, batched_invalid_indices = [], [], [], []
 
-        # Iterate over all the batched samples
+        # Iterate over all the batched samples with tqdm progress bar
         print(f'Batching {len(batched_samples)} samples...')
-        for batch_idx, sample_batch in enumerate(batched_samples[:self.MAX_SAMPLE]):
-            # print(f'Processing batch {batch_idx + 1}/{len(batched_samples)}')
+        for batch_idx, sample_batch in tqdm(enumerate(batched_samples[:self.MAX_SAMPLE]), 
+                                        total=min(len(batched_samples), self.MAX_SAMPLE),
+                                        desc="Processing batches"):
             sample_count = []
             batch_invalid_indices = []
 
+            # Process files within the current batch
             for i, detection_file in enumerate(sample_batch):
                 try:
                     with open(detection_file, 'r') as f:
@@ -451,10 +454,11 @@ class CSLICSDataProcessor:
         manual_times, 
         scaling_idx, 
         batched_invalid_indices,
-        plot_label
-    ):
+        plot_label,
+        SHOW=False):
         """
-        Plot AI detections and manual counts, highlighting invalid points.
+        Plot AI detections and manual counts, highlighting invalid points with red, or having them removed and interpolated with SHOW_INVALID_POINTS.
+        Interpolated points are shown in orange.
 
         Args:
             image_times: Array of image times (in decimal days).
@@ -471,55 +475,88 @@ class CSLICSDataProcessor:
         """
         n = 0.5
         fig, ax = plt.subplots()
+        
+        # Process data based on SHOW_INVALID_POINTS setting
+        if not self.SHOW_INVALID_POINTS:
+            # Replace invalid points with interpolated values or remove them
+            plot_times, plot_counts_cal, plot_std_cal, interpolated_mask = self.process_invalid_points(
+                image_times, tank_counts_cal, tank_std_cal, batched_invalid_indices
+            )
+            
+            if self.PLOT_FOCUS_VOLUME:
+                # For focus-volume scaled counts, also get interpolated mask
+                plot_counts_def, plot_std_def, _, focus_interpolated_mask = self.process_invalid_points(
+                    image_times, tank_counts_def, tank_std_def, batched_invalid_indices
+                )
+        else:
+            # Use original data when showing invalid points
+            plot_times, plot_counts_cal, plot_std_cal = image_times, tank_counts_cal, tank_std_cal
+            interpolated_mask = np.zeros(len(image_times), dtype=bool)
+            
+            if self.PLOT_FOCUS_VOLUME:
+                plot_counts_def, plot_std_def = tank_counts_def, tank_std_def
+                focus_interpolated_mask = np.zeros(len(image_times), dtype=bool)
 
         # AI counts (focus-volume scaled)
         if self.PLOT_FOCUS_VOLUME:
-            ax.plot(image_times, tank_counts_def, label='focus-volume scaled')
-            ax.fill_between(image_times, tank_counts_def - n * tank_std_def, tank_counts_def + n * tank_std_def, alpha=0.2)
+            # Plot regular points
+            valid_mask = ~focus_interpolated_mask
+            ax.plot(plot_times[valid_mask], plot_counts_def[valid_mask], label='focus-volume scaled', color='green')
+            ax.fill_between(plot_times[valid_mask], 
+                        plot_counts_def[valid_mask] - n * plot_std_def[valid_mask], 
+                        plot_counts_def[valid_mask] + n * plot_std_def[valid_mask], 
+                        alpha=0.2, color='green')
+            
+            # Plot interpolated points in orange
+            if not self.SHOW_INVALID_POINTS and np.any(focus_interpolated_mask):
+                ax.plot(plot_times[focus_interpolated_mask], plot_counts_def[focus_interpolated_mask], 
+                    'o', color='orange', label='focus-volume interpolated')
 
         # AI counts (manually scaled)
-        ax.plot(image_times, tank_counts_cal, label='manually scaled', color='blue')
-        ax.fill_between(image_times, tank_counts_cal - n * tank_std_cal, tank_counts_cal + n * tank_std_cal, alpha=0.2, color='blue')
+        # Plot regular points
+        valid_mask = ~interpolated_mask
+        ax.plot(plot_times[valid_mask], plot_counts_cal[valid_mask], label='CSLICS Count (scaled)', color='blue')
+        ax.fill_between(plot_times[valid_mask], 
+                    plot_counts_cal[valid_mask] - n * plot_std_cal[valid_mask], 
+                    plot_counts_cal[valid_mask] + n * plot_std_cal[valid_mask], 
+                    alpha=0.2, color='blue')
+        
+        # Plot interpolated points in orange
+        if not self.SHOW_INVALID_POINTS and np.any(interpolated_mask):
+            ax.plot(plot_times[interpolated_mask], plot_counts_cal[interpolated_mask], 
+                'o', color='orange', label='invalid points')
 
-        # Highlight invalid points in red
-        invalid_points_plotted = False  # Track if the legend entry for invalid points has been added
-        for batch_idx, invalid_indices in enumerate(batched_invalid_indices):
-            if invalid_indices:
-                invalid_times = [image_times[batch_idx]] * len(invalid_indices)
-                invalid_counts = [tank_counts_cal[batch_idx]] * len(invalid_indices)
-                if not invalid_points_plotted:
-                    # Add label only for the first batch with invalid points
-                    ax.scatter(invalid_times, invalid_counts, color='red', label='invalid points', zorder=5, s=5)
-                    invalid_points_plotted = True
-                else:
-                    # Plot without a label for subsequent batches
-                    ax.scatter(invalid_times, invalid_counts, color='red', zorder=5, s=5)
+        # Highlight invalid points in red (only if SHOW_INVALID_POINTS is True)
+        if self.SHOW_INVALID_POINTS:
+            invalid_points_plotted = False  # Track if the legend entry for invalid points has been added
+            for batch_idx, invalid_indices in enumerate(batched_invalid_indices):
+                if invalid_indices:
+                    invalid_times = [image_times[batch_idx]] * len(invalid_indices)
+                    invalid_counts = [tank_counts_cal[batch_idx]] * len(invalid_indices)
+                    if not invalid_points_plotted:
+                        # Add label only for the first batch with invalid points
+                        ax.scatter(invalid_times, invalid_counts, color='red', label='invalid points', zorder=5, s=5)
+                        invalid_points_plotted = True
+                    else:
+                        # Plot without a label for subsequent batches
+                        ax.scatter(invalid_times, invalid_counts, color='red', zorder=5, s=5)
 
         # Manual counts
         ax.plot(manual_times, manual_counts, marker='o', color='green', label='manual count')
         ax.errorbar(manual_times, manual_counts, yerr=n * manual_std, fmt='o', color='orange', alpha=0.5)
 
-        # Highlight calibration points
-        ax.plot(manual_times[self.calibration_idx], manual_counts[self.calibration_idx], marker='*', markersize=10, color='red', label='calibration')
-        ax.plot(image_times[scaling_idx - 1], tank_counts_cal[scaling_idx - 1], marker='*', markersize=10, color='black', label='shifted calibration')
-
-        # Add day labels underneath the existing x-axis numbers
-        # def decimal_days_to_date(decimal_days, base_date):
-        #     """Convert decimal days to datetime objects."""
-        #     # base_date = datetime(2024, 10, 23)  # Replace with the actual base date
-        #     return [base_date + timedelta(days=dd) for dd in decimal_days]
-
-        # import code
-        # code.interact(local=dict(globals(), **locals()))
+        # Highlight calibration points if they exist in the plot data
+        calibration_manual_time = manual_times[self.calibration_idx]
+        ax.plot(calibration_manual_time, manual_counts[self.calibration_idx], 
+                marker='*', markersize=10, color='red', label='calibration')
         
-        # date_labels = decimal_days_to_date(image_times, image_times[0])
-        # day_labels = [dt.strftime('%d') for dt in date_labels]  # Extract only the day
-
-        
-        
-        # Set custom x-axis labels
-        # ax.set_xticks(image_times)
-        # ax.set_xticklabels([f"{int(day)}\n{label}" for day, label in zip(image_times, day_labels)], rotation=0, ha='center')
+        # Only show shifted calibration point if it's in the plot data
+        if not self.SHOW_INVALID_POINTS and scaling_idx - 1 < len(plot_times):
+            ax.plot(plot_times[scaling_idx - 1], plot_counts_cal[scaling_idx - 1], 
+                    marker='*', markersize=10, color='black', label='shifted calibration')
+        elif self.SHOW_INVALID_POINTS:
+            ax.plot(image_times[scaling_idx - 1], tank_counts_cal[scaling_idx - 1], 
+                    marker='*', markersize=10, color='black', label='shifted calibration')
 
         # Finalize plot
         plt.legend()
@@ -527,10 +564,12 @@ class CSLICSDataProcessor:
         plt.xlabel('Days since spawning')
         plt.ylabel(f'Tank count (batched {self.aggregate_size} images)')
         plt.title(f'CSLICS AI Count: {self.tank_sheet_name} - ({plot_label})')
+        plt.tight_layout()
         output_path = os.path.join(self.save_det_dir, f'Combined_tank_counts_{self.tank_sheet_name}_{plot_label}.png')
         plt.savefig(output_path, dpi=600)
-        # plt.show()
         print(f'Plot saved to {output_path}')
+        if SHOW:
+            plt.show()
 
 
     def process_and_scale_counts(self, image_counts, image_std, image_times, manual_counts, manual_std, manual_times):
@@ -567,24 +606,45 @@ class CSLICSDataProcessor:
         return (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), scaling_idx
         
     
-    def plot_error_between_manual_and_ai(self, image_times, tank_counts_cal, manual_times, manual_counts):
+    def plot_error_between_manual_and_ai(self, image_times, tank_counts_cal, manual_times, manual_counts, batched_invalid_indices):
         """
         Compute and plot the error between manual counts and AI-calibrated tank counts.
+        Only uses valid (non-excluded) time points for comparison.
+        Saves the error data to a JSON file for later analysis.
 
         Args:
             image_times (array-like): Array of image times (in decimal days).
             tank_counts_cal (array-like): Array of AI-calibrated tank counts.
             manual_times (array-like): Array of manual times (in decimal days).
             manual_counts (array-like): Array of manual counts.
+            batched_invalid_indices (list): List of lists containing invalid indices for each batch.
+            
+        Returns:
+            tuple: A tuple containing errors and corresponding manual_times
         """
-        # Find the closest image time for each manual time
-        closest_indices = [np.argmin(np.abs(image_times - manual_time)) for manual_time in manual_times]
-        closest_image_times = [image_times[idx] for idx in closest_indices]
-        closest_tank_counts = [tank_counts_cal[idx] for idx in closest_indices]
+        # Process data based on SHOW_INVALID_POINTS setting
+        # Even if SHOW_INVALID_POINTS is True, we still need to exclude invalid points from error calculation       
+        valid_image_times, valid_tank_counts, _, _ = self.process_invalid_points(image_times, 
+                                                                                tank_counts_cal, 
+                                                                                np.zeros_like(tank_counts_cal), 
+                                                                                batched_invalid_indices)
+        
+        if len(valid_image_times) == 0:
+            print("Warning: No valid time points found for error calculation.")
+            return [], []
+        
+        # Find the closest valid image time for each manual time
+        closest_indices = [np.argmin(np.abs(valid_image_times - manual_time)) for manual_time in manual_times]
+        closest_image_times = [valid_image_times[idx] for idx in closest_indices]
+        closest_tank_counts = [valid_tank_counts[idx] for idx in closest_indices]
 
         # Compute the error (difference) between manual counts and AI-calibrated counts
         errors = np.array(closest_tank_counts) - np.array(manual_counts)
-
+        
+        # Calculate error statistics
+        mean_abs_error = np.mean(np.abs(errors))
+        rmse = np.sqrt(np.mean(errors**2))
+        
         # Plot the error
         __, ax = plt.subplots()
         ax.plot(manual_times, errors, marker='o', color='red', label='Error (AI - Manual)')
@@ -592,7 +652,7 @@ class CSLICSDataProcessor:
         plt.grid(True)
         plt.xlabel('Days since spawning')
         plt.ylabel('Error (Tank Counts)')
-        plt.title(f'Error Between AI and Manual Counts: {self.tank_sheet_name}')
+        plt.title(f'Error Between AI and Manual Counts: {self.tank_sheet_name}\nMAE: {mean_abs_error:.2f}, RMSE: {rmse:.2f}')
         plt.legend()
 
         # Adjust y-axis label formatting for better readability
@@ -604,9 +664,46 @@ class CSLICSDataProcessor:
         plt.savefig(output_path, dpi=600)
         plt.show()
         print(f"Error plot saved to {output_path}")
+        print(f"Mean Absolute Error: {mean_abs_error:.2f}, Root Mean Square Error: {rmse:.2f}")
         
-        return errors
+        # Save the error data to JSON
+        self.save_error_data_to_json(manual_times, errors.tolist(), mean_abs_error, rmse)
         
+        return manual_times, errors
+        
+    def save_error_data_to_json(self, manual_times, errors, mae, rmse):
+        """
+        Save error data to a JSON file.
+        
+        Args:
+            manual_times (list): List of manual times (in decimal days).
+            errors (list): List of errors between AI and manual counts.
+            mae (float): Mean absolute error.
+            rmse (float): Root mean square error.
+        """
+        # Create a dictionary to store the data
+        error_data = {
+            "tank_sheet_name": self.tank_sheet_name,
+            "cslics_uuid": self.cslics_uuid,
+            "species": self.coral_species,
+            "manual_times": manual_times,
+            "errors": errors,
+            "statistics": {
+                "mae": mae,
+                "rmse": rmse
+            }
+        }
+        
+        # Create the output directory if it doesn't exist
+        error_output_dir = os.path.join(self.save_det_dir, "error_data")
+        os.makedirs(error_output_dir, exist_ok=True)
+        
+        # Save the data to a JSON file
+        error_output_path = os.path.join(error_output_dir, f'error_data_{self.tank_sheet_name}_{self.cslics_uuid}.json')
+        with open(error_output_path, 'w') as f:
+            json.dump(error_data, f, indent=4)
+        
+        print(f"Error data saved to {error_output_path}")
         
     def run(self):
         """
@@ -669,11 +766,12 @@ class CSLICSDataProcessor:
 
         # plot error:
         print(f'Plotting error between manual and AI counts...')
-        self.plot_error_between_manual_and_ai(
-            image_times=image_times,
-            tank_counts_cal=tank_counts_cal,
-            manual_times=manual_times,
-            manual_counts=manual_counts
+        manual_times, errors = self.plot_error_between_manual_and_ai(
+        image_times=image_times,
+        tank_counts_cal=tank_counts_cal,
+        manual_times=manual_times,
+        manual_counts=manual_counts,
+        batched_invalid_indices=batched_invalid_indices
         )
         
         return (
@@ -682,6 +780,64 @@ class CSLICSDataProcessor:
             (manual_counts, manual_std),
             manual_times_dt,
         )
+
+    def process_invalid_points(self, image_times, tank_counts, tank_std, batched_invalid_indices):
+        """
+        Process invalid points by either interpolating or removing them.
+
+        Args:
+            image_times: Array of image times (in decimal days).
+            tank_counts: Array of tank counts.
+            tank_std: Array of standard deviations.
+            batched_invalid_indices: List of lists containing invalid indices for each batch.
+
+        Returns:
+            Tuple containing processed (image_times, tank_counts, tank_std, interpolated_mask).
+            The interpolated_mask is a boolean array where True indicates an interpolated point.
+        """
+        # Create a mask for valid time points (all True initially)
+        valid_mask = np.ones(len(image_times), dtype=bool)
+        
+        # Get all batch indices that contain invalid points
+        invalid_batch_indices = [batch_idx for batch_idx, invalid_idx_list in enumerate(batched_invalid_indices) 
+                                if invalid_idx_list]
+        
+        # If no invalid points, return original data with all False interpolation mask
+        if not invalid_batch_indices:
+            return image_times, tank_counts, tank_std, np.zeros(len(image_times), dtype=bool)
+        
+        # Mark invalid points in the mask
+        valid_mask[invalid_batch_indices] = False
+        
+        # Create a mask to track interpolated points (initially all False)
+        interpolated_mask = np.zeros(len(image_times), dtype=bool)
+        
+        # If there are no valid points, return empty arrays
+        if not np.any(valid_mask):
+            return np.array([]), np.array([]), np.array([]), np.array([])
+        
+        # Get arrays with only valid points
+        valid_times = image_times[valid_mask]
+        valid_counts = tank_counts[valid_mask]
+        valid_std = tank_std[valid_mask]
+        
+        # If we have enough valid points to interpolate (at least 2)
+        if len(valid_times) >= 2:
+            # Interpolate tank counts and standard deviations
+            interpolated_counts = np.interp(image_times, valid_times, valid_counts)
+            interpolated_std = np.interp(image_times, valid_times, valid_std)
+            
+            # Only use interpolated values for invalid points
+            processed_counts = np.where(valid_mask, tank_counts, interpolated_counts)
+            processed_std = np.where(valid_mask, tank_std, interpolated_std)
+            
+            # Mark which points were interpolated
+            interpolated_mask = ~valid_mask
+            
+            return image_times, processed_counts, processed_std, interpolated_mask
+        else:
+            # Not enough points to interpolate, just return valid points
+            return valid_times, valid_counts, valid_std, np.zeros(len(valid_times), dtype=bool)
 
 
 # Example usage:
@@ -708,19 +864,19 @@ if __name__ == "__main__":
     #     'PLOT_FOCUS_VOLUME': False
     # }
     
-    # config_file = "../data_yaml_files/config_202410_t1_amag_100000000029da9b.json"
-    # config_file = "../data_yaml_files/config_202410_t2_amag_100000009c23b5af.json"
-    # config_file = "../data_yaml_files/config_202410_t3_amag_10000000f620da42.json"
-    # config_file = "../data_yaml_files/config_202410_t4_maeq_100000001ab0438d.json"
-    # config_file = "../data_yaml_files/config_202410_t5_maeq_100000000846a7ff.json"
-    # config_file = "../data_yaml_files/config_202410_t6_aant_10000000570f9d9c.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t1_amag_100000000029da9b.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t2_amag_100000009c23b5af.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t3_amag_10000000f620da42.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t4_maeq_100000001ab0438d.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t5_maeq_100000000846a7ff.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202410_t6_aant_10000000570f9d9c.json"
     
-    # config_file = "../data_yaml_files/config_202411_t1_amil_100000000029da9b.json"
-    # config_file = "../data_yaml_files/config_202411_t2_amil_100000009c23b5af.json"
-    config_file = "../data_yaml_files/config_202411_t3_amil_10000000f620da42.json"
-    # config_file = "../data_yaml_files/config_202411_t4_pdae_100000001ab0438d.json"
-    # config_file = "../data_yaml_files/config_202411_t5_pdae_100000000846a7ff.json"
-    # config_file = "../data_yaml_files/config_202411_t6_lcor_10000000570f9d9c.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t1_amil_100000000029da9b.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t2_amil_100000009c23b5af.json"
+    config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t3_amil_10000000f620da42.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t4_pdae_100000001ab0438d.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t5_pdae_100000000846a7ff.json"
+    # config_file = "/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/config_202411_t6_lcor_10000000570f9d9c.json"
     
     processor = CSLICSDataProcessor(config_file)
     # (tank_counts_def, tank_std_def), (tank_counts_cal, tank_std_cal), (manual_counts, manual_std), manual_times_dt

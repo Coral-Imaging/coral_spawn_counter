@@ -16,5 +16,6 @@
     "calibration_window_size": 1,
     "calibration_idx": 1,
     "calibration_window_shift": 0,
-    "PLOT_FOCUS_VOLUME": false
+    "PLOT_FOCUS_VOLUME": false,
+    "SHOW_INVALID_POINTS": false
 }
