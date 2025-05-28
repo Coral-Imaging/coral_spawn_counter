@@ -27,7 +27,8 @@ class FertilisationCounter:
                  output_dir=None, 
                  use_cached_detections=False,
                  manual_count_path=None,
-                 sheet_name=None):
+                 sheet_name=None,
+                 include_manual=True):
         """Initialize the FertilisationCounter class with paths and model"""
         self.root_dir = root_dir
         self.model_path = model_path
@@ -36,6 +37,7 @@ class FertilisationCounter:
         self.use_cached_detections = use_cached_detections
         self.manual_count_path = manual_count_path
         self.sheet_name = sheet_name
+        self.include_manual = include_manual
         
         # Create JSON directory if it doesn't exist
         if self.use_cached_detections or not os.path.exists(self.json_dir):
@@ -226,7 +228,7 @@ class FertilisationCounter:
         
         # Calculate fertilisation rate
         #fertilisation_rate = (counts[0] + counts[1] + counts[2]) / (counts[0] + counts[1] + counts[2] + counts[3] + counts[4] + counts[5])
-        fertilised_counts = counts['first cleavage'] + counts['two-cell stage'] + counts['four-eight cell stage'] + counts['advanced']
+        fertilised_counts = counts['first cleavage'] + counts['two-cell stage'] + counts['four-eight cell stage'] + counts['advanced'] + counts['damaged']
         total_counts = counts['egg'] + fertilised_counts # opt: included counts['damaged'] as well?
         if total_counts > 0:
             fertilisation_rate = fertilised_counts / total_counts
@@ -326,24 +328,57 @@ class FertilisationCounter:
             print(f"No data points within the {time_limit_minutes} minute time limit")
             return
         
-        # create running average of fertilisation rates
-        window_size = min(20, len(times_minutes))  # Ensure window isn't larger than our data
-        if window_size > 1:  # Only compute average if we have enough data points
-            fert_rate_avg = np.convolve(fert_rates, np.ones(window_size)/window_size, mode='valid')
-            # Adjust times for running average
-            time_avg = times_minutes[window_size-1:]
-        else:
-            time_avg = []
-            fert_rate_avg = []
+        # Compare with manual counts if available
+        pearson_corr = None
+        rmse = None
+        if manual_times and manual_ratios and len(manual_times) > 0:
+            pearson_corr, rmse, matched_pairs = self.compare_with_manual_counts(
+                results, manual_times, manual_ratios
+            )
+            if matched_pairs:
+                print(f"Pearson correlation: {pearson_corr:.3f}")
+                print(f"RMSE: {rmse:.3f}")
+                for pair in matched_pairs:
+                    time_diff, manual_time, manual_ratio, auto_ratio = pair
+                    diff = manual_ratio - auto_ratio
+                    print(f"Manual time: {manual_time}, Time diff: {time_diff:.1f} min, "
+                        f"Manual ratio: {manual_ratio:.3f}, Auto ratio: {auto_ratio:.3f}, "
+                        f"Difference: {diff:.3f}")
         
         # Create the plot
         label_font_size = 10
         title_font_size = 12
         
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(8, 6))
         
         # Plot the per-image data with transparency to give a light background
-        plt.plot(times_minutes, fert_rates, '.', alpha=0.3, color='blue', markersize=3, label='Per Image')
+        plt.plot(times_minutes, fert_rates, '.', alpha=0.3, color='blue', markersize=3, label='CSLICS Count')
+        
+        # create running average and standard deviation of fertilisation rates
+        window_size = min(20, len(times_minutes))  # Ensure window isn't larger than our data
+        if window_size > 1:  # Only compute average if we have enough data points
+            # Calculate running average
+            fert_rate_avg = np.convolve(fert_rates, np.ones(window_size)/window_size, mode='valid')
+            
+            # Calculate running standard deviation
+            # First, calculate squared differences for each window
+            squared_diffs = []
+            fert_rates_np = np.array(fert_rates)
+            for i in range(len(fert_rates) - window_size + 1):
+                window = fert_rates_np[i:i+window_size]
+                window_mean = np.mean(window)
+                squared_diff = np.sum((window - window_mean)**2) / window_size
+                squared_diffs.append(squared_diff)
+            
+            # Then take the square root to get standard deviation
+            fert_rate_std = np.sqrt(squared_diffs)
+            
+            # Adjust times for running average and std
+            time_avg = times_minutes[window_size-1:]
+        else:
+            time_avg = []
+            fert_rate_avg = []
+            fert_rate_std = []
         
         # Plot a semi-transparent area showing variance from running average
         if len(time_avg) > 1:  # Need at least 2 points for interpolation
@@ -351,10 +386,23 @@ class FertilisationCounter:
             interp_avg = f_interp(times_minutes)
             
             # Plot the variance as a semi-transparent fill
-            plt.fill_between(times_minutes, fert_rates, interp_avg, alpha=0.15, color='blue', label='Variance')
+            # plt.fill_between(times_minutes, fert_rates, interp_avg, alpha=0.15, color='blue', label='Variance')
         
             # Plot running average as a solid line on top
-            plt.plot(time_avg, fert_rate_avg, '-', linewidth=2, color='red', label=f'Running Average ({window_size} images)')
+            plt.plot(time_avg, fert_rate_avg, '-', linewidth=2, color='red', label=f'CSLICS Mean ({window_size} images)')
+            
+            # Plot standard deviation around the running average
+            upper_bound = fert_rate_avg + fert_rate_std
+            lower_bound = fert_rate_avg - fert_rate_std
+            
+            # Clip bounds to ensure they stay within 0-1 range for fertilization rates
+            upper_bound = np.clip(upper_bound, 0, 1)
+            lower_bound = np.clip(lower_bound, 0, 1)
+            
+            # Plot the standard deviation band
+            plt.fill_between(time_avg, lower_bound, upper_bound, 
+                             color='orange', alpha=0.3, 
+                             label=f'±1 Std Dev ({window_size} images)')
         
         # Add manual counts if available
         if manual_times and manual_ratios and len(manual_times) > 0:
@@ -368,7 +416,7 @@ class FertilisationCounter:
                 
                 # Add manual counts as green squares with black edges
                 plt.scatter(limited_manual_minutes, limited_manual_ratios, marker='s', color='green', s=40, 
-                        edgecolor='black', linewidth=1.5, alpha=0.8, label='Manual Counts')
+                        edgecolor='black', linewidth=1.5, alpha=0.8, label='Manual Count')
                 
                 # Add annotations for the manual count values
                 for i, (x, y) in enumerate(zip(limited_manual_minutes, limited_manual_ratios)):
@@ -378,8 +426,13 @@ class FertilisationCounter:
         plt.legend(loc='lower right', fontsize=label_font_size)
         plt.grid(True, alpha=0.3)
         plt.xlabel('Time since stocking [minutes]', fontsize=label_font_size)
-        plt.ylabel('Fertilisation rate', fontsize=label_font_size)
-        plt.title(f'Fertilisation Rate Over Time\n{Path(self.root_dir).parts[-2]}', fontsize=title_font_size)
+        plt.ylabel('Fertilisation success', fontsize=label_font_size)
+        
+        # Add correlation and RMSE to title if available
+        title_text = f'Fertilisation Rate Over Time\n{Path(self.root_dir).parts[-2]}'
+        if pearson_corr is not None and rmse is not None:
+            title_text += f'\nPearson r: {pearson_corr:.3f}, RMSE: {rmse:.3f}'
+        plt.title(title_text, fontsize=title_font_size)
         
         # Add 0-1 range for y-axis and set reasonable limits
         plt.ylim(-0.05, 1.05)
@@ -395,6 +448,64 @@ class FertilisationCounter:
         print(f"Fertilisation plot saved to {plot_path}")
         
         return plot_path
+    
+    def compare_with_manual_counts(self, results, manual_times, manual_ratios):
+        """
+        Compare automated detection results with manual counts using Pearson correlation and RMSE
+        
+        Args:
+            results: List of dictionaries containing automated detection results
+            manual_times: List of datetime objects for manual counts
+            manual_ratios: List of manual fertilisation ratios
+            
+        Returns:
+            Tuple of (pearson_corr, rmse, matched_pairs)
+        """
+        if not manual_times or not manual_ratios:
+            return None, None, []
+        
+        # Extract valid results with timestamps
+        valid_results = [r for r in results if r['capture_time'] is not None]
+        if not valid_results:
+            return None, None, []
+        
+        # Find closest auto detection time point for each manual count
+        matched_pairs = []
+        for manual_time, manual_ratio in zip(manual_times, manual_ratios):
+            if manual_time is None or np.isnan(manual_ratio):
+                continue
+                
+            # Calculate time difference in seconds for each result
+            time_diffs = [(abs((r['capture_time'] - manual_time).total_seconds()), r) 
+                        for r in valid_results]
+            # Find the closest result
+            closest = min(time_diffs, key=lambda x: x[0])
+            time_diff_minutes = closest[0] / 60.0
+            closest_result = closest[1]
+            
+            # Store the pair for comparison (time diff in minutes, manual time, manual ratio, auto ratio)
+            matched_pairs.append((
+                time_diff_minutes,
+                manual_time,
+                manual_ratio,
+                closest_result['fertilisation_rate']
+            ))
+        
+        # Skip if no valid pairs were found
+        if not matched_pairs:
+            return None, None, []
+        
+        # Extract manual and auto ratios from matched pairs
+        manual_ratios_matched = [p[2] for p in matched_pairs]
+        auto_ratios_matched = [p[3] for p in matched_pairs]
+        
+        # Calculate Pearson correlation coefficient
+        pearson_corr = np.corrcoef(manual_ratios_matched, auto_ratios_matched)[0, 1]
+        
+        # Calculate RMSE
+        rmse = np.sqrt(np.mean((np.array(manual_ratios_matched) - np.array(auto_ratios_matched))**2))
+        
+        return pearson_corr, rmse, matched_pairs
     
     def get_json_path_for_image(self, img_path):
         """Get the JSON file path for an image"""
@@ -569,12 +680,16 @@ class FertilisationCounter:
             
         print('Processing complete')
         
-        # read manual counts
+        # read manual counts only if include_manual is True
         manual_times, manual_ratios = None, None
-        if self.manual_count_path and self.sheet_name:
+        if self.include_manual and self.manual_count_path and self.sheet_name:
+            print("Including manual counts in analysis")
             manual_times, manual_ratios = self.read_manual_counts()
-    
-    
+        elif self.include_manual and (not self.manual_count_path or not self.sheet_name):
+            print("Manual counts requested but manual_count_path or sheet_name is missing")
+        elif not self.include_manual:
+            print("Manual counts excluded from analysis")
+
         # Plot fertilisation results
         self.plot_fertilisation(results, manual_times, manual_ratios)
         
@@ -585,7 +700,9 @@ def main():
     root_dir = '/home/dtsai/Data/cslics_datasets/cslics_2022_fert_dataset/20221214_alor_tank4_cslics02/images'
     model_path = '/home/dtsai/Data/cslics_datasets/models/fertilisation/cslics_20230905_yolov8m_640p_amtenuis1000.pt'
     
+    
     sheet_name = Path(root_dir).parts[-2]
+    print(f'sheet_name: {sheet_name}')
     manual_count_path = '/home/dtsai/Data/cslics_datasets/cslics_2022_fert_dataset_manual_counts/cslics_2022_fert_dataset_manual_counts.xlsx'
     output_dir = os.path.join(os.path.dirname(root_dir), 'predictions')
     os.makedirs(output_dir, exist_ok=True)
@@ -597,7 +714,8 @@ def main():
         output_dir=output_dir,
         manual_count_path=manual_count_path,
         sheet_name=sheet_name,
-        use_cached_detections=True)
+        use_cached_detections=True,
+        include_manual=True)
     
     
     
