@@ -63,12 +63,12 @@ def move_file(filelist,savepathbase,savepathext):
     for i, item in enumerate(filelist):
         copy_link(item, output_path)
 
-move_file(txtlist,inpur_dir,'train/labels')
-move_file(imagelist,inpur_dir,'train/images')
-move_file(validtext,inpur_dir,'val/labels')
-move_file(validimg,inpur_dir,'val/images')
-move_file(testtext,inpur_dir,'test/labels')
-move_file(testimg,inpur_dir,'test/images')
+move_file(txtlist,inpur_dir,'labels/train')
+move_file(imagelist,inpur_dir,'images/train')
+move_file(validtext,inpur_dir,'labels/val')
+move_file(validimg,inpur_dir,'images/val')
+move_file(testtext,inpur_dir,'labels/test')
+move_file(testimg,inpur_dir,'images/test')
 
 print("split complete")
 
