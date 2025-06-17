@@ -5,13 +5,13 @@
 
 # /home/tsaid/data/cslics_datasets/cslics_2024_november_subsurface_dataset/100000001ab0438d
 
-path: /home/tsaid/data/cslics_datasets/
+path: /home/dtsai/Data/cslics_datasets/
 train: 
-  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/images/train # training images relative to 'path'
+  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/train/images # training images relative to 'path'
 val: 
-  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/images/val # training images relative to 'path'
+  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/val/images # training images relative to 'path'
 test: 
-  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/images/test # training images relative to 'path'
+  - cslics_2024_november_subsurface_dataset/100000001ab0438d/split/test/images # training images relative to 'path'
 
 # Classes
 names:
