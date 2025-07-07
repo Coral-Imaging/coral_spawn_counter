@@ -390,9 +390,9 @@ if __name__ == "__main__":
     # output_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42'
     
     # November 2024 spawning
-    config_path = '/home/dtsai/Code/cslics/coral_spawn_counter/data_yaml_files/annotation_cslics_2024_nov_pdae_tank4_100000001ab0438d.yaml'
-    img_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_november_subsurface_dataset/100000001ab0438d/images'
-    output_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_november_subsurface_dataset/100000001ab0438d'
+    config_path = '/home/reggie/repos/coral_spawn_counter/data_yaml_files/annotation_cslics_2024_oct_maeq_tank5_100000000846a7ff.yaml'
+    img_dir = '/home/reggie/hpc-home/Data/24_nov_tank_data/10000000570f9d9c/images'
+    output_dir = '/home/reggie/hpc-home/Data/cslics/2024_spawn_tanks_data/oct/100000000846a7ff/labels'
     
     # Create and run pipeline
     pipeline = AnnotationPipeline(config_path)

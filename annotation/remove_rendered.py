@@ -12,7 +12,7 @@ DELETE_RENDER = True
 DELETE_JSON = False
 
 # target_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024'
-target_dir = '/media/dtsai/CSLICSNov24/cslics_november_2024'
+target_dir = 'Data/24_nov_tank_data/10000000570f9d9c'
 
 # absolute paths
 img_list = sorted(Path(target_dir).rglob('*_rendered.jpg'))

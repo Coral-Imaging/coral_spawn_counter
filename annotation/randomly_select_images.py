@@ -29,16 +29,16 @@ def copy_images(imgs_list, target_dir):
 # source_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/100000000029da9b/image_test'
 # source_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024/20241023_spawning/100000001ab0438d'
 # source_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024/20241023_spawning/10000000f620da42'
-source_dir = '/media/dtsai/CSLICSOct24/cslics_october_2024/20241023_spawning/100000000846a7ff'
+source_dir = '/home/reggie/hpc-home/Data/cslics/2024_spawn_tanks_data/oct/100000000846a7ff'
 
 
 # target folder
 # target_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/100000000029da9b/output_test'
 # target_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/10000000f620da42/images'
-target_dir = '/home/dtsai/Data/cslics_datasets/cslics_2024_october_subsurface_dataset/100000000846a7ff/images'
+target_dir = '/home/reggie/hpc-home/Data/cslics/2024_spawn_tanks_data/oct/100000000846a7ff/images'
 
 # target number of images
-target_images = 10
+target_images = 300
 
 # check to make sure assume target images is greater than number of images in the folder
 print(f'Gathering list of images in all sub-directories of source directory: {source_dir}')
